@@ -1,0 +1,83 @@
+html,
+body {
+  margin: 0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.col-1 {
+  border-right: 1px solid #ccc;
+  padding: 0 4px;
+  width: 240px;
+  overflow: auto;
+}
+
+.col-2 {
+  border-right: 1px solid #ccc;
+  padding: 0 4px;
+  width: 480px;
+  overflow: auto;
+}
+
+.col-3 {
+  border-right: 1px solid #ccc;
+  padding: 0 4px;
+  width: 720px;
+  overflow: auto;
+}
+
+.row-1 {
+  height: 240px;
+  overflow: auto;
+}
+
+.row-2 {
+  height: 480px;
+  overflow: auto;
+}
+
+details,
+fieldset {
+  position: relative;
+  max-width: 480px;
+}
+
+summary {
+  position: sticky;
+  top: 0;
+  background: #fff;
+  cursor: pointer;
+}
+details + details {
+  margin-top: 16px;
+  border-top: 1px solid #ccc;
+}
+input {
+  position: sticky;
+  top: 0;
+}
+details > summary + label {
+  position: sticky;
+}
+
+details > summary + input {
+  top: 20px;
+}
+
+canvas {
+  box-sizing: border-box;
+  border: 4px solid lightseagreen;
+}
+
+pre {
+  max-width: 480px;
+  overflow: auto;
+}
+
+.node-item {
+  white-space: nowrap;
+  font-family: monospace;
+  max-width: 480px;
+}
