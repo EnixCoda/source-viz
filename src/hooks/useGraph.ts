@@ -13,7 +13,9 @@ import {
 import { data } from "../warehouse";
 
 export function useGraph({
-  dagMode, renderAsText, fixNodeOnDragEnd,
+  dagMode,
+  renderAsText,
+  fixNodeOnDragEnd,
 }: {
   dagMode: DAGDirections | "";
   renderAsText: boolean;
@@ -37,22 +39,18 @@ export function useGraph({
     const { graph, render } = createGraphRenderer(ref.current);
 
     // start decorating graph
-    graph.width(window.innerWidth).height(window.innerHeight / 2);
+    graph.width(window.innerWidth / 2).height(window.innerHeight);
 
     const dataMappers: (({ nodes, links }: GraphData) => GraphData)[] = [];
 
     dataMappers.push(colorByDepth(graph).mapData);
 
-    if (fixNodeOnDragEnd)
-      freezeNodeOnDragEnd(graph);
+    if (fixNodeOnDragEnd) freezeNodeOnDragEnd(graph);
 
-    if (dagMode)
-      renderAsDAG(graph, dagMode);
+    if (dagMode !== "") renderAsDAG(graph, dagMode);
 
-    if (renderAsText)
-      renderNodeAsText(graph, () => selectedNodeRef.current);
-    else
-      highlightNodeOnHover(graph, data);
+    if (renderAsText) renderNodeAsText(graph, () => selectedNodeRef.current);
+    else highlightNodeOnHover(graph, data);
 
     selectNodeOnMouseDown(graph, setNodeSelection);
 

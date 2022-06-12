@@ -1,7 +1,11 @@
+import { Button, ListItem } from "@chakra-ui/react";
 import * as React from "react";
 
 export function NodeInView({
-  label, onExclude, onSelect, onCancel,
+  label,
+  onExclude,
+  onSelect,
+  onCancel,
 }: {
   label: React.ReactNode;
   onExclude?: () => void;
@@ -9,10 +13,10 @@ export function NodeInView({
   onCancel?: () => void;
 }) {
   return (
-    <div className="node-item">
-      {onExclude && <button onClick={onExclude}>Exclude</button>}
-      {onCancel && <button onClick={onCancel}>Cancel</button>}
-      {onSelect && <button onClick={onSelect}>Select</button>} <span>{label}</span>
-    </div>
+    <ListItem display="flex" marginY={1} columnGap={1}>
+      {onExclude && <Button size="xs" onClick={onExclude}>Exclude</Button>}
+      {onCancel && <Button size="xs" onClick={onCancel}>Cancel</Button>}
+      {onSelect && <Button size="xs" onClick={onSelect}>Select</Button>} <span>{label}</span>
+    </ListItem>
   );
 }

@@ -1,3 +1,14 @@
+import { ExternalLinkIcon } from "@chakra-ui/icons";
+import {
+  Accordion,
+  Box,
+  FormControl,
+  FormErrorMessage,
+  FormLabel,
+  Heading,
+  IconButton,
+  Switch
+} from "@chakra-ui/react";
 import * as React from "react";
 import { useGraph } from "../hooks/useGraph";
 import { useSet } from "../hooks/useSet";
@@ -8,8 +19,7 @@ import { useSelectView } from "../hooks/view/useSelectView";
 import { getData, PreparedData } from "../utils/getData";
 import { DAGDirections } from "../utils/graphDecorators";
 import { CollapsibleSection } from "./CollapsibleSection";
-import { FieldSetSection } from "./FieldSetSection";
-import { NodeInView } from "./NodeInView";
+import { NodeList } from "./NodeList";
 
 export function Viz({ data }: { data: PreparedData }) {
   const [renderAsTextView, renderAsText] = useCheckboxView("Render as Text", true);
@@ -36,8 +46,7 @@ export function Viz({ data }: { data: PreparedData }) {
     "lr"
   );
   const [repositoryInputView, repositoryInput] = useInputView("", {
-    placeholder: "/Users/name/repository/",
-    style: { width: "100%" },
+    placeholder: "/path/to/repository/",
   });
 
   const [excludeNodesFilterInputView, excludeNodesFilterRegExp] = useRegExpInputView("test");
@@ -90,7 +99,7 @@ export function Viz({ data }: { data: PreparedData }) {
     () => ({
       roots: restrictedRoots,
       leaves: restrictedLeaves,
-      preventCycle: dagMode !== null,
+      preventCycle: dagMode !== "",
       dagPruneMode,
       excludeUp: allExcludedNodes,
       excludeDown: allExcludedNodes,
@@ -121,156 +130,169 @@ export function Viz({ data }: { data: PreparedData }) {
   );
 
   return (
-    <div>
-      <div style={{ display: "flex", maxWidth: "100vw", overflow: "auto" }}>
-        <div className="col-2">
-          <CollapsibleSection className="row-1" open label={<>Viz configs</>}>
+    <Box display="flex" maxHeight="100vh" overflow="auto">
+      <div ref={ref} />
+      <Box flex={1} maxHeight="100%" overflow="auto" maxWidth={720}>
+        <Accordion allowMultiple defaultIndex={[1, 4]}>
+          <CollapsibleSection label={`Viz configs`}>
             <div>{dagPruneModeView}</div>
             <div>{dagModeView}</div>
             <div>{renderAsTextView}</div>
             <div>{fixNodeOnDragEndView}</div>
           </CollapsibleSection>
-          <CollapsibleSection className="row-1" open label={<>Selected Node</>}>
-            <div>
-              <code>{selectedNode}</code>
-            </div>
-            {selectedNode && (
+          <CollapsibleSection label={`Selected Node`}>
+            {selectedNode ? (
               <>
-                <FieldSetSection label={<legend>Open in VS Code</legend>}>
-                  {repositoryInputView}
-                  <div>
-                    <a
-                      href={
-                        repositoryInput && selectedNode.includes("/")
-                          ? `vscode://file${repositoryInput + selectedNode}`
-                          : "#"
-                      }
-                    >
-                      {repositoryInput && selectedNode.includes("/") ? "Open" : "Cannot open 3rd party dependency"}
-                    </a>
-                  </div>
-                </FieldSetSection>
-                <div>
-                  <label>
-                    <input
-                      type="checkbox"
-                      style={{ position: "static" }}
-                      checked={
-                        excludedDependantsNodes.some((id) => id === selectedNode) ||
-                        excludedDependenciesNodes.some((id) => id === selectedNode)
-                      }
-                      onChange={(e) => toggleExcludeNode(selectedNode)}
+                <code>{selectedNode}</code>
+                <FormControl display="flex" alignItems="center" columnGap={1}>
+                  <Switch
+                    isChecked={
+                      excludedDependantsNodes.some((id) => id === selectedNode) ||
+                      excludedDependenciesNodes.some((id) => id === selectedNode)
+                    }
+                    onChange={() => toggleExcludeNode(selectedNode)}
+                  />
+                  <FormLabel mb={0}>Exclude</FormLabel>
+                </FormControl>
+                <FormControl>
+                  <Box display="flex" columnGap={1}>
+                    <IconButton
+                      aria-label="Open in VS Code"
+                      icon={<ExternalLinkIcon />}
+                      disabled={!(repositoryInput && selectedNode.includes("/"))}
+                      onClick={() => {
+                        const isValidFilePath = repositoryInput && selectedNode.includes("/");
+                        if (isValidFilePath) window.open(`vscode://file${repositoryInput + selectedNode}`);
+                      }}
                     />
-                    Exclude
-                  </label>
-                </div>
+                    {repositoryInputView}
+                  </Box>
+                  {!(repositoryInput && selectedNode.includes("/")) && (
+                    <FormErrorMessage>Cannot open in VS Code</FormErrorMessage>
+                  )}
+                </FormControl>
                 {/* excludedDependants: excludedDependantsNodes.some(
                       (id) => id === selectedNode
                     ),
                     excludedDependencies: excludedDependenciesNodes.some(
                       (id) => id === selectedNode
                     ), */}
-                <h4>Dependencies</h4>
-                <div>
-                  {[...(data.dependencyMap.get(selectedNode) || [])]
-                    .filter((id) => renderData?.nodes.some((node) => id === node.id))
-                    .map((id) => (
-                      <div key={id} className="node-item">
-                        <button onClick={() => setSelectedNode(id)}>Select</button> <span>{id}</span>
-                      </div>
-                    ))}
-                </div>
-                <h4>Dependants</h4>
-                <div>
-                  {[...(data.dependantMap.get(selectedNode) || [])]
-                    .filter((id) => renderData?.nodes.some((node) => id === node.id))
-                    .map((id) => (
-                      <div key={id} className="node-item">
-                        <button onClick={() => setSelectedNode(id)}>Select</button>
-                        <span> {id}</span>
-                      </div>
-                    ))}
-                </div>
-                {/* <button onClick={() => excludeNodeDependants(selectedNode)}>
+                <Heading as="h3" size="sm">
+                  Dependencies
+                </Heading>
+                <NodeList
+                  data={[...(data.dependencyMap.get(selectedNode) || [])].filter((id) => renderedNodeIds.includes(id))}
+                  mapProps={(id) => ({
+                    onSelect: () => setSelectedNode(id),
+                    label: id,
+                  })}
+                />
+                <Heading as="h3" size="sm">
+                  Dependants
+                </Heading>
+                <NodeList
+                  data={[...(data.dependantMap.get(selectedNode) || [])].filter((id) => renderedNodeIds.includes(id))}
+                  mapProps={(id) => ({
+                    onSelect: () => setSelectedNode(id),
+                    label: id,
+                  })}
+                />
+                {/* <Button onClick={() => excludeNodeDependants(selectedNode)}>
                       Toggle exclude its dependants
-                    </button>
-                    <button onClick={() => excludeNodeDependencies(selectedNode)}>
+                    </Button>
+                    <Button onClick={() => excludeNodeDependencies(selectedNode)}>
                       Toggle exclude its dependencies
-                    </button> */}
-                {false && <button disabled>TODO: Add to root nodes</button>}
+                    </Button>
+                    <Button disabled>TODO: Add to root nodes</Button>
+                */}
               </>
+            ) : (
+              "No selection yet"
             )}
           </CollapsibleSection>
-        </div>
-        <div className="col-2">
-          <CollapsibleSection className="row-1" label={<>Restrict Root Nodes</>}>
+          <CollapsibleSection label={`Restrict Root Nodes`}>
             {restrictRootInputView}
-            {[...restrictedRoots]?.map((id) => (
-              <NodeInView key={id} label={<span>{id}</span>} />
-            ))}
+            <NodeList
+              data={[...restrictedRoots]}
+              mapProps={(id) => ({
+                label: <span>{id}</span>,
+              })}
+            />
           </CollapsibleSection>
-          <CollapsibleSection className="row-1" label={<>Root Nodes in View</>}>
-            {rootsInView?.map((id) => (
-              <NodeInView
-                key={id}
-                onExclude={() => toggleExcludeNodeDependants(id)}
-                onSelect={() => setSelectedNode(id)}
-                label={<span>{id}</span>}
-              />
-            ))}
+          <CollapsibleSection label={`Root Nodes in View`}>
+            <NodeList
+              data={rootsInView}
+              mapProps={(id) => ({
+                onExclude: () => toggleExcludeNodeDependants(id),
+                onSelect: () => setSelectedNode(id),
+                label: <span>{id}</span>,
+              })}
+            />
           </CollapsibleSection>
-        </div>
-        <div className="col-2">
-          <CollapsibleSection className="row-1" open label={<>Restrict Leaf Nodes</>}>
+          <CollapsibleSection label={`Restrict Leaf Nodes`}>
             {restrictLeavesInputView}
-            {[...restrictedLeaves]?.map((id) => (
-              <NodeInView key={id} label={<span>{id}</span>} />
-            ))}
+            <NodeList
+              data={[...restrictedLeaves]}
+              mapProps={(id) => ({
+                label: <span>{id}</span>,
+              })}
+            />
           </CollapsibleSection>
-          <CollapsibleSection className="row-1" label={<>Leaf Nodes in View</>}>
-            {leavesInView?.map((id) => (
-              <NodeInView
-                key={id}
-                onExclude={() => toggleExcludeNodeDependencies(id)}
-                onSelect={() => setSelectedNode(id)}
-                label={<span>{id}</span>}
-              />
-            ))}
+          <CollapsibleSection label={`Leaf Nodes in View`}>
+            <NodeList
+              data={leavesInView}
+              mapProps={(id) => ({
+                onExclude: () => toggleExcludeNodeDependencies(id),
+                onSelect: () => setSelectedNode(id),
+                label: <span>{id}</span>,
+              })}
+            />
           </CollapsibleSection>
-        </div>
-        <div className="col-2">
-          <CollapsibleSection className="row-1" label={<>Exclude Nodes</>}>
-            <h4>Exclude Dependants of Them</h4>
-            {excludedDependantsNodes.map((id) => (
-              <NodeInView key={id} label={id} onCancel={() => toggleExcludeNodeDependants(id)} />
-            ))}
-            <h4>Exclude Dependencies of Them</h4>
-            {excludedDependenciesNodes.map((id) => (
-              <NodeInView key={id} label={id} onCancel={() => toggleExcludeNodeDependencies(id)} />
-            ))}
-            <h4>Exclude with regex</h4>
+          <CollapsibleSection label={`Exclude Nodes`}>
+            <Heading as="h3" size="sm">
+              Exclude Dependants of Them
+            </Heading>
+            <NodeList
+              data={excludedDependantsNodes}
+              mapProps={(id) => ({
+                label: id,
+                onCancel: () => toggleExcludeNodeDependants(id),
+              })}
+            />
+            <Heading as="h3" size="sm">
+              Exclude Dependencies of Them
+            </Heading>
+            <NodeList
+              data={excludedDependenciesNodes}
+              mapProps={(id) => ({
+                label: id,
+                onCancel: () => toggleExcludeNodeDependencies(id),
+              })}
+            />
+            <Heading as="h3" size="sm">
+              Exclude with regex
+            </Heading>
             {excludeNodesFilterInputView}
-            {excludedNodesFromInput?.map((id) => (
-              <NodeInView key={id} label={<span>{id}</span>} />
-            ))}
+            <NodeList
+              data={excludedNodesFromInput}
+              mapProps={(id) => ({
+                label: <span>{id}</span>,
+              })}
+            />
           </CollapsibleSection>
-          <CollapsibleSection
-            className="row-1"
-            label={<>Look up nodes in view ({renderData?.nodes.length || 0} in total)</>}
-          >
+          <CollapsibleSection label={`Look up nodes in view (${renderData?.nodes.length || 0} in total)`}>
             {nodesInViewInputView}
-            {nodesInView?.map((id) => (
-              <NodeInView
-                key={id}
-                onExclude={() => toggleExcludeNode(id)}
-                onSelect={() => setSelectedNode(id)}
-                label={<span>{id}</span>}
-              />
-            ))}
+            <NodeList
+              data={nodesInView}
+              mapProps={(id) => ({
+                onExclude: () => toggleExcludeNode(id),
+                onSelect: () => setSelectedNode(id),
+                label: <span>{id}</span>,
+              })}
+            />
           </CollapsibleSection>
-        </div>
-      </div>
-      <div ref={ref} />
-    </div>
+        </Accordion>
+      </Box>
+    </Box>
   );
 }

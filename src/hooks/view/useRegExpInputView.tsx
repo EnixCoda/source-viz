@@ -1,10 +1,11 @@
+import { FormErrorMessage, Input } from "@chakra-ui/react";
 import * as React from "react";
-import { invalidRegExp, safeRegExp } from "../../utils/general";
+import { safeRegExp } from "../../utils/general";
 import { useView } from "./useView";
 
 export function useRegExpInputView(defaultValue: string = "") {
   const [inputView, inputValue] = useView(defaultValue, (state, setState) => (
-    <input placeholder="RegEx supported" value={state} onChange={(e) => setState(e.target.value)} />
+    <Input placeholder="RegEx supported" value={state} onChange={(e) => setState(e.target.value)} />
   ));
   const [regExp, setRegExp] = React.useState<RegExp | null>(null);
   React.useEffect(() => {
@@ -15,7 +16,7 @@ export function useRegExpInputView(defaultValue: string = "") {
     () => (
       <>
         {inputView}
-        {regExp === invalidRegExp ? "Invalid RegExp" : null}
+        {!regExp && <FormErrorMessage>Invalid RegExp</FormErrorMessage>}
       </>
     ),
     [inputView, inputValue, regExp]
