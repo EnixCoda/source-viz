@@ -7,7 +7,7 @@ export function colorByDepth(graph: ForceGraphInstance) {
   graph.nodeAutoColorBy("depth");
 
   const mapData = ({ nodes, links }: GraphData) => {
-    nodes.forEach((node: NodeObject) => ((node as NodeObject & { depth: number }).depth = getDepth(node)));
+    nodes.forEach((node: NodeObject) => ((node as NodeObject & { depth: number }).depth ||= getDepth(node)));
 
     return {
       nodes,
