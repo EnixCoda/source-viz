@@ -126,7 +126,7 @@ export function Viz({ data }: { data: PreparedData }) {
   const [nodesInViewInputView, nodesInViewRegExp] = useRegExpInputView();
   const nodesInView = React.useMemo(
     () => renderedNodeIds.filter((id) => !nodesInViewRegExp || id.match(nodesInViewRegExp)),
-    [renderedNodeIds]
+    [renderedNodeIds, nodesInViewRegExp]
   );
 
   return (
