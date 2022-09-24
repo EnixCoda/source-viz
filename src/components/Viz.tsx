@@ -22,6 +22,7 @@ import { CollapsibleSection } from "./CollapsibleSection";
 import { NodeList } from "./NodeList";
 
 export function Viz({ data }: { data: PreparedData }) {
+  // Use views
   const [renderAsTextView, renderAsText] = useCheckboxView("Render as Text", true);
   const [fixNodeOnDragEndView, fixNodeOnDragEnd] = useCheckboxView("Fix node on drag end", true);
   const [dagPruneModeView, dagPruneMode] = useSelectView(
@@ -49,26 +50,31 @@ export function Viz({ data }: { data: PreparedData }) {
     placeholder: "/path/to/repository/",
   });
 
+  // Excludes
   const [excludeNodesFilterInputView, excludeNodesFilterRegExp] = useRegExpInputView("test");
   const excludedNodesFromInput = React.useMemo(
     () => (excludeNodesFilterRegExp ? [...data.nodes.keys()].filter((dep) => dep.match(excludeNodesFilterRegExp)) : []),
-    [data, excludeNodesFilterRegExp]
+    [excludeNodesFilterRegExp, data.nodes]
   );
-
-  const [excludedDependantsNodes, toggleExcludeNodeDependants] = useSet<string>();
+  const [excludedDependentsNodes, toggleExcludeNodeDependents] = useSet<string>();
   const [excludedDependenciesNodes, toggleExcludeNodeDependencies] = useSet<string>();
-
-  const toggleExcludeNode = React.useCallback(function toggleExcludeNode(id: string) {
+  const toggleExcludeNode = React.useCallback((id: string) => {
     toggleExcludeNodeDependencies(id);
-    toggleExcludeNodeDependants(id);
+    toggleExcludeNodeDependents(id);
   }, []);
-
   const allExcludedNodes = React.useMemo(
-    () => new Set([...excludedNodesFromInput, ...excludedDependantsNodes, ...excludedDependenciesNodes]),
-    [excludedNodesFromInput, excludedDependantsNodes, excludedDependenciesNodes]
+    () => new Set([...excludedNodesFromInput, ...excludedDependentsNodes, ...excludedDependenciesNodes]),
+    [excludedNodesFromInput, excludedDependentsNodes, excludedDependenciesNodes]
   );
 
-  const [restrictRootInputView, restrictRootsRegExp] = useRegExpInputView("^antd$");
+  {
+    useLogOnUpdate(excludedNodesFromInput, "excludedNodesFromInput");
+    useLogOnUpdate(excludedDependentsNodes, "excludedDependentsNodes");
+    useLogOnUpdate(excludedDependenciesNodes, "excludedDependenciesNodes");
+  }
+
+  // Restrictions
+  const [restrictRootInputView, restrictRootsRegExp] = useRegExpInputView();
   const restrictedRoots = React.useMemo(
     () =>
       new Set(
@@ -76,9 +82,8 @@ export function Viz({ data }: { data: PreparedData }) {
           (id) => !allExcludedNodes.has(id) && (!restrictRootsRegExp || id.match(restrictRootsRegExp))
         )
       ),
-    [data, restrictRootsRegExp, allExcludedNodes]
+    [data.dependencies, restrictRootsRegExp, allExcludedNodes]
   );
-
   const [restrictLeavesInputView, restrictLeavesRegExp] = useRegExpInputView();
   const restrictedLeaves = React.useMemo(
     () =>
@@ -87,14 +92,17 @@ export function Viz({ data }: { data: PreparedData }) {
           (id) => !allExcludedNodes.has(id) && (!restrictLeavesRegExp || id.match(restrictLeavesRegExp))
         )
       ),
-    [data, restrictLeavesRegExp, allExcludedNodes]
+    [data.nodes, restrictLeavesRegExp, allExcludedNodes]
   );
 
+  // Graph
   const [ref, render, selectedNode, setSelectedNode] = useGraph({
+    data,
     dagMode,
     fixNodeOnDragEnd,
     renderAsText,
   });
+
   const getDataOptions = React.useMemo(
     () => ({
       roots: restrictedRoots,
@@ -104,25 +112,25 @@ export function Viz({ data }: { data: PreparedData }) {
       excludeUp: allExcludedNodes,
       excludeDown: allExcludedNodes,
     }),
-    [dagMode, dagPruneMode, restrictedRoots, restrictedLeaves, allExcludedNodes]
+    [restrictedRoots, restrictedLeaves, dagMode, dagPruneMode, allExcludedNodes]
   );
+
   const renderData = React.useMemo(() => getData(data, getDataOptions), [data, getDataOptions]);
   React.useEffect(() => {
     render?.(renderData);
   }, [render, renderData]);
 
-  const renderedNodeIds = React.useMemo(() => renderData?.nodes.map((node) => node.id as string), [renderData.nodes]);
 
+  // The in-views
+  const renderedNodeIds = React.useMemo(() => renderData?.nodes.map((node) => node.id as string), [renderData.nodes]);
   const leavesInView = React.useMemo(
     () => renderedNodeIds.filter((id) => renderData.links.every(({ target }) => target !== id)),
     [renderedNodeIds, renderData.links]
   );
-
   const rootsInView = React.useMemo(
     () => renderedNodeIds.filter((id) => renderData.links.every(({ source }) => source !== id)),
     [renderedNodeIds, renderData.links]
   );
-
   const [nodesInViewInputView, nodesInViewRegExp] = useRegExpInputView();
   const nodesInView = React.useMemo(
     () => renderedNodeIds.filter((id) => !nodesInViewRegExp || id.match(nodesInViewRegExp)),
@@ -147,7 +155,7 @@ export function Viz({ data }: { data: PreparedData }) {
                 <FormControl display="flex" alignItems="center" columnGap={1}>
                   <Switch
                     isChecked={
-                      excludedDependantsNodes.some((id) => id === selectedNode) ||
+                      excludedDependentsNodes.some((id) => id === selectedNode) ||
                       excludedDependenciesNodes.some((id) => id === selectedNode)
                     }
                     onChange={() => toggleExcludeNode(selectedNode)}
@@ -171,7 +179,7 @@ export function Viz({ data }: { data: PreparedData }) {
                     <FormErrorMessage>Cannot open in VS Code</FormErrorMessage>
                   )}
                 </FormControl>
-                {/* excludedDependants: excludedDependantsNodes.some(
+                {/* excludedDependents: excludedDependentsNodes.some(
                       (id) => id === selectedNode
                     ),
                     excludedDependencies: excludedDependenciesNodes.some(
@@ -188,7 +196,7 @@ export function Viz({ data }: { data: PreparedData }) {
                   })}
                 />
                 <Heading as="h3" size="sm">
-                  Dependants
+                  Dependents
                 </Heading>
                 <NodeList
                   data={[...(data.dependantMap.get(selectedNode) || [])].filter((id) => renderedNodeIds.includes(id))}
@@ -197,8 +205,8 @@ export function Viz({ data }: { data: PreparedData }) {
                     label: id,
                   })}
                 />
-                {/* <Button onClick={() => excludeNodeDependants(selectedNode)}>
-                      Toggle exclude its dependants
+                {/* <Button onClick={() => excludeNodeDependents(selectedNode)}>
+                      Toggle exclude its dependents
                     </Button>
                     <Button onClick={() => excludeNodeDependencies(selectedNode)}>
                       Toggle exclude its dependencies
@@ -223,7 +231,7 @@ export function Viz({ data }: { data: PreparedData }) {
             <NodeList
               data={rootsInView}
               mapProps={(id) => ({
-                onExclude: () => toggleExcludeNodeDependants(id),
+                onExclude: () => toggleExcludeNodeDependents(id),
                 onSelect: () => setSelectedNode(id),
                 label: <span>{id}</span>,
               })}
@@ -250,13 +258,13 @@ export function Viz({ data }: { data: PreparedData }) {
           </CollapsibleSection>
           <CollapsibleSection label={`Exclude Nodes`}>
             <Heading as="h3" size="sm">
-              Exclude Dependants of Them
+              Exclude Dependents of Them
             </Heading>
             <NodeList
-              data={excludedDependantsNodes}
+              data={excludedDependentsNodes}
               mapProps={(id) => ({
                 label: id,
-                onCancel: () => toggleExcludeNodeDependants(id),
+                onCancel: () => toggleExcludeNodeDependents(id),
               })}
             />
             <Heading as="h3" size="sm">

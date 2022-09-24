@@ -10,13 +10,14 @@ import {
   renderNodeAsText,
   selectNodeOnMouseDown
 } from "../utils/graphDecorators";
-import { data } from "../warehouse";
 
 export function useGraph({
   dagMode,
   renderAsText,
   fixNodeOnDragEnd,
+  data,
 }: {
+  data: PreparedData;
   dagMode: DAGDirections | "";
   renderAsText: boolean;
   fixNodeOnDragEnd: boolean;
@@ -60,7 +61,7 @@ export function useGraph({
     setRender(() => (data: GraphData) => render(mapData(data)));
 
     return () => graph._destructor();
-  }, [fixNodeOnDragEnd, dagMode, renderAsText]);
+  }, [graph, fixNodeOnDragEnd, dagMode, renderAsText, data]);
 
   return [ref, render, selectedNodeInState, setNodeSelection] as const;
 }
