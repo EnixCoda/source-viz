@@ -114,13 +114,10 @@ export function highlightNodeOnHover(graph: ForceGraphInstance, { dependantMap, 
 
 export type DAGDirections = "td" | "bu" | "lr" | "rl" | "radialout" | "radialin";
 
-export function renderAsDAG(graph: ForceGraphInstance, direction: DAGDirections = "lr") {
-  graph
-    .dagMode(direction)
-    .dagLevelDistance(120)
-    .d3Force("collide", forceCollide(0.12))
-    .d3AlphaDecay(0.02)
-    .d3VelocityDecay(0.3);
+export function renderAsDAG(graph: ForceGraphInstance, direction: DAGDirections | null = "lr") {
+  graph.dagMode(direction);
+  if (direction)
+    graph.dagLevelDistance(120).d3Force("collide", forceCollide(0.12)).d3AlphaDecay(0.02).d3VelocityDecay(0.3);
 }
 
 export function selectNodeOnMouseDown(graph: ForceGraphInstance, setSelection: (id: string | null) => void) {
