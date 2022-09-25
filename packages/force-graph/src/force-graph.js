@@ -271,7 +271,7 @@ export default Kapsule({
     },
     zoomToFit: function(state, transitionDuration = 0, padding = 10, ...bboxArgs) {
       const bbox = this.getGraphBbox(...bboxArgs);
-      
+
       if (bbox) {
         const center = {
           x: (bbox.x[0] + bbox.x[1]) / 2,
@@ -343,6 +343,8 @@ export default Kapsule({
   }),
 
   init: function(domNode, state) {
+    if (!domNode) return
+
     // Wipe DOM
     domNode.innerHTML = '';
 
