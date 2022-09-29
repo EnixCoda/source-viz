@@ -1,11 +1,14 @@
 {
-  "name": "dependency-viz",
+  "name": "deps-viz",
   "version": "1.0.0",
   "main": "src/index.ts",
   "license": "MIT",
   "scripts": {
     "dev": "parcel start watch index.html",
     "build": "parcel build index.html"
+  },
+  "bin": {
+    "deps-viz": "./npm/cli/index.js"
   },
   "prettier": {
     "printWidth": 120
@@ -37,7 +40,6 @@
   },
   "devDependencies": {
     "parcel-bundler": "^1.12.5",
-    "ts-node": "^10.8.1",
     "typescript": "^4.7.3"
   }
 }
