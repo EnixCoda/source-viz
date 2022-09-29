@@ -7,7 +7,13 @@ export interface FSLike {
   resolvePath(...paths: string[]): string;
 }
 
-export const deps = async function (files: string[], parse: Parse, fs: FSLike, isIncluded: (path: string) => boolean) {
+export const deps = async function (
+  files: string[],
+  parse: Parse,
+  fs: FSLike,
+  isIncluded: (path: string) => boolean,
+  resolveAllFiles: boolean = true
+) {
   const dependencyMap = new Map<string, [string, boolean][]>([
     /**
      * Format: [file_path, [dependency, async import]]
@@ -60,7 +66,9 @@ export const deps = async function (files: string[], parse: Parse, fs: FSLike, i
       .find((indexFile) => files.includes(indexFile));
     if (indexFile) return indexFile;
 
-    throw new Error(`Dependency "${importPath}" cannot be resolved from "${file}"`);
+    if (resolveAllFiles) throw new Error(`Dependency "${importPath}" cannot be resolved from "${file}"`);
+
+    return baseResolved;
   }
 
   const entries: Entry[] = [...dependencyMap.entries()].map(([file, dependencies]) => [
