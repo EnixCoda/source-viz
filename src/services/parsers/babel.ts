@@ -7,6 +7,7 @@ export function parse(source: string) {
     attachComment: false,
     plugins: [
       "jsx",
+      "typescript",
       "classProperties",
       "objectRestSpread",
       "optionalChaining",

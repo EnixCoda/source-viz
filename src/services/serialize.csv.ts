@@ -1,18 +1,20 @@
-export const stringifyToCSV = (data: string[][]) => data.map((cols) => cols.join(",")).join("\n");
+export const stringifyToCSV = (data: string[][], title?: string[]) =>
+  (title ? [title].concat(data) : data).map((cols) => cols.join(",")).join("\n");
 
 export function parseCSV<T extends any[] = string[]>(
   csv: string,
   {
-    skipFirstLine = false,
     parseRecord = (record) => record as T,
+    skipFirstLine = false,
+    lineSeparator = "\n",
+    colSeparator = ",",
   }: {
     parseRecord?: (record: string[]) => T;
     skipFirstLine?: boolean;
-  }
+    lineSeparator?: string;
+    colSeparator?: string;
+  } = {}
 ): T[] {
-  const lineSeparator = "\n";
-  const colSeparator = ",";
-
   const lines = csv.split(lineSeparator);
 
   if (skipFirstLine) lines.shift();

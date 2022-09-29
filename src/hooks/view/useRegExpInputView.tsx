@@ -5,12 +5,11 @@ import { useView } from "./useView";
 
 export function useRegExpInputView(defaultValue: string = "") {
   const [inputView, inputValue] = useView(defaultValue, (state, setState) => (
-    <Input placeholder="RegEx supported" value={state} onChange={(e) => setState(e.target.value)} />
+    <Input placeholder="Regular Expression" value={state} onChange={(e) => setState(e.target.value)} />
   ));
   const [regExp, setRegExp] = React.useState<RegExp | null>(null);
   React.useEffect(() => {
-    const r = safeRegExp(inputValue, "i");
-    if (r) setRegExp(r);
+    setRegExp(safeRegExp(inputValue, "i"));
   }, [inputValue]);
   const view = React.useMemo(
     () => (

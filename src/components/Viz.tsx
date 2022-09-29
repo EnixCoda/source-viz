@@ -19,9 +19,10 @@ import { useSelectView } from "../hooks/view/useSelectView";
 import { getData, PreparedData } from "../utils/getData";
 import { DAGDirections } from "../utils/graphDecorators";
 import { CollapsibleSection } from "./CollapsibleSection";
+import { LoadDataButton } from "./LoadDataButton";
 import { NodeList } from "./NodeList";
 
-export function Viz({ data }: { data: PreparedData }) {
+export function Viz({ data, setData }: { data: PreparedData; setData: (data: PreparedData) => void }) {
   // Use views
   const [renderAsTextView, renderAsText] = useCheckboxView("Render as Text", true);
   const [fixNodeOnDragEndView, fixNodeOnDragEnd] = useCheckboxView("Fix node on drag end", true);
@@ -140,7 +141,10 @@ export function Viz({ data }: { data: PreparedData }) {
   return (
     <Box display="flex" maxHeight="100vh" overflow="auto">
       <div ref={ref} />
-      <Box flex={1} maxHeight="100%" overflow="auto" maxWidth={720}>
+      <Box display="flex" flexDirection="column" flex={1} gap={2} maxHeight="100%" overflow="auto" maxWidth={720}>
+        <div>
+          <LoadDataButton onLoad={setData} />
+        </div>
         <Accordion allowMultiple defaultIndex={[1, 4]}>
           <CollapsibleSection label={`Viz configs`}>
             <div>{dagPruneModeView}</div>
@@ -218,16 +222,8 @@ export function Viz({ data }: { data: PreparedData }) {
               "No selection yet"
             )}
           </CollapsibleSection>
-          <CollapsibleSection label={`Restrict Root Nodes`}>
+          <CollapsibleSection label={`Root Nodes Filter (on the left side)`}>
             {restrictRootInputView}
-            <NodeList
-              data={[...restrictedRoots]}
-              mapProps={(id) => ({
-                label: <span>{id}</span>,
-              })}
-            />
-          </CollapsibleSection>
-          <CollapsibleSection label={`Root Nodes in View`}>
             <NodeList
               data={rootsInView}
               mapProps={(id) => ({
@@ -237,16 +233,8 @@ export function Viz({ data }: { data: PreparedData }) {
               })}
             />
           </CollapsibleSection>
-          <CollapsibleSection label={`Restrict Leaf Nodes`}>
+          <CollapsibleSection label={`Leaf Nodes Filter (on the right side)`}>
             {restrictLeavesInputView}
-            <NodeList
-              data={[...restrictedLeaves]}
-              mapProps={(id) => ({
-                label: <span>{id}</span>,
-              })}
-            />
-          </CollapsibleSection>
-          <CollapsibleSection label={`Leaf Nodes in View`}>
             <NodeList
               data={leavesInView}
               mapProps={(id) => ({
@@ -256,7 +244,7 @@ export function Viz({ data }: { data: PreparedData }) {
               })}
             />
           </CollapsibleSection>
-          <CollapsibleSection label={`Exclude Nodes`}>
+          <CollapsibleSection label={`Extra Nodes Filter`}>
             <Heading as="h3" size="sm">
               Exclude Dependents of Them
             </Heading>

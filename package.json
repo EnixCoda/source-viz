@@ -21,6 +21,7 @@
     "@emotion/styled": "^11",
     "@types/babel__traverse": "^7.17.1",
     "@types/d3": "^7.4.0",
+    "@types/minimatch": "^5.1.2",
     "@types/node": "^17.0.40",
     "@types/react": "^18.0.21",
     "@types/react-dom": "^18.0.6",
@@ -29,6 +30,7 @@
     "dependency-graph": "^0.11.0",
     "force-graph": "^1.42.9",
     "framer-motion": "^6",
+    "minimatch": "^5.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "yargs": "^17.5.1"
