@@ -47,7 +47,7 @@ async function main() {
   const createMatcher = (patterns: string[]) => (item: string) => patterns.some((pattern) => minimatch(item, pattern));
   const isIncluded = createMatcher(includes);
   const isExcluded = createMatcher(excludes);
-  const files = await getFiles(path.resolve(project), isIncluded, isExcluded);
+  const files = await getFiles(path.resolve(project), isExcluded);
 
   const fsLike: FSLike = {
     resolvePath: path.join,
@@ -57,6 +57,7 @@ async function main() {
 
   const serializer = getSerializerByName(output);
   await fs.writeFile(output, serializer(records), "utf-8");
+  console.log(`Records saved to "${path.resolve(output)}"`);
 }
 
 main();

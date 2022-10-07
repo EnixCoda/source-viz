@@ -5,7 +5,6 @@ const resolveSymlink = false;
 
 export async function getFiles(
   rootDir: string,
-  isIncluded: (path: string) => boolean,
   isExcluded: (path: string) => boolean
 ) {
   const files: string[] = [];
