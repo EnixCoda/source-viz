@@ -1,21 +1,11 @@
+import { entriesToPreparedData } from ".";
 import { stringifyToCSV } from "./serialize.csv";
 
 export type Entry = [string, [string, boolean][]];
 
 export const mapSerializers = {
-  csv: (titles: string[], map: Entry[]) =>
-    stringifyToCSV(
-      map
-        .map(([key, value]) => value.map(([dependency, dynamicImport]) => [key, dependency, `${dynamicImport}`]))
-        .flat(),
-      titles
-    ),
-  json: (records: Entry[]) =>
-    JSON.stringify(
-      records
-        .map(([key, value]) => value.map(([dependency, dynamicImport]) => [key, dependency, `${dynamicImport}`]))
-        .flat()
-    ),
+  csv: (titles: string[], map: Entry[]) => stringifyToCSV(entriesToPreparedData(map), titles),
+  json: (records: Entry[]) => JSON.stringify(entriesToPreparedData(records)),
 };
 
 export function getSerializerByName(output: string) {

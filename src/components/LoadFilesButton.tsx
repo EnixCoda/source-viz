@@ -31,7 +31,7 @@ export function LoadFilesButton({
         type="file"
         style={{ width: 0, height: 0 }}
         {...{
-          webkitdirectory: multiple, // avoid type error
+          webkitdirectory: multiple ? "true" : undefined, // avoid type error
           multiple,
         }}
         accept={accept}

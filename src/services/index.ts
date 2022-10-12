@@ -1,5 +1,11 @@
 import { Entry } from "./serialize.map";
 
+export function entriesToPreparedData(map: Entry[]): string[][] {
+  return map
+    .map(([key, value]) => value.map(([dependency, dynamicImport]) => [key, dependency, `${dynamicImport}`]))
+    .flat();
+}
+
 type Parse = (source: string) => [string, boolean][];
 
 export interface FSLike {
@@ -12,7 +18,8 @@ export const deps = async function (
   parse: Parse,
   fs: FSLike,
   isIncluded: (path: string) => boolean,
-  resolveAllFiles: boolean = true
+  resolveAllFiles: boolean = true,
+  reportProgress?: (progress: number) => void
 ) {
   const dependencyMap = new Map<string, [string, boolean][]>([
     /**
@@ -23,6 +30,7 @@ export const deps = async function (
      * */
   ]);
 
+  let process = 0;
   for (const file of files) {
     if (!isIncluded(file)) continue;
     const content = await fs.readFile(file);
@@ -33,6 +41,7 @@ export const deps = async function (
       console.error(`Error parsing "${file}"`);
       throw err;
     }
+    reportProgress?.(++process);
   }
 
   function resolveDependencyFile(file: string, importPath: string) {
@@ -71,12 +80,12 @@ export const deps = async function (
     return baseResolved;
   }
 
-  const entries: Entry[] = [...dependencyMap.entries()].map(([file, dependencies]) => [
-    file,
-    dependencies.map(
-      ([dependency, dynamicImport]) => [resolveDependencyFile(file, dependency), dynamicImport] as [string, boolean]
-    ),
-  ]);
+    const entries: Entry[] = [...dependencyMap.entries()].map(([file, dependencies]) => [
+      file,
+      dependencies.map(
+        ([dependency, dynamicImport]) => [resolveDependencyFile(file, dependency), dynamicImport] as [string, boolean]
+      ),
+    ]);
 
-  return entries;
+    return entries;
 };

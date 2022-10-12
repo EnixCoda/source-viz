@@ -9,6 +9,7 @@ import { getFiles } from "../services/node";
 import * as babelParser from "../services/parsers/babel";
 import { getSerializerByName } from "../services/serialize.map";
 
+const defaultIncludes = ["*.jsx?", "*.tsx?"];
 const defaultExcludes = [".git", ".cache", "node_modules", "**/node_modules/**", "**/build/**", "**/dist/**"];
 
 async function main() {
@@ -33,7 +34,7 @@ async function main() {
     .option("i", {
       alias: "includes",
       describe: "include patterns",
-      default: ["*.jsx?", "*.tsx?"],
+      default: defaultIncludes,
       type: "array",
     })
     .option("x", {

@@ -9,3 +9,7 @@ export function safeRegExp(raw: string, flags: string = "") {
 export function exclude<T>(sources: T[], targets: T[]): T[] {
   return sources.filter((source) => !targets.some((target) => source === target));
 }
+
+export function run<R>(fn: () => R) {
+  return fn();
+}

@@ -19,7 +19,6 @@ import { useSelectView } from "../hooks/view/useSelectView";
 import { getData, PreparedData } from "../utils/getData";
 import { DAGDirections } from "../utils/graphDecorators";
 import { CollapsibleSection } from "./CollapsibleSection";
-import { LoadDataButton } from "./LoadDataButton";
 import { NodeList } from "./NodeList";
 
 export function Viz({ data, setData }: { data: PreparedData; setData: (data: PreparedData) => void }) {
@@ -139,12 +138,9 @@ export function Viz({ data, setData }: { data: PreparedData; setData: (data: Pre
   );
 
   return (
-    <Box display="flex" maxHeight="100vh" overflow="auto">
+    <Box display="flex" overflow="auto">
       <div ref={ref} />
       <Box display="flex" flexDirection="column" flex={1} gap={2} maxHeight="100%" overflow="auto" maxWidth={720}>
-        <div>
-          <LoadDataButton onLoad={setData} />
-        </div>
         <Accordion allowMultiple defaultIndex={[1, 4]}>
           <CollapsibleSection label={`Viz configs`}>
             <div>{dagPruneModeView}</div>
