@@ -67,12 +67,6 @@ export function Viz({ data, setData }: { data: PreparedData; setData: (data: Pre
     [excludedNodesFromInput, excludedDependentsNodes, excludedDependenciesNodes]
   );
 
-  {
-    useLogOnUpdate(excludedNodesFromInput, "excludedNodesFromInput");
-    useLogOnUpdate(excludedDependentsNodes, "excludedDependentsNodes");
-    useLogOnUpdate(excludedDependenciesNodes, "excludedDependenciesNodes");
-  }
-
   // Restrictions
   const [restrictRootInputView, restrictRootsRegExp] = useRegExpInputView();
   const restrictedRoots = React.useMemo(
@@ -119,7 +113,6 @@ export function Viz({ data, setData }: { data: PreparedData; setData: (data: Pre
   React.useEffect(() => {
     render?.(renderData);
   }, [render, renderData]);
-
 
   // The in-views
   const renderedNodeIds = React.useMemo(() => renderData?.nodes.map((node) => node.id as string), [renderData.nodes]);
