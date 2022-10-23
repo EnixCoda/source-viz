@@ -80,12 +80,12 @@ export const deps = async function (
     return baseResolved;
   }
 
-    const entries: Entry[] = [...dependencyMap.entries()].map(([file, dependencies]) => [
-      file,
-      dependencies.map(
-        ([dependency, dynamicImport]) => [resolveDependencyFile(file, dependency), dynamicImport] as [string, boolean]
-      ),
-    ]);
+  const entries: Entry[] = [...dependencyMap.entries()].map(([file, dependencies]) => [
+    file,
+    dependencies.map(
+      ([dependency, dynamicImport]) => [resolveDependencyFile(file, dependency), dynamicImport] as [string, boolean]
+    ),
+  ]);
 
-    return entries;
+  return entries;
 };
