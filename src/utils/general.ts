@@ -13,3 +13,6 @@ export function exclude<T>(sources: T[], targets: T[]): T[] {
 export function run<R>(fn: () => R) {
   return fn();
 }
+
+export const resolvePath = (...ps: string[]): string =>
+  new URL(ps.join("/").replace(/\/+/g, "/"), "http://localhost").pathname.replace(/^\//, "");

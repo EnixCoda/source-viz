@@ -8,7 +8,7 @@ export function LoadFilesButton({
   buttonProps,
   children = buttonProps?.children,
 }: {
-  onLoad: (files: FileList | null) => void;
+  onLoad: (files: File[] | null) => void;
   buttonProps?: ButtonProps;
   multiple?: boolean;
   children?: ButtonProps["children"];
@@ -35,7 +35,11 @@ export function LoadFilesButton({
           multiple,
         }}
         accept={accept}
-        onChange={(event) => onLoad(event.target.files)}
+        onChange={(event) => {
+          const fileList = event.target.files;
+          const files = fileList && Array.from(fileList);
+          onLoad(files);
+        }}
       />
     </>
   );

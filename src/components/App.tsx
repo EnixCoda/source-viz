@@ -15,7 +15,7 @@ export const fileParsers: Record<string, undefined | ((raw: string) => string[][
 
 export function App() {
   const [data, setData] = React.useState<PreparedData | null>(null);
-  const [files, setFiles] = React.useState<FileList | null>(null);
+  const [files, setFiles] = React.useState<File[] | null>(null);
 
   type State = "initial" | "scan" | "viz";
   const state: State = React.useMemo(() => (data && files ? "viz" : files ? "scan" : "initial"), [data, files]);
@@ -28,15 +28,15 @@ export function App() {
             return (
               <Center h="100vh">
                 <Flex flexDirection="column" alignItems="stretch" gap={4}>
-                  <LoadFilesButton multiple onLoad={(files) => setFiles(files)}>
+                  <LoadFilesButton multiple onLoad={setFiles}>
                     Scan local
                   </LoadFilesButton>
-                  <LoadDataButton onLoad={(data) => setData(data)} />
+                  <LoadDataButton onLoad={setData} />
                 </Flex>
               </Center>
             );
           case "scan":
-            return files && <Scan fileList={files} setPreparedData={(data) => setData(data)} />;
+            return files && <Scan files={files} setPreparedData={setData} />;
           case "viz":
             return (
               data && (

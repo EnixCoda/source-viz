@@ -16,13 +16,7 @@ export const defaultExcludes = [
   "**/packages/**",
 ];
 
-export function Scan({
-  fileList,
-  setPreparedData,
-}: {
-  fileList: FileList;
-  setPreparedData: React.Dispatch<PreparedData>;
-}) {
+export function Scan({ files, setPreparedData }: { files: File[]; setPreparedData: React.Dispatch<PreparedData> }) {
   // // for progress
   const [progress, setProgress] = React.useState(0);
   const [data, setData] = React.useState<PreparedData | null>(null);
@@ -31,12 +25,12 @@ export function Scan({
   React.useEffect(() => {
     run(async () => {
       try {
-        setData(await prepareData(fileList, setProgress));
+        setData(await prepareData(files, setProgress));
       } catch (err) {
         if (err instanceof Error) setError(err);
       }
     });
-  }, [fileList]);
+  }, [files]);
 
   return (
     <Center h="100vh">
