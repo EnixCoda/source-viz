@@ -18,7 +18,7 @@ export function useRegExpInputView(defaultValue: string = "") {
         {!regExp && <FormErrorMessage>Invalid RegExp</FormErrorMessage>}
       </>
     ),
-    [inputView, inputValue, regExp]
+    [inputView, regExp]
   );
 
   return [view, regExp, inputValue] as const;

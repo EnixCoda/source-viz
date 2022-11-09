@@ -60,7 +60,7 @@ function FileExplorerDirectory({
   onSelect?(file: FileSystemHandle): void;
 }) {
   const isExcluded = React.useCallback(
-    (item: string) => (filter ? filter.excludes?.some((pattern) => minimatch(item, pattern)) : false),
+    (item: string) => filter?.excludes?.some((pattern) => minimatch(item, pattern)) || false,
     [filter?.excludes]
   );
 

@@ -79,7 +79,7 @@ function Scanning({
         setError(err instanceof Error ? err : new Error(`${err}` || `Unknown error`));
       }
     });
-  }, [fs]);
+  }, [fs.pathMap, setProgress, getFilePath, setData]);
 
   return <>{error ? <Text>{error.message}</Text> : <Heading>Scanning {progress}th file</Heading>}</>;
 }

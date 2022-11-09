@@ -58,10 +58,13 @@ export function Viz({ data, setData }: { data: PreparedData; setData: (data: Pre
   );
   const [excludedDependentsNodes, toggleExcludeNodeDependents] = useSet<string>();
   const [excludedDependenciesNodes, toggleExcludeNodeDependencies] = useSet<string>();
-  const toggleExcludeNode = React.useCallback((id: string) => {
-    toggleExcludeNodeDependencies(id);
-    toggleExcludeNodeDependents(id);
-  }, []);
+  const toggleExcludeNode = React.useCallback(
+    (id: string) => {
+      toggleExcludeNodeDependencies(id);
+      toggleExcludeNodeDependents(id);
+    },
+    [toggleExcludeNodeDependencies, toggleExcludeNodeDependents]
+  );
   const allExcludedNodes = React.useMemo(
     () => new Set([...excludedNodesFromInput, ...excludedDependentsNodes, ...excludedDependenciesNodes]),
     [excludedNodesFromInput, excludedDependentsNodes, excludedDependenciesNodes]
