@@ -54,7 +54,8 @@ async function main() {
     resolvePath: path.join,
     readFile: (p) => fs.readFile(path.resolve(p, project), "utf-8"),
   };
-  const records = await deps(files, babelParser.parse, fsLike, isIncluded);
+  const parser = await babelParser.prepare();
+  const records = await deps(files, parser, fsLike, isIncluded);
 
   const serializer = getSerializerByName(output);
   await fs.writeFile(output, serializer(records), "utf-8");

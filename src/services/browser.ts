@@ -29,7 +29,8 @@ export async function prepareData(files: File[], setProgress: React.Dispatch<Rea
     },
   };
 
-  const records = await deps(Array.from(pathToFileMap.keys()), babelParser.parse, fsLike, isIncluded, true, setProgress);
+  const parse = await babelParser.prepare();
+  const records = await deps(Array.from(pathToFileMap.keys()), parse, fsLike, isIncluded, true, setProgress);
 
   const preparedData = prepareGraphData(entriesToPreparedData(records));
 
