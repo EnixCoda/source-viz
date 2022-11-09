@@ -6,7 +6,11 @@ import { resolvePath } from "../utils/general";
 import { prepareGraphData } from "../utils/getData";
 import * as babelParser from "./parsers/babel";
 
-export async function prepareData(files: File[], setProgress: React.Dispatch<React.SetStateAction<number>>) {
+export async function prepareData(
+  files: File[],
+  setProgress: React.Dispatch<React.SetStateAction<number>>,
+  getFilePath: (file: File) => string
+) {
   const includes: string[] = defaultIncludes;
   const excludes: string[] = defaultExcludes;
 
@@ -15,7 +19,7 @@ export async function prepareData(files: File[], setProgress: React.Dispatch<Rea
   const isExcluded = createMatcher(excludes);
   const pathToFileMap: Map<string, File> = new Map();
   for (const file of files) {
-    const relativePath = file.webkitRelativePath;
+    const relativePath = getFilePath(file);
     if (isExcluded(relativePath)) continue;
     pathToFileMap.set(relativePath, file);
   }

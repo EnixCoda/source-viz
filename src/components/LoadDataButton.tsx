@@ -16,14 +16,14 @@ export function LoadDataButton({ onLoad }: { onLoad: (data: PreparedData) => voi
       }}
       onLoad={async (files) => {
         if (files) {
-          if (files.length !== 1)
-            return;
-          const file = files.item(0);
-          if (!file)
-            return;
+          if (files.length !== 1) return;
+
+          const [file] = files;
+          if (!file) return;
+
           const ext = file.name.split(".").pop();
-          if (!ext)
-            return;
+          if (!ext) return;
+
           const parser = fileParsers[ext];
           if (parser) {
             const content = await file.text();
