@@ -1,6 +1,5 @@
 import { Box, Button, Center, ChakraProvider, Flex } from "@chakra-ui/react";
 import * as React from "react";
-import { parseCSV } from "../services/serialize.csv";
 import { run } from "../utils/general";
 import { PreparedData } from "../utils/getData";
 import { LoadDataButton } from "./LoadDataButton";
@@ -8,10 +7,6 @@ import { LoadFilesButton } from "./LoadFilesButton";
 import { Scan } from "./Scan";
 import { Viz } from "./Viz";
 
-export const fileParsers: Record<string, undefined | ((raw: string) => string[][])> = {
-  json: JSON.parse,
-  csv: parseCSV,
-};
 
 export function App() {
   const [data, setData] = React.useState<PreparedData | null>(null);

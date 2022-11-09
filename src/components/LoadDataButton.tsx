@@ -1,6 +1,11 @@
+import { parseCSV } from "../services/serialize.csv";
 import { PreparedData, prepareGraphData } from "../utils/getData";
-import { fileParsers } from "./App";
 import { LoadFilesButton } from "./LoadFilesButton";
+
+const fileParsers: Record<string, undefined | ((raw: string) => string[][])> = {
+  json: JSON.parse,
+  csv: parseCSV,
+};
 
 export function LoadDataButton({ onLoad }: { onLoad: (data: PreparedData) => void; }) {
   return (

@@ -2,4 +2,5 @@ import { createRoot } from "react-dom/client";
 import { App } from "./components/App";
 import "./style.css";
 
-createRoot(document.querySelector("#app")!).render(<App />);
+const container = document.querySelector("#app");
+if (container) createRoot(container).render(<App />);
