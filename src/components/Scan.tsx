@@ -76,7 +76,7 @@ function Scanning({
       try {
         setData(await prepareData(Array.from(fs.pathMap.keys()), setProgress, getFilePath));
       } catch (err) {
-        if (err instanceof Error) setError(err);
+        setError(err instanceof Error ? err : new Error(`${err}` || `Unknown error`));
       }
     });
   }, [fs]);

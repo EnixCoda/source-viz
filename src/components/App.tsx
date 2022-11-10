@@ -1,8 +1,8 @@
-import { Box, Button, Center, ChakraProvider, Flex, Text } from "@chakra-ui/react";
+import { Box, Button, Center, ChakraProvider, Flex } from "@chakra-ui/react";
 import * as React from "react";
 import { run } from "../utils/general";
 import { PreparedData } from "../utils/getData";
-import { FSLoadFilesButton, isFSAPISupported } from "./FSLoadFilesButton";
+import { FSLoadFilesButton } from "./FSLoadFilesButton";
 import { LoadDataButton } from "./LoadDataButton";
 import { Scan } from "./Scan";
 import { Viz } from "./Viz";
@@ -17,7 +17,7 @@ export function App() {
   const [fs, setFS] = React.useState<FS | null>(null);
 
   type State = "initial" | "scan" | "viz";
-  const state: State = React.useMemo(() => (data && fs ? "viz" : fs ? "scan" : "initial"), [data, fs]);
+  const state: State = React.useMemo(() => (data ? "viz" : fs ? "scan" : "initial"), [data, fs]);
 
   return (
     <ChakraProvider>
@@ -27,14 +27,7 @@ export function App() {
             return (
               <Center h="100vh">
                 <Flex flexDirection="column" alignItems="stretch" gap={4}>
-                  {isFSAPISupported ? (
-                    <FSLoadFilesButton onLoad={setFS}>Scan local</FSLoadFilesButton>
-                  ) : (
-                    <Box>
-                      <Button disabled>Scan local</Button>
-                      <Text>Please use Chrome/Edge</Text>
-                    </Box>
-                  )}
+                  <FSLoadFilesButton onLoad={setFS}>Scan local</FSLoadFilesButton>
                   <LoadDataButton onLoad={setData} />
                 </Flex>
               </Center>
@@ -42,13 +35,7 @@ export function App() {
           case "scan":
             return (
               fs && (
-                <Scan
-                  fileSystem={fs}
-                  setPreparedData={setData}
-                  getFilePath={
-                    isFSAPISupported ? (file) => fs.pathMap.get(file) || "" : (file) => file.webkitRelativePath
-                  }
-                />
+                <Scan fileSystem={fs} setPreparedData={setData} getFilePath={(file) => fs.pathMap.get(file) || ""} />
               )
             );
           case "viz":

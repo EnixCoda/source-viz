@@ -16,3 +16,5 @@ export function run<R>(fn: () => R) {
 
 export const resolvePath = (...ps: string[]): string =>
   new URL(ps.join("/").replace(/\/+/g, "/"), "http://localhost").pathname.replace(/^\//, "");
+
+export const wrapNewStateForDispatching = <S>(s: S) => (typeof s === "function" ? () => s : s);

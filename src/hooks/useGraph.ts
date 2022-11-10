@@ -1,6 +1,7 @@
 import { GraphData } from "force-graph";
 import * as React from "react";
 import { createGraph } from "../utils/ForceGraphBinding";
+import { wrapNewStateForDispatching } from "../utils/general";
 import { PreparedData } from "../utils/getData";
 import {
   colorByDepth,
@@ -9,7 +10,7 @@ import {
   highlightNodeOnHover,
   renderAsDAG,
   renderNodeAsText,
-  selectNodeOnMouseDown
+  selectNodeOnMouseDown,
 } from "../utils/graphDecorators";
 
 export function useGraph({
@@ -23,7 +24,7 @@ export function useGraph({
   renderAsText: boolean;
   fixNodeOnDragEnd: boolean;
 }) {
-  const ref = React.useRef<HTMLDivElement>(null);
+  const ref = React.useRef<HTMLDivElement | null>(null);
   const [selectedNodeInState, setSelectedNodeInState] = React.useState<string | null>(null);
   const [graph, setGraph] = React.useState<ReturnType<typeof createGraph> | null>(null);
   const selectedNodeRef = React.useRef<string | null>(null);
@@ -36,7 +37,7 @@ export function useGraph({
     const current = ref.current;
     if (current) {
       const graph = createGraph(current);
-      setGraph(graph);
+      setGraph(wrapNewStateForDispatching(graph));
       return () => {
         graph._destructor();
         setGraph(null);
@@ -72,7 +73,7 @@ export function useGraph({
     const dataMapper = (data: GraphData) => dataMappers.reduce((prev, mapper) => mapper(prev), data);
 
     return (data: GraphData) => graph.graphData(dataMapper(data));
-  }, [graph, fixNodeOnDragEnd, dagMode, renderAsText, data]);
+  }, [graph, fixNodeOnDragEnd, dagMode, renderAsText, data, setNodeSelection]);
 
   return [ref, render, selectedNodeInState, setNodeSelection] as const;
 }

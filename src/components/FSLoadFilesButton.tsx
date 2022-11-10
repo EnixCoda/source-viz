@@ -3,9 +3,6 @@ import { resolvePath } from "../utils/general";
 import { FS } from "./App";
 // import { FSItemDir } from "./FileExplorer";
 
-export const isFSAPISupported = !!window.showDirectoryPicker;
-console.log(isFSAPISupported);
-
 export function FSLoadFilesButton({
   onLoad,
   buttonProps,
@@ -20,12 +17,14 @@ export function FSLoadFilesButton({
       {...buttonProps}
       onClick={async () => {
         const { showDirectoryPicker } = window;
-        if (!showDirectoryPicker) throw new Error(`FS API not available`);
+        const isSupported = !!showDirectoryPicker;
+        if (!isSupported) {
+          alert("Please use Chrome/Edge");
+          return;
+        }
 
         const handle = await showDirectoryPicker();
-        if (!handle) return;
-
-        onLoad({ handle, pathMap: new Map() });
+        if (handle) onLoad({ handle, pathMap: new Map() });
       }}
     >
       {children}
