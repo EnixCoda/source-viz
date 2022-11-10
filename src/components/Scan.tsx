@@ -1,4 +1,5 @@
 import { Box, Button, Center, Flex, Heading, Input, List, ListItem, Text } from "@chakra-ui/react";
+import minimatch from "minimatch";
 import * as React from "react";
 import { prepareData } from "../services/browser";
 import { run } from "../utils/general";
@@ -74,10 +75,12 @@ function InputList({ values, onChange }: { values: string[]; onChange(values: st
 function Scanning({
   fs,
   setData,
+  filter,
   getFilePath,
 }: {
   fs: FS;
   setData: React.Dispatch<PreparedData>;
+  filter?: MetaFilter;
   getFilePath(file: File): string;
 }) {
   const [progress, setProgress] = React.useState(0);
@@ -85,12 +88,47 @@ function Scanning({
   React.useEffect(() => {
     run(async () => {
       try {
-        setData(await prepareData(Array.from(fs.pathMap.keys()), setProgress, getFilePath));
+        const [[isPathIncluded, isFileIncluded], [isPathExcluded, isFileExcluded]] = [
+          filter?.includes,
+          filter?.excludes,
+        ].map((patterns) =>
+          [patterns, patterns?.map((pattern) => pattern.replace(/^\*\*\/|\/\*\*$/g, ""))].map(
+            (patterns) => (item: string) => patterns?.some((pattern) => minimatch(item, pattern)) || false
+          )
+        );
+
+        const traverse = async (
+          handle: FileSystemDirectoryHandle,
+          onFile: (handle: FileSystemFileHandle, stack: string[]) => void | Promise<void>,
+          stack: string[] = []
+        ) => {
+          for await (const item of handle.values()) {
+            if (isFileExcluded(item.name)) continue;
+            if (isPathExcluded(stack.concat(item.name).join("/"))) continue;
+            if (item.kind === "file") {
+              const $item = item as FileSystemFileHandle;
+              // if (isPathIncluded(stack.concat(item.name).join("/")) || isFileIncluded(item.name))
+              await onFile($item, stack.concat(item.name));
+            } else {
+              const $item = item as FileSystemDirectoryHandle;
+              await traverse($item, onFile, stack.concat($item.name));
+            }
+          }
+        };
+
+        const files: File[] = [];
+        await traverse(fs.handle, async (handle, stack) => {
+          const file = await handle.getFile();
+          files.push(file);
+          fs.pathMap.set(file, stack.join("/"));
+        });
+
+        setData(await prepareData(files, setProgress, getFilePath));
       } catch (err) {
         setError(err instanceof Error ? err : new Error(`${err}` || `Unknown error`));
       }
     });
-  }, [fs.pathMap, setProgress, getFilePath, setData]);
+  }, [fs, setProgress, getFilePath, setData, filter]);
 
   return <>{error ? <Text>{error.message}</Text> : <Heading>Scanning {progress}th file</Heading>}</>;
 }
@@ -123,7 +161,7 @@ export function Scan({
           </Button>
         </Flex>
       ) : filter ? (
-        <Scanning fs={fileSystem} setData={setData} getFilePath={getFilePath} />
+        <Scanning fs={fileSystem} setData={setData} getFilePath={getFilePath} filter={filter} />
       ) : (
         <Filter files={fileSystem} setFilter={setFilter} />
       )}
