@@ -28,14 +28,24 @@ export function Filter({ files, setFilter }: { files: FS; setFilter: React.Dispa
   const filter = React.useMemo(() => ({ includes, excludes }), [includes, excludes]);
 
   return (
-    <Box display="inline-flex" overflow="auto" maxHeight="100%">
-      <FileExplorer files={files} filter={filter} />
-      <Box>
-        <Heading>Includes</Heading>
+    <Box display="flex" width="100%" overflow="auto" maxHeight="100%">
+      <Box flex={1}>
+        <FileExplorer files={files} filter={filter} />
+      </Box>
+      <Box width={240} flexShrink={0}>
+        <Box display="flex" justifyContent="flex-end">
+          <Button colorScheme="green" onClick={() => setFilter({ includes, excludes })}>
+            Start
+          </Button>
+        </Box>
+        <Heading as="h2" size="lg">
+          Includes
+        </Heading>
         <InputList values={includes} onChange={setIncludes} />
-        <Heading>Excludes</Heading>
+        <Heading as="h2" size="lg">
+          Excludes
+        </Heading>
         <InputList values={excludes} onChange={setExcludes} />
-        <Button onClick={() => setFilter({ includes, excludes })}>Start</Button>
       </Box>
     </Box>
   );
@@ -43,12 +53,13 @@ export function Filter({ files, setFilter }: { files: FS; setFilter: React.Dispa
 
 function InputList({ values, onChange }: { values: string[]; onChange(values: string[]): void }) {
   return (
-    <Box>
-      <List maxHeight={600}>
+    <Box display="inline-flex" flexDirection="column" gap={2}>
+      <List display="inline-flex" flexDirection="column" gap={2} maxHeight={600}>
         {values.map((value, index) => (
-          <ListItem display="inline-flex" key={index}>
+          <ListItem key={index} display="inline-flex" gap={1}>
             <Input
               value={value}
+              placeholder="glob pattern, like **/folder/**"
               onChange={(e) => onChange(values.map((value, j) => (index === j ? e.target.value : value)))}
             />
             <Button onClick={() => onChange(values.filter((_, j) => j !== index))}>Remove</Button>
