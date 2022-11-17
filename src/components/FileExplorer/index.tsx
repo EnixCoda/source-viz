@@ -1,7 +1,6 @@
-import minimatch from "minimatch";
 import * as React from "react";
+import { MetaFilter } from "../../services";
 import { FS } from "../App";
-import { MetaFilter } from "../Scan";
 import { RecursiveColumns } from "./column/Columns";
 
 interface FSItem {
@@ -22,20 +21,12 @@ interface FSItemFile extends FSItem {
   file: File;
 }
 
-export function FileExplorer({ files, filter }: { files: FS; filter?: MetaFilter }) {
+export function FileExplorer({ files, filter }: { files: FS; filter: MetaFilter }) {
   const [mode] = React.useState<"columns">("columns");
   const [stack, setStack] = React.useState<FileSystemHandle[]>(() => [files.handle]);
 
-  const isItemExcluded = React.useCallback(
-    (item: string) =>
-      filter?.excludes
-        .map((pattern) => pattern.replace(/^\*\*\/|\/\*\*$/g, ""))
-        .some((pattern) => minimatch(item, pattern)) || false,
-    [filter?.excludes]
-  );
-
   switch (mode) {
     case "columns":
-      return <RecursiveColumns stack={stack} setStack={setStack} isItemExcluded={isItemExcluded} />;
+      return <RecursiveColumns stack={stack} setStack={setStack} filter={filter} />;
   }
 }

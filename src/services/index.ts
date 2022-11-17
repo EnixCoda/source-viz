@@ -1,5 +1,10 @@
 import { Entry } from "./serialize.map";
 
+export type MetaFilter = {
+  includes: string[];
+  excludes: string[];
+};
+
 export function entriesToPreparedData(map: Entry[]): string[][] {
   return map
     .map(([key, value]) => value.map(([dependency, dynamicImport]) => [key, dependency, `${dynamicImport}`]))
@@ -17,8 +22,8 @@ export const deps = async function (
   files: string[],
   parse: Parse,
   fs: FSLike,
-  isIncluded: (path: string) => boolean,
-  resolveAllFiles: boolean = true,
+  isIncluded?: (path: string) => boolean,
+  resolveAllFiles: boolean = false,
   reportProgress?: (progress: number) => void
 ) {
   const dependencyMap = new Map<string, [string, boolean][]>([
@@ -32,7 +37,7 @@ export const deps = async function (
 
   let process = 0;
   for (const file of files) {
-    if (!isIncluded(file)) continue;
+    if (!isIncluded?.(file)) continue;
     const content = await fs.readFile(file);
     try {
       const dependencies = parse(content);

@@ -1,21 +1,22 @@
 import { Box } from "@chakra-ui/react";
 import * as React from "react";
-import { run } from "../../../utils/general";
+import { MetaFilter } from "../../../services";
+import { getPatternsFileNameMatcher, run } from "../../../utils/general";
 import { ColumnDirectory } from "./Directory";
 import { ColumnFile } from "./File";
 
 export function RecursiveColumns({
   stack,
   setStack,
-  isItemExcluded,
+  filter,
 }: {
   stack: FileSystemHandle[];
   setStack: React.Dispatch<React.SetStateAction<FileSystemHandle[]>>;
-  isItemExcluded?: (item: string) => boolean;
+  filter: MetaFilter;
 }) {
   return (
     <Box display="inline-flex" minHeight={400} height="100vh">
-      <RecursiveColumn stack={stack} setStack={setStack} isItemExcluded={isItemExcluded} />
+      <RecursiveColumn stack={stack} setStack={setStack} filter={filter} />
     </Box>
   );
 }
@@ -24,15 +25,19 @@ function RecursiveColumn({
   stack,
   setStack,
   isExcluded,
-  isItemExcluded,
+  filter,
 }: {
   stack: FileSystemHandle[];
   setStack: React.Dispatch<React.SetStateAction<FileSystemHandle[]>>;
   isExcluded?: boolean;
-  isItemExcluded?: (item: string) => boolean;
+  filter: MetaFilter;
 }) {
   const [first, second] = stack;
-  const isFirstExcluded = isExcluded || isItemExcluded?.(first.name);
+  const isItemExcluded = React.useMemo(
+    () => (isExcluded ? () => true : filter.excludes && getPatternsFileNameMatcher(filter.excludes)),
+    [isExcluded, filter.excludes]
+  );
+  const isFirstExcluded = isItemExcluded?.(first.name);
   return (
     <>
       <Box height="100%">
@@ -45,7 +50,7 @@ function RecursiveColumn({
                   selected={second}
                   onSelect={(f) => setStack([first].concat(f))}
                   isExcluded={isFirstExcluded}
-                  isItemExcluded={isFirstExcluded ? () => true : isItemExcluded}
+                  filter={filter}
                 />
               );
             case "file":
@@ -64,7 +69,7 @@ function RecursiveColumn({
               : setStack([first].concat(subStack))
           }
           isExcluded={isExcluded}
-          isItemExcluded={isItemExcluded}
+          filter={filter}
         />
       )}
     </>

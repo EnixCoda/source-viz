@@ -1,8 +1,8 @@
 import { Box, Button, Center, Flex, Heading, Input, List, ListItem, Text } from "@chakra-ui/react";
-import minimatch from "minimatch";
 import * as React from "react";
+import { MetaFilter } from "../services";
 import { prepareData } from "../services/browser";
-import { run } from "../utils/general";
+import { getFilterMatchers, run } from "../utils/general";
 import { PreparedData } from "../utils/getData";
 import { FS } from "./App";
 import { FileExplorer } from "./FileExplorer";
@@ -16,11 +16,6 @@ export const defaultExcludes = [
   "**/dist/**",
   "**/packages/**",
 ];
-
-export type MetaFilter = {
-  includes: string[];
-  excludes: string[];
-};
 
 export function Filter({ files, setFilter }: { files: FS; setFilter: React.Dispatch<MetaFilter> }) {
   const [includes, setIncludes] = React.useState(defaultIncludes);
@@ -80,7 +75,7 @@ function Scanning({
 }: {
   fs: FS;
   setData: React.Dispatch<PreparedData>;
-  filter?: MetaFilter;
+  filter: MetaFilter;
   getFilePath(file: File): string;
 }) {
   const [progress, setProgress] = React.useState(0);
@@ -88,14 +83,10 @@ function Scanning({
   React.useEffect(() => {
     run(async () => {
       try {
-        const [[isPathIncluded, isFileIncluded], [isPathExcluded, isFileExcluded]] = [
-          filter?.includes,
-          filter?.excludes,
-        ].map((patterns) =>
-          [patterns, patterns?.map((pattern) => pattern.replace(/^\*\*\/|\/\*\*$/g, ""))].map(
-            (patterns) => (item: string) => patterns?.some((pattern) => minimatch(item, pattern)) || false
-          )
-        );
+        const [
+          [isPathExcluded, isFileExcluded] = [],
+          // [isPathIncluded, isFileIncluded],
+        ] = filter ? getFilterMatchers(filter) : [];
 
         const traverse = async (
           handle: FileSystemDirectoryHandle,
@@ -123,7 +114,7 @@ function Scanning({
           fs.pathMap.set(file, stack.join("/"));
         });
 
-        setData(await prepareData(files, setProgress, getFilePath));
+        setData(await prepareData(files, setProgress, getFilePath, filter));
       } catch (err) {
         setError(err instanceof Error ? err : new Error(`${err}` || `Unknown error`));
       }

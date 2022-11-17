@@ -1,23 +1,34 @@
 import { Box, Button, List, ListItem, Spinner, Text } from "@chakra-ui/react";
 import * as React from "react";
-import { run } from "../../../utils/general";
+import { MetaFilter } from "../../../services";
+import { getPatternsFileNameMatcher, run } from "../../../utils/general";
 
 export function ColumnDirectory({
   fs,
   selected,
   onSelect,
   isExcluded,
-  isItemExcluded,
+  filter,
 }: {
   fs: FileSystemHandle;
   selected?: FileSystemHandle;
   onSelect?(file: FileSystemHandle): void;
   isExcluded?: boolean;
-  isItemExcluded?: (item: string) => boolean;
+  filter: MetaFilter;
 }) {
   const [width] = React.useState(200);
-
   const [files, setFiles] = React.useState<FileSystemHandle[] | null>(null);
+
+  const isItemExcluded = React.useMemo(
+    () => (isExcluded ? () => true : filter.excludes && getPatternsFileNameMatcher(filter.excludes)),
+    [isExcluded, filter.excludes]
+  );
+
+  const isItemIncluded = React.useMemo(
+    () => (isExcluded ? () => false : filter.includes && getPatternsFileNameMatcher(filter.includes)),
+    [isExcluded, filter.includes]
+  );
+
   React.useEffect(() => {
     let stop = false;
     run(async () => {
@@ -58,7 +69,7 @@ export function ColumnDirectory({
             variant="ghost"
             textAlign="left"
             justifyContent="flex-start"
-            color={isExcluded || isItemExcluded?.(file.name) ? "gray.400" : undefined}
+            color={isItemExcluded?.(file.name) ? "gray.400" : isItemIncluded(file.name) ? "orange.500" : undefined}
           >
             <Text overflow="hidden" textOverflow="ellipsis">
               {file.kind === "directory" ? "📁" : "📄"} {file.name}
