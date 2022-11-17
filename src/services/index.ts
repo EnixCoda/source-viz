@@ -24,7 +24,13 @@ export const deps = async function (
   fs: FSLike,
   isIncluded?: (path: string) => boolean,
   resolveAllFiles: boolean = false,
-  reportProgress?: (progress: number) => void
+  {
+    reportProgress,
+    onError,
+  }: {
+    reportProgress?: (file: string, progress: number) => void;
+    onError?: (file: string, error: unknown) => void;
+  } = {}
 ) {
   const dependencyMap = new Map<string, [string, boolean][]>([
     /**
@@ -43,10 +49,14 @@ export const deps = async function (
       const dependencies = parse(content);
       dependencyMap.set(file, dependencies);
     } catch (err) {
-      console.error(`Error parsing "${file}"`);
-      throw err;
+      if (onError) {
+        onError(file, err);
+      } else {
+        console.error(`Error parsing "${file}", throwing because no \`onError\` handler provided`);
+        throw err;
+      }
     }
-    reportProgress?.(++process);
+    reportProgress?.(file, ++process);
   }
 
   function resolveDependencyFile(file: string, importPath: string) {

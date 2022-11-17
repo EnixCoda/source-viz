@@ -34,9 +34,7 @@ export function App() {
             );
           case "scan":
             return (
-              fs && (
-                <Scan fileSystem={fs} setPreparedData={setData} getFilePath={(file) => fs.pathMap.get(file) || ""} />
-              )
+              fs && <Scan fileSystem={fs} onDataPrepared={setData} getFilePath={(file) => fs.pathMap.get(file) || ""} />
             );
           case "viz":
             return (

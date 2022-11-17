@@ -1,8 +1,24 @@
-import { Box, Button, Center, Flex, Heading, Input, List, ListItem, Text } from "@chakra-ui/react";
+import {
+  Box,
+  Button,
+  Center,
+  Flex,
+  Heading,
+  Input,
+  List,
+  ListItem,
+  Table,
+  Tbody,
+  Td,
+  Text,
+  Th,
+  Thead,
+  Tr,
+} from "@chakra-ui/react";
 import * as React from "react";
 import { MetaFilter } from "../services";
 import { prepareData } from "../services/browser";
-import { getFilterMatchers, run } from "../utils/general";
+import { getFilterMatchers } from "../utils/general";
 import { PreparedData } from "../utils/getData";
 import { FS } from "./App";
 import { FileExplorer } from "./FileExplorer";
@@ -35,13 +51,13 @@ export function Filter({ files, setFilter }: { files: FS; setFilter: React.Dispa
           </Button>
         </Box>
         <Heading as="h2" size="lg">
-          Includes
-        </Heading>
-        <InputList values={includes} onChange={setIncludes} />
-        <Heading as="h2" size="lg">
-          Excludes
+          Exclude file patterns
         </Heading>
         <InputList values={excludes} onChange={setExcludes} />
+        <Heading as="h2" size="lg">
+          Entry files patterns
+        </Heading>
+        <InputList values={includes} onChange={setIncludes} />
       </Box>
     </Box>
   );
@@ -69,78 +85,90 @@ function InputList({ values, onChange }: { values: string[]; onChange(values: st
 
 function Scanning({
   fs,
-  setData,
+  onDataPrepared,
   filter,
   getFilePath,
 }: {
   fs: FS;
-  setData: React.Dispatch<PreparedData>;
+  onDataPrepared: React.Dispatch<PreparedData>;
   filter: MetaFilter;
   getFilePath(file: File): string;
 }) {
-  const [progress, setProgress] = React.useState(0);
-  const [error, setError] = React.useState<Error | null>(null);
-  React.useEffect(() => {
-    run(async () => {
-      try {
-        const [
-          [isPathExcluded, isFileExcluded] = [],
-          // [isPathIncluded, isFileIncluded],
-        ] = filter ? getFilterMatchers(filter) : [];
-
-        const traverse = async (
-          handle: FileSystemDirectoryHandle,
-          onFile: (handle: FileSystemFileHandle, stack: string[]) => void | Promise<void>,
-          stack: string[] = []
-        ) => {
-          for await (const item of handle.values()) {
-            if (isFileExcluded(item.name)) continue;
-            if (isPathExcluded(stack.concat(item.name).join("/"))) continue;
-            if (item.kind === "file") {
-              const $item = item as FileSystemFileHandle;
-              // if (isPathIncluded(stack.concat(item.name).join("/")) || isFileIncluded(item.name))
-              await onFile($item, stack.concat(item.name));
-            } else {
-              const $item = item as FileSystemDirectoryHandle;
-              await traverse($item, onFile, stack.concat($item.name));
-            }
-          }
-        };
-
-        const files: File[] = [];
-        await traverse(fs.handle, async (handle, stack) => {
-          const file = await handle.getFile();
-          files.push(file);
-          fs.pathMap.set(file, stack.join("/"));
-        });
-
-        setData(await prepareData(files, setProgress, getFilePath, filter));
-      } catch (err) {
-        setError(err instanceof Error ? err : new Error(`${err}` || `Unknown error`));
-      }
-    });
-  }, [fs, setProgress, getFilePath, setData, filter]);
-
-  return <>{error ? <Text>{error.message}</Text> : <Heading>Scanning {progress}th file</Heading>}</>;
-}
-
-export function Scan({
-  fileSystem,
-  setPreparedData,
-  getFilePath,
-}: {
-  fileSystem: FS;
-  setPreparedData: React.Dispatch<PreparedData>;
-  getFilePath(file: File): string;
-}) {
+  const [inProgress, setInProgress] = React.useState(true);
+  const [[processingFile, progress], setProgress] = React.useState<[file: string, count: number]>(["", 0]);
   const [data, setData] = React.useState<PreparedData | null>(null);
-  const [filter, setFilter] = React.useState<MetaFilter | null>(null);
+  const [errors, setErrors] = React.useState<[file: string, error: unknown][]>([]);
+
+  const scan = React.useCallback(async () => {
+    try {
+      setInProgress(true);
+      setProgress(["", 0]);
+      setErrors([]);
+      setData(null);
+
+      const [
+        [isPathExcluded, isFileExcluded] = [],
+        // [isPathIncluded, isFileIncluded],
+      ] = filter ? getFilterMatchers(filter) : [];
+
+      const traverse = async (
+        handle: FileSystemDirectoryHandle,
+        onFile: (handle: FileSystemFileHandle, stack: string[]) => void | Promise<void>,
+        stack: string[] = []
+      ) => {
+        for await (const item of handle.values()) {
+          if (isFileExcluded(item.name)) continue;
+          if (isPathExcluded(stack.concat(item.name).join("/"))) continue;
+          if (item.kind === "file") {
+            const $item = item as FileSystemFileHandle;
+            // if (isPathIncluded(stack.concat(item.name).join("/")) || isFileIncluded(item.name))
+            await onFile($item, stack.concat(item.name));
+          } else {
+            const $item = item as FileSystemDirectoryHandle;
+            await traverse($item, onFile, stack.concat($item.name));
+          }
+        }
+      };
+
+      const files: File[] = [];
+      await traverse(fs.handle, async (handle, stack) => {
+        const file = await handle.getFile();
+        files.push(file);
+        fs.pathMap.set(file, stack.join("/"));
+      });
+
+      const preparedData = await prepareData(
+        files,
+        setProgress,
+        (file, error) => {
+          setErrors((errors) => errors.concat([[file, error]]));
+        },
+        getFilePath,
+        filter
+      );
+
+      setData(preparedData);
+    } catch (err) {
+      setErrors((errors) => errors.concat([["", err instanceof Error ? err : new Error(`${err}` || `Unknown error`)]]));
+    } finally {
+      setInProgress(false);
+    }
+  }, [fs, setProgress, getFilePath, filter]);
+
+  React.useEffect(() => {
+    scan();
+  }, [scan]);
 
   return (
-    <Center h="100vh">
-      {data ? (
+    <Box display="flex" flexDirection="column" gap={4}>
+      {inProgress ? (
+        <Box>
+          <Text>Scanning {progress}th file</Text>
+          <Text>{processingFile}</Text>
+        </Box>
+      ) : (
         <Flex flexDirection="column" alignItems="stretch" gap={4}>
-          <Button colorScheme="green" onClick={() => setPreparedData(data)}>
+          <Button disabled={!data} colorScheme="green" onClick={() => data && onDataPrepared(data)}>
             Visualization {">"}
           </Button>
           <Button
@@ -150,9 +178,46 @@ export function Scan({
           >
             Save Scan Result
           </Button>
+          <Button onClick={() => scan()}>Scan again</Button>
         </Flex>
-      ) : filter ? (
-        <Scanning fs={fileSystem} setData={setData} getFilePath={getFilePath} filter={filter} />
+      )}
+      {errors.length > 0 && (
+        <Table>
+          <Thead>
+            <Tr>
+              <Th>File</Th>
+              <Th>Error</Th>
+            </Tr>
+          </Thead>
+          <Tbody>
+            {errors.map(([file, error], index) => (
+              <Tr key={index}>
+                <Td>{file}</Td>
+                <Td>{error instanceof Error ? error.message : `${error}`}</Td>
+              </Tr>
+            ))}
+          </Tbody>
+        </Table>
+      )}
+    </Box>
+  );
+}
+
+export function Scan({
+  fileSystem,
+  onDataPrepared,
+  getFilePath,
+}: {
+  fileSystem: FS;
+  onDataPrepared: React.Dispatch<PreparedData>;
+  getFilePath(file: File): string;
+}) {
+  const [filter, setFilter] = React.useState<MetaFilter | null>(null);
+
+  return (
+    <Center h="100vh">
+      {filter ? (
+        <Scanning fs={fileSystem} onDataPrepared={onDataPrepared} getFilePath={getFilePath} filter={filter} />
       ) : (
         <Filter files={fileSystem} setFilter={setFilter} />
       )}

@@ -6,7 +6,8 @@ import * as babelParser from "./parsers/babel";
 
 export async function prepareData(
   files: File[],
-  setProgress: React.Dispatch<React.SetStateAction<number>>,
+  onProgress: React.Dispatch<React.SetStateAction<[file: string, count: number]>>,
+  onError: (file: string, error: unknown) => void,
   getFilePath: (file: File) => string,
   filter: MetaFilter
 ) {
@@ -28,7 +29,12 @@ export async function prepareData(
   };
 
   const parse = await babelParser.prepare();
-  const records = await deps(Array.from(pathToFileMap.keys()), parse, fsLike, isIncluded, false, setProgress);
+  const records = await deps(Array.from(pathToFileMap.keys()), parse, fsLike, isIncluded, false, {
+    onError,
+    reportProgress(file, count) {
+      onProgress([file, count]);
+    },
+  });
 
   const preparedData = prepareGraphData(entriesToPreparedData(records));
 
