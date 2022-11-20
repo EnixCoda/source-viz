@@ -1,4 +1,4 @@
-import { Box } from "@chakra-ui/react";
+import { Box, HStack } from "@chakra-ui/react";
 import * as React from "react";
 import { MetaFilter } from "../../../services";
 import { getPatternsFileNameMatcher, run } from "../../../utils/general";
@@ -15,9 +15,9 @@ export function RecursiveColumns({
   filter: MetaFilter;
 }) {
   return (
-    <Box display="inline-flex" minHeight={400} height="100vh">
+    <HStack alignItems="start" flex={1} overflow="auto" minH={0} maxH="100%" minW={0}>
       <RecursiveColumn stack={stack} setStack={setStack} filter={filter} />
-    </Box>
+    </HStack>
   );
 }
 
@@ -40,7 +40,7 @@ function RecursiveColumn({
   const isFirstExcluded = isItemExcluded?.(first.name);
   return (
     <>
-      <Box height="100%">
+      <Box flexShrink={0} maxHeight="100%" overflow="auto">
         {run(() => {
           switch (first.kind) {
             case "directory":
@@ -51,6 +51,7 @@ function RecursiveColumn({
                   onSelect={(f) => setStack([first].concat(f))}
                   isExcluded={isFirstExcluded}
                   filter={filter}
+                  scrollIntoView
                 />
               );
             case "file":

@@ -1,5 +1,11 @@
-export const stringifyToCSV = (data: string[][], title?: string[]) =>
-  (title ? [title].concat(data) : data).map((cols) => cols.join(",")).join("\n");
+type SerializablePrimitives = string | number | boolean;
+
+export const stringifyToCSV = (data: SerializablePrimitives[][], title?: string[]) =>
+  ([] as SerializablePrimitives[][])
+    .concat(title ? [title] : [])
+    .concat(data)
+    .map((cols) => cols.join(","))
+    .join("\n");
 
 export function parseCSV<T extends any[] = string[]>(
   csv: string,

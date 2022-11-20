@@ -1,7 +1,10 @@
-import { Box, Button, Center, ChakraProvider, Flex } from "@chakra-ui/react";
+import { ArrowBackIcon, Icon } from "@chakra-ui/icons";
+import { Button, ChakraProvider, Heading, HStack, Link, Text, VStack } from "@chakra-ui/react";
 import * as React from "react";
+import { AiFillGithub, AiFillTwitterCircle } from "react-icons/ai";
+import { DependencyEntry } from "../services/serializers";
 import { run } from "../utils/general";
-import { PreparedData } from "../utils/getData";
+import { ExportButton } from "./ExportButton";
 import { FSLoadFilesButton } from "./FSLoadFilesButton";
 import { LoadDataButton } from "./LoadDataButton";
 import { Scan } from "./Scan";
@@ -13,7 +16,7 @@ export interface FS {
 }
 
 export function App() {
-  const [data, setData] = React.useState<PreparedData | null>(null);
+  const [data, setData] = React.useState<DependencyEntry[] | null>(null);
   const [fs, setFS] = React.useState<FS | null>(null);
 
   type State = "initial" | "scan" | "viz";
@@ -21,44 +24,78 @@ export function App() {
 
   return (
     <ChakraProvider>
-      {run(() => {
-        switch (state) {
-          case "initial":
-            return (
-              <Center h="100vh">
-                <Flex flexDirection="column" alignItems="stretch" gap={4}>
-                  <FSLoadFilesButton onLoad={setFS}>Scan local</FSLoadFilesButton>
-                  <LoadDataButton onLoad={setData} />
-                </Flex>
-              </Center>
-            );
-          case "scan":
-            return (
-              fs && <Scan fileSystem={fs} onDataPrepared={setData} getFilePath={(file) => fs.pathMap.get(file) || ""} />
-            );
-          case "viz":
-            return (
-              data && (
-                <Box display="flex" flexDirection="column" maxHeight="100vh" overflow="auto">
-                  <Box display="flex" flexDirection="row" justifyContent="space-between">
-                    <Button
-                      onClick={() => {
-                        setFS(null);
-                        setData(null);
-                      }}
-                    >
-                      {"<"}
-                    </Button>
-                    <Button>Save scan result</Button>
-                  </Box>
-                  <Viz data={data} setData={setData} />
-                </Box>
-              )
-            );
-          default:
-            return null;
-        }
-      })}
+      <VStack w="100vw" h="100vh" alignItems="stretch" spacing={0}>
+        <HStack paddingY={2} paddingX={2} background="ButtonFace" justifyContent="space-between" alignItems="center">
+          <Heading>Source Viz</Heading>
+          <HStack alignItems="center" gap={1}>
+            <Text>Made by EnixCoda</Text>
+            <Link href="https://github.com/EnixCoda">
+              <Icon w={6} h={6} as={AiFillGithub} />
+            </Link>
+            <Link href="https://twitter.com/__enix__">
+              <Icon w={6} h={6} as={AiFillTwitterCircle} />
+            </Link>
+          </HStack>
+        </HStack>
+        {run(() => {
+          switch (state) {
+            case "initial":
+              return (
+                <VStack padding={2} gap={4} alignItems="flex-start">
+                  <VStack gap={1} alignItems="flex-start">
+                    <FSLoadFilesButton buttonProps={{ colorScheme: "green" }} onLoad={setFS}>
+                      Scan local project
+                    </FSLoadFilesButton>
+                    <Text fontSize="sm">
+                      Please select the root folder of a project, generally it is the directory where package.json is
+                      in.
+                    </Text>
+                  </VStack>
+                  <VStack gap={1} alignItems="flex-start">
+                    <LoadDataButton buttonProps={{ variant: "solid" }} onLoad={setData} />
+                    <Text fontSize="sm">Or resume with the data you exported before.</Text>
+                  </VStack>
+                  <Text as="em" fontSize="sm">
+                    Either way you choose, no data will be uploaded to remote server.
+                  </Text>
+                </VStack>
+              );
+            case "scan":
+              return (
+                fs && (
+                  <Scan
+                    fileSystem={fs}
+                    onDataPrepared={setData}
+                    getFilePath={(file) => fs.pathMap.get(file) || ""}
+                    onCancel={() => setFS(null)}
+                  />
+                )
+              );
+            case "viz":
+              return (
+                data && (
+                  <VStack alignItems="stretch" maxHeight="100vh" overflow="auto">
+                    <HStack justifyContent="space-between" padding={2}>
+                      <Button
+                        onClick={() => {
+                          setFS(null);
+                          setData(null);
+                        }}
+                        aria-label={"Back"}
+                      >
+                        <ArrowBackIcon />
+                      </Button>
+                      <ExportButton data={data} />
+                    </HStack>
+                    <Viz entries={data} setData={setData} />
+                  </VStack>
+                )
+              );
+            default:
+              return null;
+          }
+        })}
+      </VStack>
     </ChakraProvider>
   );
 }

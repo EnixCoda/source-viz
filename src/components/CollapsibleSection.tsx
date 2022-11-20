@@ -1,7 +1,13 @@
 import { AccordionButton, AccordionIcon, AccordionItem, AccordionPanel, Box, Heading } from "@chakra-ui/react";
 import * as React from "react";
 
-export function CollapsibleSection({ label, children }: { label: string; children: React.ReactNode | React.ReactNode[] }) {
+export function CollapsibleSection({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode | React.ReactNode[];
+}) {
   return (
     <AccordionItem>
       <AccordionButton>

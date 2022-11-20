@@ -1,4 +1,4 @@
-import { Box, Button, List, ListItem, Spinner, Text } from "@chakra-ui/react";
+import { Button, HStack, List, ListItem, Spinner, Text } from "@chakra-ui/react";
 import * as React from "react";
 import { MetaFilter } from "../../../services";
 import { getPatternsFileNameMatcher, run } from "../../../utils/general";
@@ -9,15 +9,22 @@ export function ColumnDirectory({
   onSelect,
   isExcluded,
   filter,
+  scrollIntoView,
 }: {
   fs: FileSystemHandle;
   selected?: FileSystemHandle;
   onSelect?(file: FileSystemHandle): void;
   isExcluded?: boolean;
   filter: MetaFilter;
+  scrollIntoView?: boolean;
 }) {
   const [width] = React.useState(200);
   const [files, setFiles] = React.useState<FileSystemHandle[] | null>(null);
+  const ref = React.useRef<HTMLOListElement | null>(null);
+
+  React.useEffect(() => {
+    if (files && ref.current && scrollIntoView) ref.current.scrollIntoView();
+  }, [files, scrollIntoView]);
 
   const isItemExcluded = React.useMemo(
     () => (isExcluded ? () => true : filter.excludes && getPatternsFileNameMatcher(filter.excludes)),
@@ -49,13 +56,13 @@ export function ColumnDirectory({
 
   if (!files)
     return (
-      <Box width={width} display="inline-flex" justifyContent="center" paddingY={2}>
+      <HStack width={width} justifyContent="center" paddingY={2}>
         <Spinner />
-      </Box>
+      </HStack>
     );
 
   return (
-    <List width={width} height="100%" overflowY="auto">
+    <List ref={ref} width={width} height="100%" overflowY="auto">
       {files.map((file) => (
         <ListItem key={file.name} onClick={() => onSelect?.(file)} whiteSpace="nowrap" fontFamily="monospace">
           <Button

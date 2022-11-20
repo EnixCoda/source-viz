@@ -1,19 +1,17 @@
-import { parseCSV } from "../services/serialize.csv";
-import { PreparedData, prepareGraphData } from "../utils/getData";
+import { ButtonProps } from "@chakra-ui/react";
+import { DependencyEntry, entryParsers } from "../services/serializers";
 import { LoadFilesButton } from "./LoadFilesButton";
 
-const fileParsers: Record<string, undefined | ((raw: string) => string[][])> = {
-  json: JSON.parse,
-  csv: parseCSV,
-};
-
-export function LoadDataButton({ onLoad }: { onLoad: (data: PreparedData) => void; }) {
+export function LoadDataButton({
+  onLoad,
+  buttonProps,
+}: {
+  onLoad: (data: DependencyEntry[]) => void;
+  buttonProps?: ButtonProps;
+}) {
   return (
     <LoadFilesButton
-      buttonProps={{
-        variant: "solid",
-        colorScheme: "green",
-      }}
+      buttonProps={buttonProps}
       onLoad={async (files) => {
         if (files) {
           if (files.length !== 1) return;
@@ -24,17 +22,15 @@ export function LoadDataButton({ onLoad }: { onLoad: (data: PreparedData) => voi
           const ext = file.name.split(".").pop();
           if (!ext) return;
 
-          const parser = fileParsers[ext];
+          const parser = entryParsers[ext as keyof typeof entryParsers];
           if (parser) {
-            const content = await file.text();
-            const parsed = parser(content);
-            const prepared = prepareGraphData(parsed);
-            onLoad(prepared);
+            // TODO: handle error
+            onLoad(parser(await file.text()));
           }
         }
       }}
     >
-      Load Preset Data
+      Upload exported data
     </LoadFilesButton>
   );
 }

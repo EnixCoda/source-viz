@@ -4,7 +4,7 @@ import { useView } from "./useView";
 
 export function useSelectView<T extends string>(
   label: React.ReactNode,
-  options: { label: React.ReactNode; value: T }[],
+  options: { label: React.ReactNode; value: T | null }[],
   defaultValue: T
 ) {
   return useView<T>(
@@ -14,7 +14,7 @@ export function useSelectView<T extends string>(
         <FormLabel>{label}</FormLabel>
         <Select value={value} onChange={(e) => setState(e.target.value as typeof value)}>
           {options.map(({ label, value }) => (
-            <option key={value} value={value}>
+            <option key={value} value={value || ""}>
               {label}
             </option>
           ))}

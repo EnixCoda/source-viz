@@ -1,21 +1,19 @@
 import { NodeObject } from "force-graph";
+import { DependencyEntry } from "../services/serializers";
+import { safeMapGet } from "./general";
 
-const safeMapGet = <K, V>(map: Map<K, V>, key: K, initialize: () => V) => {
-  let value = map.get(key);
-  if (!value) map.set(key, (value = initialize()));
-  return value;
-};
-
-export function prepareGraphData(data: string[][]) {
-  const dependencies = new Set<string>(data.map(([, dep]) => dep));
+export function prepareGraphData(data: DependencyEntry[]) {
+  const dependencies = new Set<string>(data.flatMap(([, deps]) => deps.map(([dep]) => dep)));
   const nodesArray = data.map(([file]) => file);
   const nodes = new Set(nodesArray);
   const rootFiles = new Set<string>(nodesArray.filter((file) => !dependencies.has(file)));
   const dependencyMap = new Map<string, Set<string>>(); // file -> deps
   const dependantMap = new Map<string, Set<string>>(); // dep -> files
-  for (const [file, dep] of data) {
-    safeMapGet(dependencyMap, file, () => new Set<string>()).add(dep);
-    safeMapGet(dependantMap, dep, () => new Set<string>()).add(file);
+  for (const [file, deps] of data) {
+    for (const [dep] of deps) {
+      safeMapGet(dependencyMap, file, () => new Set<string>()).add(dep);
+      safeMapGet(dependantMap, dep, () => new Set<string>()).add(file);
+    }
   }
   return { nodes, dependantMap, dependencyMap, dependencies, rootFiles };
 }

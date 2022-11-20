@@ -7,7 +7,7 @@ import yargs from "yargs";
 import { deps, FSLike } from "../services";
 import { getFiles } from "../services/node";
 import * as babelParser from "../services/parsers/babel";
-import { getSerializerByName } from "../services/serialize.map";
+import { getEntrySerializerByFileName } from "../services/serializers";
 
 const defaultIncludes = ["*.jsx?", "*.tsx?"];
 const defaultExcludes = [".git", ".cache", "node_modules", "**/node_modules/**", "**/build/**", "**/dist/**"];
@@ -57,7 +57,9 @@ async function main() {
   const parser = await babelParser.prepare();
   const records = await deps(files, parser, fsLike, isIncluded);
 
-  const serializer = getSerializerByName(output);
+  const serializer = getEntrySerializerByFileName(output);
+  if (!serializer) throw new Error(`No serializer matched with the extension of file "${output}"`);
+
   await fs.writeFile(output, serializer(records), "utf-8");
   console.log(`Records saved to "${path.resolve(output)}"`);
 }

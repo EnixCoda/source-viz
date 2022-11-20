@@ -1,14 +1,14 @@
-import { Entry } from "./serialize.map";
+import { DependencyEntry, DependencyMap } from "./serializers";
 
 export type MetaFilter = {
   includes: string[];
   excludes: string[];
 };
 
-export function entriesToPreparedData(map: Entry[]): string[][] {
-  return map
-    .map(([key, value]) => value.map(([dependency, dynamicImport]) => [key, dependency, `${dynamicImport}`]))
-    .flat();
+export function entriesToPreparedData(map: DependencyEntry[]): string[][] {
+  return map.flatMap(([key, value]) =>
+    value.map(([dependency, dynamicImport]) => [key, dependency, `${dynamicImport}`])
+  );
 }
 
 type Parse = (source: string) => [string, boolean][];
@@ -18,7 +18,7 @@ export interface FSLike {
   resolvePath(...paths: string[]): string;
 }
 
-export const deps = async function (
+export async function deps(
   files: string[],
   parse: Parse,
   fs: FSLike,
@@ -32,7 +32,7 @@ export const deps = async function (
     onError?: (file: string, error: unknown) => void;
   } = {}
 ) {
-  const dependencyMap = new Map<string, [string, boolean][]>([
+  const dependencyMap: DependencyMap = new Map([
     /**
      * Format: [file_path, [dependency, async import]]
      *
@@ -77,7 +77,6 @@ export const deps = async function (
     // 1. "original"
     // 2. "original.js", here also resolve ".tsx?" files
     // 3. "original/index.js"
-
     // 1.
     if (files.includes(baseResolved)) return baseResolved;
     // 2.
@@ -95,7 +94,7 @@ export const deps = async function (
     return baseResolved;
   }
 
-  const entries: Entry[] = [...dependencyMap.entries()].map(([file, dependencies]) => [
+  const entries: DependencyEntry[] = [...dependencyMap.entries()].map(([file, dependencies]) => [
     file,
     dependencies.map(
       ([dependency, dynamicImport]) => [resolveDependencyFile(file, dependency), dynamicImport] as [string, boolean]
@@ -103,4 +102,4 @@ export const deps = async function (
   ]);
 
   return entries;
-};
+}

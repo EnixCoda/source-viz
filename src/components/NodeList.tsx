@@ -1,4 +1,4 @@
-import { List } from "@chakra-ui/react";
+import { List, ListItem, Text } from "@chakra-ui/react";
 import * as React from "react";
 import { NodeInView } from "./NodeInView";
 
@@ -9,9 +9,23 @@ export function NodeList<T>({
   data?: T[];
   mapProps: (record: T) => React.ComponentProps<typeof NodeInView>;
 }) {
-  return (
-    <List paddingLeft={4} maxHeight={360} overflow="auto">
-      {data?.length ? data.map((record, i) => <NodeInView key={i} {...mapProps(record)} />) : <>No data</>}
+  return data?.length ? (
+    <List
+      maxWidth="100%"
+      display="inline-flex"
+      flexDirection="column"
+      padding={2}
+      maxHeight={360}
+      overflow="auto"
+      gap={1}
+    >
+      {data.map((record, i) => (
+        <ListItem key={i}>
+          <NodeInView {...mapProps(record)} />
+        </ListItem>
+      ))}
     </List>
+  ) : (
+    <Text color="grey">No data</Text>
   );
 }

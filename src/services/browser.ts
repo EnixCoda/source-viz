@@ -1,7 +1,6 @@
 import * as React from "react";
-import { deps, entriesToPreparedData, FSLike, MetaFilter } from ".";
+import { deps, FSLike, MetaFilter } from ".";
 import { getFilterMatchers, resolvePath } from "../utils/general";
-import { prepareGraphData } from "../utils/getData";
 import * as babelParser from "./parsers/babel";
 
 export async function prepareData(
@@ -29,14 +28,12 @@ export async function prepareData(
   };
 
   const parse = await babelParser.prepare();
-  const records = await deps(Array.from(pathToFileMap.keys()), parse, fsLike, isIncluded, false, {
+  const entries = await deps(Array.from(pathToFileMap.keys()), parse, fsLike, isIncluded, false, {
     onError,
     reportProgress(file, count) {
       onProgress([file, count]);
     },
   });
 
-  const preparedData = prepareGraphData(entriesToPreparedData(records));
-
-  return preparedData;
+  return entries;
 }

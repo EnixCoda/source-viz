@@ -1,4 +1,4 @@
-import { GraphData } from "force-graph";
+import { ForceGraphInstance, GraphData } from "force-graph";
 import * as React from "react";
 import { createGraph } from "../utils/ForceGraphBinding";
 import { wrapNewStateForDispatching } from "../utils/general";
@@ -18,11 +18,15 @@ export function useGraph({
   renderAsText,
   fixNodeOnDragEnd,
   data,
+  width,
+  height,
 }: {
   data: PreparedData;
-  dagMode: DAGDirections | "";
+  dagMode: DAGDirections | null;
   renderAsText: boolean;
   fixNodeOnDragEnd: boolean;
+  width: number;
+  height: number;
 }) {
   const ref = React.useRef<HTMLDivElement | null>(null);
   const [selectedNodeInState, setSelectedNodeInState] = React.useState<string | null>(null);
@@ -33,29 +37,11 @@ export function useGraph({
     selectedNodeRef.current = id;
   }, []);
 
-  React.useEffect(() => {
-    const current = ref.current;
-    if (current) {
-      const graph = createGraph(current);
-      setGraph(wrapNewStateForDispatching(graph));
-      return () => {
-        graph._destructor();
-        setGraph(null);
-      };
-    }
+  useGraphInstance(ref, setGraph);
 
-    setGraph(null);
-  }, []);
+  useGraphBasicStyles(graph);
 
-  React.useEffect(() => {
-    if (!graph) return;
-    graph.nodeId("id").nodeLabel("id").linkDirectionalArrowLength(2);
-  }, [graph]);
-
-  React.useEffect(() => {
-    if (!graph) return;
-    graph.width(window.innerWidth / 2).height(window.innerHeight);
-  }, [graph]);
+  useGraphSize(graph, width, height);
 
   const render = React.useMemo(() => {
     if (!graph) return null;
@@ -76,4 +62,35 @@ export function useGraph({
   }, [graph, fixNodeOnDragEnd, dagMode, renderAsText, data, setNodeSelection]);
 
   return [ref, render, selectedNodeInState, setNodeSelection] as const;
+}
+
+function useGraphBasicStyles(graph: ForceGraphInstance | null) {
+  React.useEffect(() => {
+    if (!graph) return;
+    graph.nodeId("id").nodeLabel("id").linkDirectionalArrowLength(2);
+  }, [graph]);
+}
+
+function useGraphInstance(
+  ref: React.MutableRefObject<HTMLDivElement | null>,
+  setGraph: React.Dispatch<React.SetStateAction<ForceGraphInstance | null>>
+) {
+  React.useEffect(() => {
+    const current = ref.current;
+    if (current) {
+      const graph = createGraph(current);
+      setGraph(wrapNewStateForDispatching(graph));
+      return () => {
+        graph._destructor();
+        setGraph(null);
+      };
+    }
+  }, [ref, setGraph]);
+}
+
+function useGraphSize(graph: ForceGraphInstance | null, width: number, height: number) {
+  React.useEffect(() => {
+    if (!graph) return;
+    graph.width(width).height(height);
+  }, [graph, width, height]);
 }

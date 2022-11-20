@@ -9,6 +9,12 @@ export function safeRegExp(raw: string, flags: string = "") {
   }
 }
 
+export const safeMapGet = <K, V>(map: Map<K, V>, key: K, initialize: () => V) => {
+  let value = map.get(key);
+  if (!value) map.set(key, (value = initialize()));
+  return value;
+};
+
 export function exclude<T>(sources: T[], targets: T[]): T[] {
   return sources.filter((source) => !targets.some((target) => source === target));
 }
@@ -33,3 +39,17 @@ export const getFilterMatchers = (filter: MetaFilter) =>
     getPatternsMatcher(patterns),
     getPatternsFileNameMatcher(patterns),
   ]);
+
+export function download(data: BlobPart, filename: string, type?: string) {
+  const file = new Blob([data], { type: type });
+  const url = URL.createObjectURL(file);
+  const anchorElement = document.createElement("a");
+  anchorElement.href = url;
+  anchorElement.download = filename;
+  document.body.appendChild(anchorElement);
+  anchorElement.click();
+  setTimeout(() => {
+    document.body.removeChild(anchorElement);
+    window.URL.revokeObjectURL(url);
+  }, 0);
+}
