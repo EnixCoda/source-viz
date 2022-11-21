@@ -19,7 +19,7 @@ async function main() {
     i: includes,
     x: excludes,
   } = await yargs
-    .scriptName("deps")
+    .scriptName("source")
     .usage("$0 [args]")
     .option("p", {
       alias: "project",

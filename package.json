@@ -1,5 +1,5 @@
 {
-  "name": "deps-viz",
+  "name": "source-viz",
   "version": "1.0.0",
   "main": "src/index.ts",
   "license": "MIT",
@@ -9,7 +9,7 @@
     "test": "node scripts/test.js"
   },
   "bin": {
-    "deps-viz": "./npm/cli/index.js"
+    "source-viz": "./npm/cli/index.js"
   },
   "prettier": {
     "printWidth": 120
