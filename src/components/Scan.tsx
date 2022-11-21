@@ -20,10 +20,10 @@ import {
   VStack,
 } from "@chakra-ui/react";
 import * as React from "react";
-import { MetaFilter } from "../services";
-import { prepareData } from "../services/browser";
+import { getDependencyEntries, MetaFilter } from "../services";
+import * as babelParser from "../services/parsers/babel";
 import { DependencyEntry } from "../services/serializers";
-import { getFilterMatchers } from "../utils/general";
+import { getFilterMatchers, resolvePath } from "../utils/general";
 import { FS } from "./App";
 import { ExportButton } from "./ExportButton";
 import { FileExplorer } from "./FileExplorer";
@@ -110,13 +110,11 @@ function Scanning({
   onDataPrepared,
   filter,
   onCancel,
-  getFilePath,
 }: {
   fs: FS;
   onDataPrepared: React.Dispatch<DependencyEntry[] | null>;
   filter: MetaFilter;
   onCancel?(): void;
-  getFilePath(file: File): string;
 }) {
   const [inProgress, setInProgress] = React.useState(true);
   const [[processingFile, progress], setProgress] = React.useState<[file: string, count: number]>(["", 0]);
@@ -129,6 +127,10 @@ function Scanning({
       setProgress(["", 0]);
       setErrors([]);
       setData(null);
+
+      let count = 0;
+      const updateCollectingProgress = () => setProgress(["Collecting files", count]);
+      updateCollectingProgress();
 
       const [
         [isPathExcluded, isFileExcluded] = [],
@@ -144,6 +146,8 @@ function Scanning({
           if (isFileExcluded(item.name)) continue;
           if (isPathExcluded(stack.concat(item.name).join("/"))) continue;
           if (item.kind === "file") {
+            ++count;
+            updateCollectingProgress();
             const $item = item as FileSystemFileHandle;
             // if (isPathIncluded(stack.concat(item.name).join("/")) || isFileIncluded(item.name))
             await onFile($item, stack.concat(item.name));
@@ -154,28 +158,46 @@ function Scanning({
         }
       };
 
-      const files: File[] = [];
+      const reversePathMap: Map<string, FileSystemFileHandle> = new Map();
+
+      const handles: FileSystemFileHandle[] = [];
       await traverse(fs.handle, async (handle, stack) => {
-        const file = await handle.getFile();
-        files.push(file);
-        fs.pathMap.set(file, stack.join("/"));
+        handles.push(handle);
+        const path = stack.join("/");
+        fs.pathMap.set(handle, path);
+        reversePathMap.set(path, handle);
       });
 
-      const records = await prepareData(
-        files,
-        setProgress,
-        (file, error) => setErrors((errors) => errors.concat([[file, error]])),
-        getFilePath,
-        filter
+      setProgress(["", 0]);
+
+      const [, [isIncluded] = []] = filter ? getFilterMatchers(filter) : [];
+      const entries = await getDependencyEntries(
+        Array.from(fs.pathMap.values()),
+        await babelParser.prepare(),
+        {
+          resolvePath,
+          readFile: async (path) => {
+            const handle = reversePathMap.get(path);
+            if (!handle) throw new Error(`No file found for "${path}"`);
+            return (await handle.getFile()).text();
+          },
+        },
+        isIncluded,
+        {
+          onError: (file, error) => setErrors((errors) => errors.concat([[file, error]])),
+          reportProgress(file, count) {
+            setProgress([file, count]);
+          },
+        }
       );
 
-      setData(records);
+      setData(entries);
     } catch (err) {
       setErrors((errors) => errors.concat([["", err instanceof Error ? err : new Error(`${err}` || `Unknown error`)]]));
     } finally {
       setInProgress(false);
     }
-  }, [fs, setProgress, getFilePath, filter]);
+  }, [fs, setProgress, filter]);
 
   React.useEffect(() => {
     scan();
@@ -252,23 +274,15 @@ export function Scan({
   fileSystem,
   onDataPrepared,
   onCancel,
-  getFilePath,
 }: {
   fileSystem: FS;
   onDataPrepared: React.Dispatch<DependencyEntry[] | null>;
   onCancel?(): void;
-  getFilePath(file: File): string;
 }) {
   const [filter, setFilter] = React.useState<MetaFilter | null>(null);
 
   return filter ? (
-    <Scanning
-      fs={fileSystem}
-      onDataPrepared={onDataPrepared}
-      getFilePath={getFilePath}
-      filter={filter}
-      onCancel={onCancel}
-    />
+    <Scanning fs={fileSystem} onDataPrepared={onDataPrepared} filter={filter} onCancel={onCancel} />
   ) : (
     <Filter onCancel={() => onCancel?.()} files={fileSystem} setFilter={setFilter} />
   );

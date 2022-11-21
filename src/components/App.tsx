@@ -12,7 +12,7 @@ import { Viz } from "./Viz";
 
 export interface FS {
   handle: FileSystemDirectoryHandle;
-  pathMap: Map<File, string>;
+  pathMap: Map<FileSystemFileHandle, string>;
 }
 
 export function App() {
@@ -29,10 +29,10 @@ export function App() {
           <Heading>Source Viz</Heading>
           <HStack alignItems="center" gap={1}>
             <Text>Made by EnixCoda</Text>
-            <Link href="https://github.com/EnixCoda">
+            <Link href="https://github.com/EnixCoda" target="_blank">
               <Icon w={6} h={6} as={AiFillGithub} />
             </Link>
-            <Link href="https://twitter.com/__enix__">
+            <Link href="https://twitter.com/__enix__" target="_blank">
               <Icon w={6} h={6} as={AiFillTwitterCircle} />
             </Link>
           </HStack>
@@ -61,16 +61,7 @@ export function App() {
                 </VStack>
               );
             case "scan":
-              return (
-                fs && (
-                  <Scan
-                    fileSystem={fs}
-                    onDataPrepared={setData}
-                    getFilePath={(file) => fs.pathMap.get(file) || ""}
-                    onCancel={() => setFS(null)}
-                  />
-                )
-              );
+              return fs && <Scan fileSystem={fs} onDataPrepared={setData} onCancel={() => setFS(null)} />;
             case "viz":
               return (
                 data && (

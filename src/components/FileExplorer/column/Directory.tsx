@@ -78,7 +78,7 @@ export function ColumnDirectory({
             justifyContent="flex-start"
             color={isItemExcluded?.(file.name) ? "gray.400" : isItemIncluded(file.name) ? "orange.500" : undefined}
           >
-            <Text overflow="hidden" textOverflow="ellipsis">
+            <Text title={file.name} overflow="hidden" textOverflow="ellipsis">
               {file.kind === "directory" ? "📁" : "📄"} {file.name}
             </Text>
           </Button>

@@ -4,7 +4,7 @@ import fs from "fs/promises";
 import minimatch from "minimatch";
 import path from "path";
 import yargs from "yargs";
-import { deps, FSLike } from "../services";
+import { FSLike, getDependencyEntries } from "../services";
 import { getFiles } from "../services/node";
 import * as babelParser from "../services/parsers/babel";
 import { getEntrySerializerByFileName } from "../services/serializers";
@@ -55,7 +55,7 @@ async function main() {
     readFile: (p) => fs.readFile(path.resolve(p, project), "utf-8"),
   };
   const parser = await babelParser.prepare();
-  const records = await deps(files, parser, fsLike, isIncluded);
+  const records = await getDependencyEntries(files, parser, fsLike, isIncluded);
 
   const serializer = getEntrySerializerByFileName(output);
   if (!serializer) throw new Error(`No serializer matched with the extension of file "${output}"`);

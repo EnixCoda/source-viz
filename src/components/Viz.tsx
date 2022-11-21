@@ -190,7 +190,7 @@ export function Viz({
         cursor="ew-resize"
         onPointerDown={onPointerDown}
       />
-      <Box display="flex" alignItems="flex-start" flex={1} gap={2} maxHeight="100%" minW={0} overflow="auto">
+      <VStack alignItems="stretch" flex={1} gap={2} maxHeight="100%" minW={0} overflow="auto">
         <Accordion allowMultiple defaultIndex={[1, 4]} minW={0}>
           <CollapsibleSection label={`Viz configs`}>
             <div>{dagPruneModeView}</div>
@@ -291,7 +291,7 @@ export function Viz({
             />
           </CollapsibleSection>
           <CollapsibleSection label={`Extra Nodes Filter`}>
-            <VStack alignItems="flex-start" gap={1}>
+            <VStack alignItems="stretch" gap={1}>
               <VStack alignItems="flex-start" as="section" spacing={0}>
                 <Heading as="h3" size="sm">
                   Exclude Dependents of Them
@@ -342,7 +342,7 @@ export function Viz({
             />
           </CollapsibleSection>
         </Accordion>
-      </Box>
+      </VStack>
     </Box>
   );
 }

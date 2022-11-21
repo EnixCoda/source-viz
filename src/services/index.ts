@@ -18,16 +18,17 @@ export interface FSLike {
   resolvePath(...paths: string[]): string;
 }
 
-export async function deps(
+export async function getDependencyEntries(
   files: string[],
   parse: Parse,
   fs: FSLike,
   isIncluded?: (path: string) => boolean,
-  resolveAllFiles: boolean = false,
   {
+    resolveAllFiles = false,
     reportProgress,
     onError,
   }: {
+    resolveAllFiles?: boolean;
     reportProgress?: (file: string, progress: number) => void;
     onError?: (file: string, error: unknown) => void;
   } = {}
