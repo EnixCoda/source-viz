@@ -32,9 +32,6 @@ export function App() {
             <Link href="https://github.com/EnixCoda" target="_blank">
               <Icon w={6} h={6} as={AiFillGithub} />
             </Link>
-            <Link href="https://twitter.com/__enix__" target="_blank">
-              <Icon w={6} h={6} as={AiFillTwitterCircle} />
-            </Link>
           </HStack>
         </HStack>
         {run(() => {
