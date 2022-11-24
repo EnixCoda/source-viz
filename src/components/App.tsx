@@ -1,7 +1,7 @@
 import { ArrowBackIcon, Icon } from "@chakra-ui/icons";
 import { Button, ChakraProvider, Heading, HStack, Link, Text, VStack } from "@chakra-ui/react";
 import * as React from "react";
-import { AiFillGithub, AiFillTwitterCircle } from "react-icons/ai";
+import { AiFillGithub } from "react-icons/ai";
 import { DependencyEntry } from "../services/serializers";
 import { run } from "../utils/general";
 import { ExportButton } from "./ExportButton";
