@@ -68,7 +68,7 @@ export function ColumnDirectory({
           <Button
             width="100%"
             textOverflow="ellipsis"
-            fontWeight={file.kind === "file" ? "normal" : "semibold"}
+            fontWeight="normal"
             fontSize={14}
             lineHeight={1.5}
             height={6}

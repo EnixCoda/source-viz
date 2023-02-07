@@ -3,6 +3,7 @@ import {
   Box,
   Button,
   Center,
+  Divider,
   Flex,
   Heading,
   HStack,
@@ -28,14 +29,15 @@ import { FS } from "./App";
 import { ExportButton } from "./ExportButton";
 import { FileExplorer } from "./FileExplorer";
 
-export const defaultIncludes = ["**/*.js", "**/*.jsx", "**/*.ts", "**/*.tsx"];
+export const defaultIncludes = ["*.js", "*.jsx", "*.ts", "*.tsx"];
 export const defaultExcludes = [
-  "**/.git/**",
-  "**/.cache/**",
-  "**/node_modules/**",
-  "**/build/**",
-  "**/dist/**",
-  "**/packages/**",
+  "*.d.ts",
+  "**/.git",
+  "**/.cache",
+  "**/node_modules",
+  "**/build",
+  "**/dist",
+  "**/packages",
 ];
 
 export function Filter({
@@ -55,23 +57,52 @@ export function Filter({
   return (
     <HStack alignItems="flex-start" flex={1} minH={0} padding={2}>
       <VStack width={240} flexShrink={0} alignItems="stretch" overflow="auto" minH={0} maxH="100%">
-        <HStack justifyContent="space-between">
+        <HStack>
           <IconButton icon={<ChevronLeftIcon />} onClick={() => onCancel()} aria-label="Back" />
-          <Button colorScheme="green" onClick={() => setFilter({ includes, excludes })}>
-            Start scan
-          </Button>
+          <Heading as="h2" size="lg">
+            Filter files
+          </Heading>
         </HStack>
+        <Text fontSize="sm">
+          Reduce scan scope with the filters below if scan takes too much time. You can preview include/exclude scope in
+          the right-side file explorer.
+        </Text>
         <VStack alignItems="stretch">
-          <Heading as="h2" size="md">
-            Exclude files
-          </Heading>
-          <InputList values={excludes} onChange={setExcludes} />
+          <Button colorScheme="green" onClick={() => setFilter({ includes, excludes })}>
+            Next
+          </Button>
         </VStack>
-        <VStack alignItems="stretch">
-          <Heading as="h2" size="md">
-            Entry files
-          </Heading>
-          <InputList values={includes} onChange={setIncludes} />
+
+        <Divider />
+        <VStack as="section" gap={1} minH={0} overflow="auto">
+          <VStack alignItems="stretch">
+            <Heading as="h3" size="md">
+              Entry files
+            </Heading>
+            <Text fontSize="sm">
+              Files match these patterns will be read and parsed. They are
+              <Text as="span" color="orange.500">
+                {" "}
+                highlighted{" "}
+              </Text>
+              in the list.
+            </Text>
+            <InputList values={includes} onChange={setIncludes} />
+          </VStack>
+          <VStack alignItems="stretch">
+            <Heading as="h3" size="md">
+              Exclude files
+            </Heading>
+            <Text fontSize="sm">
+              Files, folders, and content inside matched folders will not be scanned. They are
+              <Text as="span" color="gray.400">
+                {" "}
+                dimmed{" "}
+              </Text>
+              in the list.
+            </Text>
+            <InputList values={excludes} onChange={setExcludes} />
+          </VStack>
         </VStack>
       </VStack>
       <Flex flex={1} overflow="auto" minH={0} maxH="100%">
@@ -221,19 +252,24 @@ function Scanning({
           <Center>
             <VStack alignItems="stretch" maxWidth={240}>
               {hasError ? (
-                <Text color="HighlightText">
-                  Scan has completed. However, there are some errors found during the progress.
-                </Text>
+                <>
+                  <Text color="HighlightText">Scan has completed.</Text>
+                  <Text color="HighlightText">
+                    However, there are some errors found during the progress. You can either proceed on or rerun scan
+                    after fixing them.
+                  </Text>
+                </>
               ) : (
                 <Text>Scan has completed successfully.</Text>
               )}
+
               <Button
                 disabled={!data}
                 colorScheme="green"
                 onClick={() => data && onDataPrepared(data)}
                 rightIcon={<ChevronRightIcon />}
               >
-                Visualization
+                Visualize
               </Button>
 
               <Button onClick={() => scan()} rightIcon={<RepeatIcon />}>
@@ -252,6 +288,7 @@ function Scanning({
                 <Tr>
                   <Th>File</Th>
                   <Th>Error</Th>
+                  <Th>Action</Th>
                 </Tr>
               </Thead>
               <Tbody>
@@ -259,6 +296,7 @@ function Scanning({
                   <Tr key={index}>
                     <Td>{file}</Td>
                     <Td>{error instanceof Error ? error.message : `${error}`}</Td>
+                    <Td></Td>
                   </Tr>
                 ))}
               </Tbody>

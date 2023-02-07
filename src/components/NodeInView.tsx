@@ -3,11 +3,13 @@ import * as React from "react";
 
 export function NodeInView({
   label,
+  title = typeof label === "string" ? label : undefined,
   onExclude,
   onSelect,
   onCancel,
 }: {
   label: React.ReactNode;
+  title?: string;
   onExclude?: () => void;
   onSelect?: () => void;
   onCancel?: () => void;
@@ -29,7 +31,7 @@ export function NodeInView({
           Select
         </Button>
       )}{" "}
-      <Text overflow="hidden" textOverflow="ellipsis" title={typeof label === "string" ? label : undefined}>
+      <Text fontSize="sm" overflow="hidden" textOverflow="ellipsis" fontFamily="Cascadia Code, monospace" title={title}>
         {label}
       </Text>
     </HStack>

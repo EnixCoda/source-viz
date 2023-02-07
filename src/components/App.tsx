@@ -39,21 +39,22 @@ export function App() {
             case "initial":
               return (
                 <VStack padding={2} gap={4} alignItems="flex-start">
-                  <VStack gap={1} alignItems="flex-start">
+                  <Text>Source viz can help to analyze dependency relationship between JS files.</Text>
+                  <VStack alignItems="flex-start">
                     <FSLoadFilesButton buttonProps={{ colorScheme: "green" }} onLoad={setFS}>
                       Scan local project
                     </FSLoadFilesButton>
                     <Text fontSize="sm">
-                      Please select the root folder of a project, generally it is the directory where package.json is
-                      in.
+                      Please select the root folder of a project to ensure the best coverage, generally it is the
+                      directory where the package.json file is at.
                     </Text>
                   </VStack>
-                  <VStack gap={1} alignItems="flex-start">
+                  <VStack alignItems="flex-start">
                     <LoadDataButton buttonProps={{ variant: "solid" }} onLoad={setData} />
                     <Text fontSize="sm">Or resume with the data you exported before.</Text>
                   </VStack>
                   <Text as="em" fontSize="sm">
-                    Either way you choose, no data will be uploaded to remote server.
+                    Note: either way, no files will be uploaded to remote server, all of them are processed locally.
                   </Text>
                 </VStack>
               );

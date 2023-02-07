@@ -1,15 +1,4 @@
-import { ExternalLinkIcon } from "@chakra-ui/icons";
-import {
-  Accordion,
-  Box,
-  FormControl,
-  FormErrorMessage,
-  FormLabel,
-  Heading,
-  IconButton,
-  Switch,
-  VStack,
-} from "@chakra-ui/react";
+import { Accordion, Box, FormControl, FormLabel, Heading, Switch, Text, VStack } from "@chakra-ui/react";
 import useResizeObserver from "@react-hook/resize-observer";
 import * as React from "react";
 import { useWindowSize } from "react-use";
@@ -17,7 +6,6 @@ import { useGraph } from "../hooks/useGraph";
 import { useResizeHandler } from "../hooks/useResizeHandler";
 import { useSet } from "../hooks/useSet";
 import { useCheckboxView } from "../hooks/view/useCheckboxView";
-import { useInputView } from "../hooks/view/useInputView";
 import { useRegExpInputView } from "../hooks/view/useRegExpInputView";
 import { useSelectView } from "../hooks/view/useSelectView";
 import { DependencyEntry } from "../services/serializers";
@@ -25,6 +13,7 @@ import { getData, prepareGraphData } from "../utils/getData";
 import { DAGDirections } from "../utils/graphDecorators";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { NodeList } from "./NodeList";
+import { OpenInVSCode } from "./OpenInVSCode";
 
 export function Viz({
   entries,
@@ -58,9 +47,6 @@ export function Viz({
     ],
     "lr"
   );
-  const [repositoryInputView, repositoryInput] = useInputView("", {
-    placeholder: "/path/to/repository/",
-  });
 
   // Excludes
   const [excludeNodesFilterInputView, excludeNodesFilterRegExp] = useRegExpInputView("test");
@@ -201,7 +187,9 @@ export function Viz({
           <CollapsibleSection label={`Selected Node`}>
             {selectedNode ? (
               <>
-                <code>{selectedNode}</code>
+                <Text as="h3" fontSize="lg">
+                  {selectedNode}
+                </Text>
                 <FormControl display="flex" alignItems="center" columnGap={1}>
                   <Switch
                     isChecked={
@@ -212,23 +200,7 @@ export function Viz({
                   />
                   <FormLabel mb={0}>Exclude</FormLabel>
                 </FormControl>
-                <FormControl>
-                  <Box display="flex" columnGap={1}>
-                    <IconButton
-                      aria-label="Open in VS Code"
-                      icon={<ExternalLinkIcon />}
-                      disabled={!(repositoryInput && selectedNode.includes("/"))}
-                      onClick={() => {
-                        const isValidFilePath = repositoryInput && selectedNode.includes("/");
-                        if (isValidFilePath) window.open(`vscode://file${repositoryInput + selectedNode}`);
-                      }}
-                    />
-                    {repositoryInputView}
-                  </Box>
-                  {!(repositoryInput && selectedNode.includes("/")) && (
-                    <FormErrorMessage>Cannot open in VS Code</FormErrorMessage>
-                  )}
-                </FormControl>
+                <OpenInVSCode filePath={selectedNode} />
                 {/* excludedDependents: excludedDependentsNodes.some(
                       (id) => id === selectedNode
                     ),
@@ -268,7 +240,7 @@ export function Viz({
               "No selection yet"
             )}
           </CollapsibleSection>
-          <CollapsibleSection label={`Root Nodes Filter (on the left side)`}>
+          <CollapsibleSection label={`Root Nodes (source files, on the left)`}>
             {restrictRootInputView}
             <NodeList
               data={rootsInView}
@@ -279,7 +251,7 @@ export function Viz({
               })}
             />
           </CollapsibleSection>
-          <CollapsibleSection label={`Leaf Nodes Filter (on the right side)`}>
+          <CollapsibleSection label={`Leaf Nodes (dependencies, on the right)`}>
             {restrictLeavesInputView}
             <NodeList
               data={leavesInView}
@@ -290,7 +262,7 @@ export function Viz({
               })}
             />
           </CollapsibleSection>
-          <CollapsibleSection label={`Extra Nodes Filter`}>
+          <CollapsibleSection label={`Extra Filters`}>
             <VStack alignItems="stretch" gap={1}>
               <VStack alignItems="flex-start" as="section" spacing={0}>
                 <Heading as="h3" size="sm">

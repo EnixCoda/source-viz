@@ -60,7 +60,20 @@ export async function getDependencyEntries(
     reportProgress?.(file, ++process);
   }
 
-  function resolveDependencyFile(file: string, importPath: string) {
+  const resolveDependencyFile = getResolveDependencyFile(fs, files, resolveAllFiles);
+
+  const entries: DependencyEntry[] = [...dependencyMap.entries()].map(([file, dependencies]) => [
+    file,
+    dependencies.map(
+      ([dependency, dynamicImport]) => [resolveDependencyFile(file, dependency), dynamicImport] as [string, boolean]
+    ),
+  ]);
+
+  return entries;
+}
+
+function getResolveDependencyFile(fs: FSLike, files: string[], resolveAllFiles: boolean) {
+  return function resolveDependencyFile(file: string, importPath: string) {
     // Relative:
     //    ./
     //    ../
@@ -81,7 +94,7 @@ export async function getDependencyEntries(
     // 1.
     if (files.includes(baseResolved)) return baseResolved;
     // 2.
-    const exts = ["js", "jsx", "ts", "tsx"];
+    const exts = ["js", "jsx", "mjs", "ts", "tsx", "mts"];
     const withExt = exts.map((ext) => baseResolved + "." + ext).find((withExt) => files.includes(withExt));
     if (withExt) return withExt;
     // 3.
@@ -93,14 +106,5 @@ export async function getDependencyEntries(
     if (resolveAllFiles) throw new Error(`Dependency "${importPath}" cannot be resolved from "${file}"`);
 
     return baseResolved;
-  }
-
-  const entries: DependencyEntry[] = [...dependencyMap.entries()].map(([file, dependencies]) => [
-    file,
-    dependencies.map(
-      ([dependency, dynamicImport]) => [resolveDependencyFile(file, dependency), dynamicImport] as [string, boolean]
-    ),
-  ]);
-
-  return entries;
+  };
 }
