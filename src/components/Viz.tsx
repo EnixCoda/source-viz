@@ -240,7 +240,7 @@ export function Viz({
               "No selection yet"
             )}
           </CollapsibleSection>
-          <CollapsibleSection label={`Root Nodes (source files, on the left)`}>
+          <CollapsibleSection label={`Root Nodes (dependencies, on the right)`}>
             {restrictRootInputView}
             <NodeList
               data={rootsInView}
@@ -251,7 +251,7 @@ export function Viz({
               })}
             />
           </CollapsibleSection>
-          <CollapsibleSection label={`Leaf Nodes (dependencies, on the right)`}>
+          <CollapsibleSection label={`Leaf Nodes (source files, on the left)`}>
             {restrictLeavesInputView}
             <NodeList
               data={leavesInView}
