@@ -5,7 +5,7 @@ export function safeRegExp(raw: string, flags: string = "") {
   try {
     return raw ? new RegExp(raw, flags) : null;
   } catch (error) {
-    return null;
+    return false;
   }
 }
 

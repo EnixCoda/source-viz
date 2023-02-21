@@ -1,25 +1,38 @@
 import { FormErrorMessage, Input } from "@chakra-ui/react";
 import * as React from "react";
 import { safeRegExp } from "../../utils/general";
-import { useView } from "./useView";
+import { useRender } from "./useRender";
 
 export function useRegExpInputView(defaultValue: string = "") {
-  const [inputView, inputValue] = useView(defaultValue, (state, setState) => (
-    <Input placeholder="Regular Expression" value={state} onChange={(e) => setState(e.target.value)} />
-  ));
-  const [regExp, setRegExp] = React.useState<RegExp | null>(null);
+  const [inputValue, setInputValue] = React.useState(defaultValue);
+  const regExp = React.useMemo(() => safeRegExp(inputValue, "i"), [inputValue]);
+  const [lastValidRegExp, setLastValidRegExp] = React.useState<RegExp | null>(null);
   React.useEffect(() => {
-    setRegExp(safeRegExp(inputValue, "i"));
-  }, [inputValue]);
+    // preserve value on regExp become invalid
+    if (regExp !== false) setLastValidRegExp(regExp);
+  }, [regExp]);
+
+  const inputView = useRender(
+    (state, setState, isInvalid) => (
+      <Input
+        isInvalid={isInvalid}
+        placeholder="Regular Expression"
+        value={state}
+        onChange={(e) => setState(e.target.value)}
+      />
+    ),
+    [inputValue, setInputValue, regExp === false]
+  );
+
   const view = React.useMemo(
     () => (
       <>
         {inputView}
-        {!regExp && <FormErrorMessage>Invalid RegExp</FormErrorMessage>}
+        {regExp === false && <FormErrorMessage>Invalid RegExp</FormErrorMessage>}
       </>
     ),
     [inputView, regExp]
   );
 
-  return [view, regExp, inputValue] as const;
+  return [view, lastValidRegExp, inputValue] as const;
 }
