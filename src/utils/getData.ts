@@ -3,9 +3,10 @@ import { DependencyEntry } from "../services/serializers";
 import { safeMapGet } from "./general";
 
 export function prepareGraphData(data: DependencyEntry[]) {
-  const dependencies = new Set<string>(data.flatMap(([, deps]) => deps.map(([dep]) => dep)));
-  const nodesArray = data.map(([file]) => file);
-  const nodes = new Set(nodesArray);
+  const dependencyArray = data.flatMap(([, deps]) => deps.map(([dep]) => dep));
+  const dependencies = new Set(dependencyArray);
+  const nodesArray = data.map(([file]) => file).concat(Array.from(dependencies));
+  const nodes = new Set<string>(nodesArray);
   const rootFiles = new Set<string>(nodesArray.filter((file) => !dependencies.has(file)));
   const dependencyMap = new Map<string, Set<string>>(); // file -> deps
   const dependantMap = new Map<string, Set<string>>(); // dep -> files
