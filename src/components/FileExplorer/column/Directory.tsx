@@ -1,7 +1,7 @@
 import { Button, HStack, List, ListItem, Spinner, Text } from "@chakra-ui/react";
 import * as React from "react";
 import { MetaFilter } from "../../../services";
-import { getPatternsFileNameMatcher, run } from "../../../utils/general";
+import { getPatternsMatcher, run } from "../../../utils/general";
 
 export function ColumnDirectory({
   fs,
@@ -26,13 +26,13 @@ export function ColumnDirectory({
     if (files && ref.current && scrollIntoView) ref.current.scrollIntoView();
   }, [files, scrollIntoView]);
 
-  const isItemExcluded = React.useMemo(
-    () => (isExcluded ? () => true : filter.excludes && getPatternsFileNameMatcher(filter.excludes)),
+  const isItemExcluded = React.useCallback(
+    () => (isExcluded ? true : filter.excludes && getPatternsMatcher(filter.excludes)),
     [isExcluded, filter.excludes]
   );
 
-  const isItemIncluded = React.useMemo(
-    () => (isExcluded ? () => false : filter.includes && getPatternsFileNameMatcher(filter.includes)),
+  const isItemIncluded = React.useCallback(
+    () => (isExcluded ? false : filter.includes && getPatternsMatcher(filter.includes)),
     [isExcluded, filter.includes]
   );
 

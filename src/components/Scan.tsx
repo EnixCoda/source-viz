@@ -1,4 +1,4 @@
-import { ChevronLeftIcon, ChevronRightIcon, RepeatIcon, SmallCloseIcon } from "@chakra-ui/icons";
+import { ChevronLeftIcon, ChevronRightIcon, RepeatIcon, SmallCloseIcon, InfoIcon } from "@chakra-ui/icons";
 import {
   Box,
   Button,
@@ -9,6 +9,7 @@ import {
   HStack,
   IconButton,
   Input,
+  Link,
   List,
   ListItem,
   Table,
@@ -29,9 +30,10 @@ import { FS } from "./App";
 import { ExportButton } from "./ExportButton";
 import { FileExplorer } from "./FileExplorer";
 
-export const defaultIncludes = ["*.js", "*.jsx", "*.ts", "*.tsx"];
+export const defaultIncludes = ["**/*.js", "**/*.jsx", "**/*.ts", "**/*.tsx"];
+
 export const defaultExcludes = [
-  "*.d.ts",
+  "**/*.d.ts",
   "**/.git",
   "**/.cache",
   "**/node_modules",
@@ -74,6 +76,16 @@ export function Filter({
         </VStack>
 
         <Divider />
+
+        <Box>
+          <InfoIcon />
+
+          <Text fontSize="sm">
+            Note: filters below accept glob patterns. Use <code>**</code> to match any amount of folders, use{" "}
+            <code>*</code> to match filename of any length.
+          </Text>
+        </Box>
+
         <VStack as="section" gap={1} minH={0} overflow="auto">
           <VStack alignItems="stretch">
             <Heading as="h3" size="md">

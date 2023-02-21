@@ -1,7 +1,7 @@
 import { Box, HStack } from "@chakra-ui/react";
 import * as React from "react";
 import { MetaFilter } from "../../../services";
-import { getPatternsFileNameMatcher, run } from "../../../utils/general";
+import { getPatternsMatcher, run } from "../../../utils/general";
 import { ColumnDirectory } from "./Directory";
 import { ColumnFile } from "./File";
 
@@ -34,7 +34,7 @@ function RecursiveColumn({
 }) {
   const [first, second] = stack;
   const isItemExcluded = React.useMemo(
-    () => (isExcluded ? () => true : filter.excludes && getPatternsFileNameMatcher(filter.excludes)),
+    () => (isExcluded ? () => true : filter.excludes && getPatternsMatcher(filter.excludes)),
     [isExcluded, filter.excludes]
   );
   const isFirstExcluded = isItemExcluded?.(first.name);
