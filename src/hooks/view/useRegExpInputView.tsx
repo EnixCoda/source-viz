@@ -11,26 +11,27 @@ export function useRegExpInputView(defaultValue: string = "") {
     if (regExp !== false) setLastValidRegExp(regExp);
   }, [regExp]);
 
+  const isInvalid = regExp === false;
   const inputView = React.useMemo(
     () => (
       <Input
         placeholder="Regular Expression"
         value={inputValue}
         onChange={(e) => setInputValue(e.target.value)}
-        isInvalid={regExp === false}
+        isInvalid={isInvalid}
       />
     ),
-    [inputValue, setInputValue, regExp === false]
+    [inputValue, setInputValue, isInvalid]
   );
 
   const view = React.useMemo(
     () => (
       <>
         {inputView}
-        {regExp === false && <FormErrorMessage>Invalid RegExp</FormErrorMessage>}
+        {isInvalid && <FormErrorMessage>Invalid RegExp</FormErrorMessage>}
       </>
     ),
-    [inputView, regExp]
+    [inputView, isInvalid]
   );
 
   return [view, lastValidRegExp, inputValue] as const;
