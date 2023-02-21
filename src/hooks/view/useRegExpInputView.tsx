@@ -1,7 +1,7 @@
 import { FormErrorMessage, Input } from "@chakra-ui/react";
 import * as React from "react";
 import { safeRegExp } from "../../utils/general";
-import { useRender } from "./useRender";
+import { useRender } from "../useRender";
 
 export function useRegExpInputView(defaultValue: string = "") {
   const [inputValue, setInputValue] = React.useState(defaultValue);
