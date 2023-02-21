@@ -26,13 +26,13 @@ export function ColumnDirectory({
     if (files && ref.current && scrollIntoView) ref.current.scrollIntoView();
   }, [files, scrollIntoView]);
 
-  const isItemExcluded = React.useCallback(
-    () => (isExcluded ? true : filter.excludes && getPatternsMatcher(filter.excludes)),
+  const isItemExcluded = React.useMemo(
+    () => (isExcluded ? () => true : filter.excludes && getPatternsMatcher(filter.excludes)),
     [isExcluded, filter.excludes]
   );
 
-  const isItemIncluded = React.useCallback(
-    () => (isExcluded ? false : filter.includes && getPatternsMatcher(filter.includes)),
+  const isItemIncluded = React.useMemo(
+    () => (isExcluded ? () => false : filter.includes && getPatternsMatcher(filter.includes)),
     [isExcluded, filter.includes]
   );
 
