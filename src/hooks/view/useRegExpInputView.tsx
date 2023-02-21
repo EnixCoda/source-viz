@@ -21,7 +21,7 @@ export function useRegExpInputView(defaultValue: string = "") {
         onChange={(e) => setState(e.target.value)}
       />
     ),
-    [inputValue, setInputValue, regExp === false]
+    [inputValue, setInputValue, regExp === false] as const
   );
 
   const view = React.useMemo(
