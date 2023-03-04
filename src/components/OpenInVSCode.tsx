@@ -4,14 +4,14 @@ import { useInputView } from "../hooks/view/useInputView";
 
 export function OpenInVSCode({
   filePath,
-  props = {
+  inputProps = {
     placeholder: "/path/to/repository/",
   },
 }: {
   filePath?: string;
-  props?: InputProps;
+  inputProps?: InputProps;
 }) {
-  const [view, input] = useInputView("", props);
+  const [view, input] = useInputView("", { inputProps });
 
   return (
     <FormControl>

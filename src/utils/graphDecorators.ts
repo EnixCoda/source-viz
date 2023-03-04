@@ -20,12 +20,12 @@ export function colorByDepth(graph: ForceGraphInstance) {
   };
 }
 
-export function renderNodeAsText(graph: ForceGraphInstance, getSelection: () => string | null) {
+export function renderNodeAsText(graph: ForceGraphInstance, getSelection: () => string | null, fixedFontSize?: number) {
   const backgroundDimensionsMap = new Map<string, [number, number]>();
   graph
     .nodeCanvasObject((node, ctx, globalScale) => {
       const label = node.id as string;
-      const fontSize = 12 / globalScale;
+      const fontSize = fixedFontSize ?? 12 / globalScale;
       ctx.font = `${fontSize}px Sans-Serif`;
       const textWidth = ctx.measureText(label).width;
       const backgroundDimensions = [textWidth, fontSize].map((n) => n + fontSize * 0.2) as [number, number]; // some padding

@@ -20,6 +20,7 @@ export function useGraph({
   data,
   width,
   height,
+  fixedFontSize,
 }: {
   data: PreparedData;
   dagMode: DAGDirections | null;
@@ -27,6 +28,7 @@ export function useGraph({
   fixNodeOnDragEnd: boolean;
   width: number;
   height: number;
+  fixedFontSize?: number;
 }) {
   const ref = React.useRef<HTMLDivElement | null>(null);
   const [selectedNodeInState, setSelectedNodeInState] = React.useState<string | null>(null);
@@ -48,7 +50,7 @@ export function useGraph({
 
     renderAsDAG(graph, dagMode || null);
     if (fixNodeOnDragEnd) freezeNodeOnDragEnd(graph);
-    if (renderAsText) renderNodeAsText(graph, () => selectedNodeRef.current);
+    if (renderAsText) renderNodeAsText(graph, () => selectedNodeRef.current, fixedFontSize);
     else highlightNodeOnHover(graph, data);
 
     selectNodeOnMouseDown(graph, setNodeSelection);
@@ -59,7 +61,7 @@ export function useGraph({
     const dataMapper = (data: GraphData) => dataMappers.reduce((prev, mapper) => mapper(prev), data);
 
     return (data: GraphData) => graph.graphData(dataMapper(data));
-  }, [graph, fixNodeOnDragEnd, dagMode, renderAsText, data, setNodeSelection]);
+  }, [graph, fixNodeOnDragEnd, dagMode, renderAsText, data, setNodeSelection, fixedFontSize]);
 
   return [ref, render, selectedNodeInState, setNodeSelection] as const;
 }

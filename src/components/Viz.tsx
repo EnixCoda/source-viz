@@ -6,6 +6,7 @@ import { useGraph } from "../hooks/useGraph";
 import { useResizeHandler } from "../hooks/useResizeHandler";
 import { useSet } from "../hooks/useSet";
 import { useCheckboxView } from "../hooks/view/useCheckboxView";
+import { useNumberInputView } from "../hooks/view/useInputView";
 import { useRegExpInputView } from "../hooks/view/useRegExpInputView";
 import { useSelectView } from "../hooks/view/useSelectView";
 import { DependencyEntry } from "../services/serializers";
@@ -91,6 +92,16 @@ export function Viz({
   );
 
   // Graph
+  const [fixFontSizeView, fixFontSize] = useCheckboxView("Fix font size to canvas", true);
+  const [fixedFontSizeView, fixedFontSize] = useNumberInputView(4, {
+    label: "Fixed Font Size",
+    inputProps: {
+      keepWithinRange: true,
+      clampValueOnBlur: true,
+      min: 1,
+      isDisabled: !fixFontSize,
+    },
+  });
   const [[width, height], setSize] = React.useState(() => [window.innerWidth / 2, window.innerHeight]);
   const windowSize = useWindowSize(width, height);
   const vizWidthLimit = React.useMemo(() => {
@@ -122,6 +133,7 @@ export function Viz({
     renderAsText,
     width: actualWidth,
     height,
+    fixedFontSize: (fixFontSize && fixedFontSize) || undefined,
   });
 
   const getDataOptions = React.useMemo(
@@ -181,8 +193,10 @@ export function Viz({
           <CollapsibleSection label={`Viz configs`}>
             <div>{dagPruneModeView}</div>
             <div>{dagModeView}</div>
-            <div>{renderAsTextView}</div>
             <div>{fixNodeOnDragEndView}</div>
+            <div>{renderAsTextView}</div>
+            <div>{fixFontSizeView}</div>
+            <div>{fixedFontSizeView}</div>
           </CollapsibleSection>
           <CollapsibleSection label={`Selected Node`}>
             {selectedNode ? (
