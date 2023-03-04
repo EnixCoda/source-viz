@@ -1,4 +1,4 @@
-import { ChevronLeftIcon, ChevronRightIcon, RepeatIcon, SmallCloseIcon, InfoIcon } from "@chakra-ui/icons";
+import { ChevronLeftIcon, ChevronRightIcon, InfoIcon, RepeatIcon, SmallCloseIcon } from "@chakra-ui/icons";
 import {
   Box,
   Button,
@@ -25,6 +25,7 @@ import { getDependencyEntries, MetaFilter } from "../services";
 import * as babelParser from "../services/parsers/babel";
 import { DependencyEntry } from "../services/serializers";
 import { getFilterMatchers, resolvePath } from "../utils/general";
+import { useAbortableFunction } from "./abortable";
 import { FS } from "./App";
 import { ExportButton } from "./ExportButton";
 import { FileExplorer } from "./FileExplorer";
@@ -44,14 +45,16 @@ export const defaultExcludes = [
 export function Filter({
   files,
   onCancel,
+  filter: propFilter,
   setFilter,
 }: {
   files: FS;
   onCancel(): void;
+  filter: MetaFilter;
   setFilter: React.Dispatch<MetaFilter>;
 }) {
-  const [includes, setIncludes] = React.useState(defaultIncludes);
-  const [excludes, setExcludes] = React.useState(defaultExcludes);
+  const [includes, setIncludes] = React.useState(propFilter.includes);
+  const [excludes, setExcludes] = React.useState(propFilter.excludes);
 
   const filter = React.useMemo(() => ({ includes, excludes }), [includes, excludes]);
 
@@ -76,16 +79,14 @@ export function Filter({
 
         <Divider />
 
-        <Box>
-          <InfoIcon />
-
-          <Text fontSize="sm">
-            Note: filters below accept glob patterns. Use <code>**</code> to match any amount of folders, use{" "}
-            <code>*</code> to match filename of any length.
-          </Text>
-        </Box>
-
         <VStack as="section" gap={1} minH={0} overflow="auto">
+          <Box>
+            <InfoIcon />{" "}
+            <Text fontSize="sm" as="span">
+              Note: filters below accept glob patterns. Use <code>**</code> to match any amount of folders, use{" "}
+              <code>*</code> to match filename of any length.
+            </Text>
+          </Box>
           <VStack alignItems="stretch">
             <Heading as="h3" size="md">
               Entry files
@@ -156,90 +157,98 @@ function Scanning({
   fs: FS;
   onDataPrepared: React.Dispatch<DependencyEntry[] | null>;
   filter: MetaFilter;
-  onCancel?(): void;
+  onCancel(): void;
 }) {
   const [inProgress, setInProgress] = React.useState(true);
   const [[processingFile, progress], setProgress] = React.useState<[file: string, count: number]>(["", 0]);
   const [data, setData] = React.useState<DependencyEntry[] | null>(null);
   const [errors, setErrors] = React.useState<[file: string, error: unknown][]>([]);
 
-  const scan = React.useCallback(async () => {
-    try {
-      setInProgress(true);
-      setProgress(["", 0]);
-      setErrors([]);
-      setData(null);
+  const scan = useAbortableFunction(
+    React.useCallback(
+      async function* (signal: AbortSignal) {
+        try {
+          setInProgress(true);
+          setProgress(["", 0]);
+          setErrors([]);
+          setData(null);
 
-      let count = 0;
-      const updateCollectingProgress = () => setProgress(["Collecting files", count]);
-      updateCollectingProgress();
+          let count = 0;
+          const updateCollectingProgress = () => setProgress(["Collecting files", count]);
+          updateCollectingProgress();
 
-      const [
-        [isPathExcluded, isFileExcluded] = [],
-        // [isPathIncluded, isFileIncluded],
-      ] = filter ? getFilterMatchers(filter) : [];
+          const [
+            [isPathExcluded, isFileExcluded] = [],
+            // [isPathIncluded, isFileIncluded],
+          ] = filter ? getFilterMatchers(filter) : [];
 
-      const traverse = async (
-        handle: FileSystemDirectoryHandle,
-        onFile: (handle: FileSystemFileHandle, stack: string[]) => void | Promise<void>,
-        stack: string[] = []
-      ) => {
-        for await (const item of handle.values()) {
-          if (isFileExcluded(item.name)) continue;
-          if (isPathExcluded(stack.concat(item.name).join("/"))) continue;
-          if (item.kind === "file") {
-            ++count;
-            updateCollectingProgress();
-            const $item = item as FileSystemFileHandle;
-            // if (isPathIncluded(stack.concat(item.name).join("/")) || isFileIncluded(item.name))
-            await onFile($item, stack.concat(item.name));
-          } else {
-            const $item = item as FileSystemDirectoryHandle;
-            await traverse($item, onFile, stack.concat($item.name));
-          }
+          const traverse = async function (
+            handle: FileSystemDirectoryHandle,
+            onFile: (handle: FileSystemFileHandle, stack: string[]) => void | Promise<void>,
+            stack: string[] = []
+          ) {
+            for await (const item of handle.values()) {
+              if (signal.aborted) return;
+              if (isFileExcluded(item.name)) continue;
+              if (isPathExcluded(stack.concat(item.name).join("/"))) continue;
+              if (item.kind === "file") {
+                ++count;
+                updateCollectingProgress();
+                const $item = item as FileSystemFileHandle;
+                // if (isPathIncluded(stack.concat(item.name).join("/")) || isFileIncluded(item.name))
+                await onFile($item, stack.concat(item.name));
+              } else {
+                const $item = item as FileSystemDirectoryHandle;
+                await traverse($item, onFile, stack.concat($item.name));
+              }
+            }
+          };
+
+          const reversePathMap: Map<string, FileSystemFileHandle> = new Map();
+
+          const handles: FileSystemFileHandle[] = [];
+          yield await traverse(fs.handle, async (handle, stack) => {
+            handles.push(handle);
+            const path = stack.join("/");
+            fs.pathMap.set(handle, path);
+            reversePathMap.set(path, handle);
+          });
+
+          setProgress(["", 0]);
+
+          const [, [isIncluded] = []] = filter ? getFilterMatchers(filter) : [];
+          const entries = await getDependencyEntries(
+            Array.from(fs.pathMap.values()),
+            await babelParser.prepare(),
+            {
+              resolvePath,
+              readFile: async (path) => {
+                const handle = reversePathMap.get(path);
+                if (!handle) throw new Error(`No file found for "${path}"`);
+                return (await handle.getFile()).text();
+              },
+            },
+            isIncluded,
+            {
+              onError: (file, error) => setErrors((errors) => errors.concat([[file, error]])),
+              reportProgress(file, count) {
+                setProgress([file, count]);
+              },
+            }
+          );
+
+          setData(entries);
+        } catch (err) {
+          setErrors((errors) =>
+            errors.concat([["", err instanceof Error ? err : new Error(`${err}` || `Unknown error`)]])
+          );
+        } finally {
+          setInProgress(false);
         }
-      };
-
-      const reversePathMap: Map<string, FileSystemFileHandle> = new Map();
-
-      const handles: FileSystemFileHandle[] = [];
-      await traverse(fs.handle, async (handle, stack) => {
-        handles.push(handle);
-        const path = stack.join("/");
-        fs.pathMap.set(handle, path);
-        reversePathMap.set(path, handle);
-      });
-
-      setProgress(["", 0]);
-
-      const [, [isIncluded] = []] = filter ? getFilterMatchers(filter) : [];
-      const entries = await getDependencyEntries(
-        Array.from(fs.pathMap.values()),
-        await babelParser.prepare(),
-        {
-          resolvePath,
-          readFile: async (path) => {
-            const handle = reversePathMap.get(path);
-            if (!handle) throw new Error(`No file found for "${path}"`);
-            return (await handle.getFile()).text();
-          },
-        },
-        isIncluded,
-        {
-          onError: (file, error) => setErrors((errors) => errors.concat([[file, error]])),
-          reportProgress(file, count) {
-            setProgress([file, count]);
-          },
-        }
-      );
-
-      setData(entries);
-    } catch (err) {
-      setErrors((errors) => errors.concat([["", err instanceof Error ? err : new Error(`${err}` || `Unknown error`)]]));
-    } finally {
-      setInProgress(false);
-    }
-  }, [fs, setProgress, filter]);
+      },
+      [fs, setProgress, filter]
+    )
+  );
 
   React.useEffect(() => {
     scan();
@@ -249,29 +258,27 @@ function Scanning({
 
   return (
     <VStack padding={2} alignItems="stretch" gap={2} flex={1} minH={0}>
-      {inProgress ? (
-        <Box>
-          <Text>Scanning {progress}th file</Text>
-          <Text>{processingFile}</Text>
-        </Box>
-      ) : (
-        <VStack alignItems="stretch">
-          <HStack justifyContent="space-between">
-            {onCancel && <IconButton aria-label="Back" onClick={() => onCancel?.()} icon={<ChevronLeftIcon />} />}
-            <ExportButton data={data} />
-          </HStack>
-          <Center>
-            <VStack alignItems="stretch" maxWidth={240}>
-              {hasError ? (
-                <>
-                  <Text color="HighlightText">Scan has completed.</Text>
-                  <Text color="HighlightText">
-                    However, there are some errors found during the progress. You can either proceed on or rerun scan
-                    after fixing them.
-                  </Text>
-                </>
-              ) : (
-                <Text>Scan has completed successfully.</Text>
+      <VStack alignItems="stretch">
+        <HStack justifyContent="space-between">
+          <IconButton aria-label="Back" onClick={() => onCancel?.()} icon={<ChevronLeftIcon />} />
+          <ExportButton data={data} />
+        </HStack>
+        <Center>
+          {inProgress ? (
+            <Box>
+              <Text>Scanning {progress}th file</Text>
+              <Text>{processingFile}</Text>
+            </Box>
+          ) : (
+            <VStack alignItems="stretch" width={280}>
+              <Heading as="h2" color={hasError ? "HighlightText" : undefined}>
+                Scan complete
+              </Heading>
+              {hasError && (
+                <Text color="HighlightText">
+                  However, there are some errors found during the progress. You can either proceed on or rerun scan
+                  after fixing them.
+                </Text>
               )}
 
               <Button
@@ -287,9 +294,9 @@ function Scanning({
                 Scan again
               </Button>
             </VStack>
-          </Center>
-        </VStack>
-      )}
+          )}
+        </Center>
+      </VStack>
       {hasError && (
         <VStack alignItems="stretch" minH={0}>
           <Heading as="h2">Errors</Heading>
@@ -326,13 +333,38 @@ export function Scan({
 }: {
   fileSystem: FS;
   onDataPrepared: React.Dispatch<DependencyEntry[] | null>;
-  onCancel?(): void;
+  onCancel(): void;
 }) {
-  const [filter, setFilter] = React.useState<MetaFilter | null>(null);
+  const [status, setStatus] = React.useState<"filter" | "scan">("filter");
+  const [filter, setFilter] = React.useState<MetaFilter>({
+    includes: defaultIncludes,
+    excludes: defaultExcludes,
+  });
 
-  return filter ? (
-    <Scanning fs={fileSystem} onDataPrepared={onDataPrepared} filter={filter} onCancel={onCancel} />
-  ) : (
-    <Filter onCancel={() => onCancel?.()} files={fileSystem} setFilter={setFilter} />
-  );
+  // TODO: press back in Scanning would restore Filter page instead of homepage
+  switch (status) {
+    case "filter":
+      return (
+        <Filter
+          onCancel={() => onCancel()}
+          files={fileSystem}
+          filter={filter}
+          setFilter={(filter) => {
+            setFilter(filter);
+            setStatus("scan");
+          }}
+        />
+      );
+    case "scan":
+      return (
+        filter && (
+          <Scanning
+            fs={fileSystem}
+            onDataPrepared={onDataPrepared}
+            filter={filter}
+            onCancel={() => setStatus("filter")}
+          />
+        )
+      );
+  }
 }
