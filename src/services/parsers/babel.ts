@@ -6,13 +6,54 @@ export async function prepare() {
       sourceType: "module",
       attachComment: false,
       plugins: [
-        "jsx",
-        "typescript",
+        "asyncDoExpressions",
+        "asyncGenerators",
+        "bigInt",
+        "classPrivateMethods",
+        "classPrivateProperties",
         "classProperties",
-        "objectRestSpread",
-        "optionalChaining",
-        "nullishCoalescingOperator",
+        "classStaticBlock", // Enabled by default
+        "decimal",
+        // "decorators-legacy", // conflict with "decorators"
+        "decoratorAutoAccessors",
+        "destructuringPrivate",
+        "doExpressions",
         "dynamicImport",
+        "explicitResourceManagement",
+        "exportDefaultFrom",
+        // "flow", // conflict with TypeScript
+        // "flowComments",
+        "functionBind",
+        "functionSent",
+        "importMeta",
+        "jsx",
+        "logicalAssignment",
+        "importAssertions",
+        "importReflection",
+        "moduleBlocks",
+        "moduleStringNames",
+        "nullishCoalescingOperator",
+        "numericSeparator",
+        "objectRestSpread",
+        "optionalCatchBinding",
+        "optionalChaining",
+        "partialApplication",
+        "placeholders",
+        "privateIn", // Enabled by default
+        "regexpUnicodeSets",
+        "throwExpressions",
+        "topLevelAwait",
+        // "v8intrinsic", // conflict with "placeholders"
+
+        "decorators",
+        "estree",
+        // Deprecated
+        "exportNamespaceFrom",
+        // "moduleAttributes"
+        // "pipelineOperator",
+        "recordAndTuple",
+        // "flow",
+        "typescript",
       ],
     });
     const dependencies: [string, boolean][] = [];
