@@ -26,6 +26,16 @@ export function Viz({
   // Use views
   const data = React.useMemo(() => prepareGraphData(entries), [entries]);
   const [renderAsTextView, renderAsText] = useCheckboxView("Render as Text", true);
+  const [colorByView, colorBy] = useSelectView(
+    "Color by: ",
+    [
+      { value: "depth", label: "File depth" },
+      { value: "connection-both", label: "Connections" },
+      { value: "connection-dependency", label: "Connections (dependency)" },
+      { value: "connection-dependant", label: "Connections (dependant)" },
+    ],
+    "connection-both"
+  );
   const [fixNodeOnDragEndView, fixNodeOnDragEnd] = useCheckboxView("Fix node on drag end", true);
   const [dagPruneModeView, dagPruneMode] = useSelectView(
     "DAG Prune Mode: ",
@@ -134,6 +144,7 @@ export function Viz({
     width: actualWidth,
     height,
     fixedFontSize: (fixFontSize && fixedFontSize) || undefined,
+    colorBy,
   });
 
   const getDataOptions = React.useMemo(
@@ -193,6 +204,7 @@ export function Viz({
           <CollapsibleSection label={`Viz configs`}>
             <div>{dagPruneModeView}</div>
             <div>{dagModeView}</div>
+            <div>{colorByView}</div>
             <div>{fixNodeOnDragEndView}</div>
             <div>{renderAsTextView}</div>
             <div>{fixFontSizeView}</div>

@@ -1,13 +1,44 @@
 import { forceCollide } from "d3";
-import { ForceGraphInstance, GraphData, NodeObject } from "force-graph";
+import { ForceGraphInstance, GraphData, LinkObject, NodeObject } from "force-graph";
 import { PreparedData } from "./getData";
+
+export function colorByHeat(graph: ForceGraphInstance, mode: "source" | "target" | "both") {
+  const mapData = (graphData: GraphData) => {
+    graph.nodeAutoColorBy("heat");
+
+    const getId = (node: LinkObject["source"] | LinkObject["target"]) =>
+      typeof node === "string" || typeof node === "number" ? node : node?.id;
+
+    const countMap = new Map<string | number, number>();
+    graphData.links.forEach((link) => {
+      if (mode !== "target") {
+        const source = getId(link.source);
+        if (source !== undefined) countMap.set(source, (countMap.get(source) || 0) + 1);
+      }
+      if (mode !== "source") {
+        const target = getId(link.target);
+        if (target !== undefined) countMap.set(target, (countMap.get(target) || 0) + 1);
+      }
+    });
+
+    graphData.nodes.forEach(
+      (node) => ((node as NodeObject & { heat: number }).heat = (node.id && countMap.get(node.id)) || 0)
+    );
+
+    return graphData;
+  };
+
+  return {
+    mapData,
+  };
+}
 
 export function colorByDepth(graph: ForceGraphInstance) {
   const getDepth = (node: NodeObject) => [...((node.id as string).matchAll(/\//g) || [])].length;
   graph.nodeAutoColorBy("depth");
 
   const mapData = ({ nodes, links }: GraphData) => {
-    nodes.forEach((node: NodeObject) => ((node as NodeObject & { depth: number }).depth ||= getDepth(node)));
+    nodes.forEach((node) => ((node as NodeObject & { depth: number }).depth ||= getDepth(node)));
 
     return {
       nodes,

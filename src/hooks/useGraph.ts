@@ -5,6 +5,7 @@ import { wrapNewStateForDispatching } from "../utils/general";
 import { PreparedData } from "../utils/getData";
 import {
   colorByDepth,
+  colorByHeat,
   DAGDirections,
   freezeNodeOnDragEnd,
   highlightNodeOnHover,
@@ -21,6 +22,7 @@ export function useGraph({
   width,
   height,
   fixedFontSize,
+  colorBy = "depth",
 }: {
   data: PreparedData;
   dagMode: DAGDirections | null;
@@ -29,6 +31,7 @@ export function useGraph({
   width: number;
   height: number;
   fixedFontSize?: number;
+  colorBy?: "depth" | "connection-both" | "connection-dependency" | "connection-dependant";
 }) {
   const ref = React.useRef<HTMLDivElement | null>(null);
   const [selectedNodeInState, setSelectedNodeInState] = React.useState<string | null>(null);
@@ -57,11 +60,36 @@ export function useGraph({
 
     // preprocess data for rendering
     const dataMappers: (({ nodes, links }: GraphData) => GraphData)[] = [];
-    dataMappers.push(colorByDepth(graph).mapData);
+
+    // color by
+    switch (colorBy) {
+      case "depth": {
+        dataMappers.push(colorByDepth(graph).mapData);
+        break;
+      }
+      case "connection-both":
+      case "connection-dependency":
+      case "connection-dependant": {
+        dataMappers.push(
+          colorByHeat(
+            graph,
+            (
+              {
+                "connection-both": "both",
+                "connection-dependency": "source",
+                "connection-dependant": "target",
+              } as const
+            )[colorBy]
+          ).mapData
+        );
+        break;
+      }
+    }
+
     const dataMapper = (data: GraphData) => dataMappers.reduce((prev, mapper) => mapper(prev), data);
 
     return (data: GraphData) => graph.graphData(dataMapper(data));
-  }, [graph, fixNodeOnDragEnd, dagMode, renderAsText, data, setNodeSelection, fixedFontSize]);
+  }, [graph, fixNodeOnDragEnd, dagMode, renderAsText, data, setNodeSelection, fixedFontSize, colorBy]);
 
   return [ref, render, selectedNodeInState, setNodeSelection] as const;
 }
