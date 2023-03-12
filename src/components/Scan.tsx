@@ -263,13 +263,13 @@ function Scanning({
           <IconButton aria-label="Back" onClick={() => onCancel?.()} icon={<ChevronLeftIcon />} />
           <ExportButton data={data} />
         </HStack>
-        <Center>
-          {inProgress ? (
-            <Box>
-              <Text>Scanning {progress}th file</Text>
-              <Text>{processingFile}</Text>
-            </Box>
-          ) : (
+        {inProgress ? (
+          <Box>
+            <Text>Scanning {progress}th file</Text>
+            <Text fontFamily="monospace">{processingFile}</Text>
+          </Box>
+        ) : (
+          <Center>
             <VStack alignItems="stretch" width={280}>
               <Heading as="h2" color={hasError ? "HighlightText" : undefined}>
                 Scan complete
@@ -294,8 +294,8 @@ function Scanning({
                 Scan again
               </Button>
             </VStack>
-          )}
-        </Center>
+          </Center>
+        )}
       </VStack>
       {hasError && (
         <VStack alignItems="stretch" minH={0}>
