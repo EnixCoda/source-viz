@@ -102,14 +102,16 @@ export function Viz({
   );
 
   // Graph
-  const [fixFontSizeView, fixFontSize] = useCheckboxView("Fix font size to canvas", true);
+  const [fixFontSizeView, fixFontSize] = useCheckboxView("Fix font size to canvas", true, {
+    isDisabled: !renderAsText,
+  });
   const [fixedFontSizeView, fixedFontSize] = useNumberInputView(4, {
     label: "Fixed Font Size",
     inputProps: {
       keepWithinRange: true,
       clampValueOnBlur: true,
       min: 1,
-      isDisabled: !fixFontSize,
+      isDisabled: !fixFontSize || !renderAsText,
     },
   });
   const [[width, height], setSize] = React.useState(() => [window.innerWidth / 2, window.innerHeight]);
