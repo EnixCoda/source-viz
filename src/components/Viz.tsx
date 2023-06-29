@@ -178,6 +178,52 @@ export function Viz({
     render?.(renderData);
   }, [render, renderData]);
 
+  const [findPathToNodeInputView, findPathToNodeRegExp] = useRegExpInputView("");
+  const nodesToFind = React.useMemo(() => {
+    const nodes: string[] = [];
+    if (findPathToNodeRegExp !== null) {
+      for (const node of data.nodes) {
+        if (node.match(findPathToNodeRegExp)) nodes.push(node);
+      }
+    }
+    return nodes;
+  }, [data.nodes, findPathToNodeRegExp]);
+
+  const pathToNode = React.useMemo(() => {
+    const findPathToNode = (start: string, target: string, map: Map<string, Set<string>>) => {
+      const traversed = new Set<string>();
+      const go = (cur: string, path: string[] = [cur]): string[][] | void => {
+        if (cur === target) return [path];
+
+        if (traversed.has(cur)) return;
+        traversed.add(cur);
+
+        const items = map.get(cur);
+        if (items) {
+          const results: string[][] = [];
+          for (const item of items) {
+            const result = go(item, path.concat(item));
+            if (result) {
+              results.push(...result);
+            }
+          }
+          if (results.length > 0) {
+            return results;
+          }
+        }
+      };
+      return go(start);
+    };
+
+    const [nodeToFind] = nodesToFind;
+    if (selectedNode && nodeToFind) {
+      return {
+        dependency: findPathToNode(selectedNode, nodeToFind, data.dependencyMap),
+        dependant: findPathToNode(selectedNode, nodeToFind, data.dependantMap),
+      };
+    }
+  }, [nodesToFind, data.dependantMap, data.dependencyMap, selectedNode]);
+
   // The in-views
   const renderedNodeIds = React.useMemo(() => renderData?.nodes.map((node) => node.id as string), [renderData.nodes]);
   const leavesInView = React.useMemo(
@@ -275,6 +321,40 @@ export function Viz({
                     </Button>
                     <Button disabled>TODO: Add to root nodes</Button>
                 */}
+                <Heading as="h3" size="sm">
+                  Path to node
+                </Heading>
+                {findPathToNodeInputView}
+
+                <Heading as="h4" size="sm">
+                  Dependents
+                </Heading>
+                {pathToNode?.dependant &&
+                  pathToNode.dependant.map((d, index) => (
+                    <NodeList
+                      key={index}
+                      data={d}
+                      mapProps={(id) => ({
+                        onSelect: () => setSelectedNode(id),
+                        label: id,
+                      })}
+                    />
+                  ))}
+
+                <Heading as="h4" size="sm">
+                  Dependencies
+                </Heading>
+                {pathToNode?.dependency &&
+                  pathToNode.dependency.map((d, index) => (
+                    <NodeList
+                      key={index}
+                      data={d}
+                      mapProps={(id) => ({
+                        onSelect: () => setSelectedNode(id),
+                        label: id,
+                      })}
+                    />
+                  ))}
               </>
             ) : (
               "No selection yet"
