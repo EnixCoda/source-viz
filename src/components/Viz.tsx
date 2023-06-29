@@ -1,4 +1,15 @@
-import { Accordion, Box, FormControl, FormLabel, Heading, Switch, Text, VStack } from "@chakra-ui/react";
+import {
+  Accordion,
+  Box,
+  FormControl,
+  FormLabel,
+  Heading,
+  List,
+  ListItem,
+  Switch,
+  Text,
+  VStack,
+} from "@chakra-ui/react";
 import useResizeObserver from "@react-hook/resize-observer";
 import * as React from "react";
 import { useWindowSize } from "react-use";
@@ -161,7 +172,8 @@ export function Viz({
     [restrictedRoots, restrictedLeaves, dagMode, dagPruneMode, allExcludedNodes]
   );
 
-  const renderData = React.useMemo(() => getData(data, getDataOptions), [data, getDataOptions]);
+  const { cycles, nodes, links } = React.useMemo(() => getData(data, getDataOptions), [data, getDataOptions]);
+  const renderData = React.useMemo(() => ({ nodes, links }), [nodes, links]);
   React.useEffect(() => {
     render?.(renderData);
   }, [render, renderData]);
@@ -340,6 +352,21 @@ export function Viz({
                 label: <span>{id}</span>,
               })}
             />
+          </CollapsibleSection>
+          <CollapsibleSection label={`Cycles (${cycles.length} in total)`}>
+            <List>
+              {cycles.map((cycle) => (
+                <ListItem key={cycle.join()}>
+                  <NodeList
+                    data={cycle}
+                    mapProps={(id) => ({
+                      label: id,
+                      onSelect: () => setSelectedNode(id),
+                    })}
+                  />
+                </ListItem>
+              ))}
+            </List>
           </CollapsibleSection>
         </Accordion>
       </VStack>

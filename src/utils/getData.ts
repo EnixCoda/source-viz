@@ -46,8 +46,13 @@ export const getData = (
 
   type TraverseDirection = "dependant" | "dependency";
 
+  const cycles: string[][] = [];
+
   const traverseData = (id: string, direction: TraverseDirection, preventCycle = true, stack: string[] = []) => {
-    if (preventCycle && stack.includes(id)) return;
+    if (stack.includes(id)) {
+      cycles.push(stack.slice(stack.indexOf(id)));
+      if (preventCycle) return;
+    }
 
     if (excludeDown.has(id) || excludeUp.has(id)) return;
 
@@ -141,7 +146,17 @@ export const getData = (
     }
   }
 
+  const separator = "|";
+  const orderedCycles = cycles.map((cycle) => {
+    const first = cycle.indexOf(cycle.reduce((earliest, item) => (earliest < item ? earliest : item)));
+    return cycle.slice(first).concat(cycle.slice(0, first));
+  });
+  const deduplicatedCycles = Array.from(new Set(orderedCycles.map((cycle) => cycle.join(separator)))).map((cycle) =>
+    cycle.split(separator)
+  );
+
   return {
+    cycles: deduplicatedCycles,
     nodes: [...nodes.values()],
     links: [...links.entries()]
       .map(([source, targets]) => [...targets.values()].map((target) => ({ source, target })))
