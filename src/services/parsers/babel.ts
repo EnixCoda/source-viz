@@ -58,7 +58,7 @@ export async function prepare() {
     });
     const dependencies: [string, boolean][] = [];
     for (const node of ast.program.body) {
-      if (node.type === "ImportDeclaration") {
+      if (node.type === "ImportDeclaration" && node.importKind !== "type") {
         const { source } = node;
         const { value: dependency } = source;
         dependencies.push([dependency, false]);
