@@ -26,6 +26,7 @@ import { DAGDirections } from "../utils/graphDecorators";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { NodeList } from "./NodeList";
 import { OpenInVSCode } from "./OpenInVSCode";
+import { NodesFilter } from "./NodesFilter";
 
 export function Viz({
   entries,
@@ -178,16 +179,7 @@ export function Viz({
     render?.(renderData);
   }, [render, renderData]);
 
-  const [findPathToNodeInputView, findPathToNodeRegExp] = useRegExpInputView("");
-  const nodesToFind = React.useMemo(() => {
-    const nodes: string[] = [];
-    if (findPathToNodeRegExp !== null) {
-      for (const node of data.nodes) {
-        if (node.match(findPathToNodeRegExp)) nodes.push(node);
-      }
-    }
-    return nodes;
-  }, [data.nodes, findPathToNodeRegExp]);
+  const [nodeToFindPathTo, setNodeToFindPathTo] = React.useState<string | null>(null);
 
   const pathToNode = React.useMemo(() => {
     const findPathToNode = (start: string, target: string, map: Map<string, Set<string>>) => {
@@ -215,14 +207,13 @@ export function Viz({
       return go(start);
     };
 
-    const [nodeToFind] = nodesToFind;
-    if (selectedNode && nodeToFind) {
+    if (selectedNode && nodeToFindPathTo) {
       return {
-        dependency: findPathToNode(selectedNode, nodeToFind, data.dependencyMap),
-        dependant: findPathToNode(selectedNode, nodeToFind, data.dependantMap),
+        dependency: findPathToNode(selectedNode, nodeToFindPathTo, data.dependencyMap),
+        dependant: findPathToNode(selectedNode, nodeToFindPathTo, data.dependantMap),
       };
     }
-  }, [nodesToFind, data.dependantMap, data.dependencyMap, selectedNode]);
+  }, [nodeToFindPathTo, data.dependantMap, data.dependencyMap, selectedNode]);
 
   // The in-views
   const renderedNodeIds = React.useMemo(() => renderData?.nodes.map((node) => node.id as string), [renderData.nodes]);
@@ -233,11 +224,6 @@ export function Viz({
   const rootsInView = React.useMemo(
     () => renderedNodeIds.filter((id) => renderData.links.every(({ source }) => source !== id)),
     [renderedNodeIds, renderData.links]
-  );
-  const [nodesInViewInputView, nodesInViewRegExp] = useRegExpInputView();
-  const nodesInView = React.useMemo(
-    () => renderedNodeIds.filter((id) => !nodesInViewRegExp || id.match(nodesInViewRegExp)),
-    [renderedNodeIds, nodesInViewRegExp]
   );
 
   return (
@@ -297,20 +283,22 @@ export function Viz({
                   Dependencies
                 </Heading>
                 <NodeList
-                  data={[...(data.dependencyMap.get(selectedNode) || [])].filter((id) => renderedNodeIds.includes(id))}
+                    nodes={[...(data.dependencyMap.get(selectedNode) || [])].filter((id) =>
+                      renderedNodeIds.includes(id)
+                    )}
                   mapProps={(id) => ({
                     onSelect: () => setSelectedNode(id),
-                    label: id,
                   })}
                 />
                 <Heading as="h3" size="sm">
                   Dependents
                 </Heading>
                 <NodeList
-                  data={[...(data.dependantMap.get(selectedNode) || [])].filter((id) => renderedNodeIds.includes(id))}
+                    nodes={[...(data.dependantMap.get(selectedNode) || [])].filter((id) =>
+                      renderedNodeIds.includes(id)
+                    )}
                   mapProps={(id) => ({
                     onSelect: () => setSelectedNode(id),
-                    label: id,
                   })}
                 />
                 {/* <Button onClick={() => excludeNodeDependents(selectedNode)}>
@@ -333,10 +321,9 @@ export function Viz({
                   pathToNode.dependant.map((d, index) => (
                     <NodeList
                       key={index}
-                      data={d}
+                        nodes={d}
                       mapProps={(id) => ({
                         onSelect: () => setSelectedNode(id),
-                        label: id,
                       })}
                     />
                   ))}
@@ -348,10 +335,9 @@ export function Viz({
                   pathToNode.dependency.map((d, index) => (
                     <NodeList
                       key={index}
-                      data={d}
+                        nodes={d}
                       mapProps={(id) => ({
                         onSelect: () => setSelectedNode(id),
-                        label: id,
                       })}
                     />
                   ))}
@@ -363,22 +349,20 @@ export function Viz({
           <CollapsibleSection label={`Root Nodes (dependencies, on the right)`}>
             {restrictRootInputView}
             <NodeList
-              data={rootsInView}
+                nodes={rootsInView}
               mapProps={(id) => ({
                 onExclude: () => toggleExcludeNodeDependents(id),
                 onSelect: () => setSelectedNode(id),
-                label: <span>{id}</span>,
               })}
             />
           </CollapsibleSection>
           <CollapsibleSection label={`Leaf Nodes (source files, on the left)`}>
             {restrictLeavesInputView}
             <NodeList
-              data={leavesInView}
+                nodes={leavesInView}
               mapProps={(id) => ({
                 onExclude: () => toggleExcludeNodeDependencies(id),
                 onSelect: () => setSelectedNode(id),
-                label: <span>{id}</span>,
               })}
             />
           </CollapsibleSection>
@@ -389,9 +373,8 @@ export function Viz({
                   Exclude Dependents of Them
                 </Heading>
                 <NodeList
-                  data={excludedDependentsNodes}
+                    nodes={excludedDependentsNodes}
                   mapProps={(id) => ({
-                    label: id,
                     onCancel: () => toggleExcludeNodeDependents(id),
                   })}
                 />
@@ -401,9 +384,8 @@ export function Viz({
                   Exclude Dependencies of Them
                 </Heading>
                 <NodeList
-                  data={excludedDependenciesNodes}
+                    nodes={excludedDependenciesNodes}
                   mapProps={(id) => ({
-                    label: id,
                     onCancel: () => toggleExcludeNodeDependencies(id),
                   })}
                 />
@@ -413,24 +395,17 @@ export function Viz({
                   Exclude with regex
                 </Heading>
                 {excludeNodesFilterInputView}
-                <NodeList
-                  data={excludedNodesFromInput}
-                  mapProps={(id) => ({
-                    label: id,
-                  })}
-                />
+                  <NodeList nodes={excludedNodesFromInput} />
               </VStack>
             </VStack>
           </CollapsibleSection>
           <CollapsibleSection label={`Look up nodes in view (${renderData?.nodes.length || 0} in total)`}>
-            {nodesInViewInputView}
-            <NodeList
-              data={nodesInView}
-              mapProps={(id) => ({
+              <NodesFilter
+                nodes={renderedNodeIds}
+                mapProps={(id) => ({
                 onExclude: () => toggleExcludeNode(id),
                 onSelect: () => setSelectedNode(id),
-                label: <span>{id}</span>,
-              })}
+                })}
             />
           </CollapsibleSection>
           <CollapsibleSection label={`Cycles (${cycles.length} in total)`}>
@@ -438,9 +413,8 @@ export function Viz({
               {cycles.map((cycle) => (
                 <ListItem key={cycle.join()}>
                   <NodeList
-                    data={cycle}
+                      nodes={cycle}
                     mapProps={(id) => ({
-                      label: id,
                       onSelect: () => setSelectedNode(id),
                     })}
                   />
