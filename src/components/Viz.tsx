@@ -213,25 +213,29 @@ export function Viz({
         <VStack alignItems="stretch" flex={1} gap={2} maxHeight="100%" minW={0} overflow="auto">
           <Accordion allowMultiple defaultIndex={[0]} minW={0}>
             <CollapsibleSection label={`General Settings`}>
-              <div>{dagPruneModeView}</div>
-              <div>{dagModeView}</div>
-              <div>{colorByView}</div>
-              <div>{fixNodeOnDragEndView}</div>
-              <div>{renderAsTextView}</div>
-              <div>{fixFontSizeView}</div>
-              <div>{fixedFontSizeView}</div>
-              <div>
-                <SettingsOfOpenInVSCode />
-              </div>
+              <Box display="flex" flexDirection="column" gap={2}>
+                <div>{dagPruneModeView}</div>
+                <div>{dagModeView}</div>
+                <div>{colorByView}</div>
+                <div>{fixNodeOnDragEndView}</div>
+                <div>{renderAsTextView}</div>
+                <div>{fixFontSizeView}</div>
+                <div>{fixedFontSizeView}</div>
+                <div>
+                  <SettingsOfOpenInVSCode />
+                </div>
+              </Box>
             </CollapsibleSection>
             <CollapsibleSection label={`Selected Node`}>
               {selectedNode ? (
-                <>
+                <Box display="flex" flexDirection="column" gap={2}>
                   <Heading as="h3" size="sm">
                     Path
                   </Heading>
                   <MonoText wordBreak="break-word">{selectedNode}</MonoText>
-                  <OpenInVSCode layout="text" path={selectedNode} />
+                  <div>
+                    <OpenInVSCode layout="text" path={selectedNode} />
+                  </div>
                   <FormControl display="flex" alignItems="center" columnGap={1}>
                     <Switch
                       isChecked={
@@ -300,7 +304,7 @@ export function Viz({
                     selectedNode={selectedNode}
                     setSelectedNode={setSelectedNode}
                   />
-                </>
+                </Box>
               ) : (
                 "No selection yet"
               )}
