@@ -5,8 +5,8 @@ import {
   Center,
   Divider,
   Flex,
-  Heading,
   HStack,
+  Heading,
   IconButton,
   Input,
   List,
@@ -21,14 +21,15 @@ import {
   VStack,
 } from "@chakra-ui/react";
 import * as React from "react";
-import { getDependencyEntries, MetaFilter } from "../services";
+import { MetaFilter, getDependencyEntries } from "../services";
 import * as babelParser from "../services/parsers/babel";
 import { DependencyEntry } from "../services/serializers";
 import { getFilterMatchers, resolvePath } from "../utils/general";
-import { useAbortableFunction } from "./abortable";
 import { FS } from "./App";
 import { ExportButton } from "./ExportButton";
 import { FileExplorer } from "./FileExplorer";
+import { MonoText } from "./MonoText";
+import { useAbortableFunction } from "./abortable";
 
 export const defaultIncludes = ["**/*.js", "**/*.jsx", "**/*.ts", "**/*.tsx"];
 
@@ -266,7 +267,7 @@ function Scanning({
         {inProgress ? (
           <Box>
             <Text>Scanning {progress}th file</Text>
-            <Text fontFamily="monospace">{processingFile}</Text>
+            <MonoText>{processingFile}</MonoText>
           </Box>
         ) : (
           <Center>

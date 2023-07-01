@@ -1,5 +1,6 @@
-import { Button, HStack, Text } from "@chakra-ui/react";
+import { Button, HStack } from "@chakra-ui/react";
 import * as React from "react";
+import { MonoText } from "./MonoText";
 
 export function NodeInView({
   label,
@@ -31,9 +32,9 @@ export function NodeInView({
           Select
         </Button>
       )}{" "}
-      <Text fontSize="sm" overflow="hidden" textOverflow="ellipsis" fontFamily="Cascadia Code, monospace" title={title}>
+      <MonoText fontSize="sm" overflow="hidden" textOverflow="ellipsis" title={title}>
         {label}
-      </Text>
+      </MonoText>
     </HStack>
   );
 }

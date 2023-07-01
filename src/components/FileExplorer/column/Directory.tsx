@@ -64,10 +64,11 @@ export function ColumnDirectory({
   return (
     <List ref={ref} width={width} height="100%" overflowY="auto">
       {files.map((file) => (
-        <ListItem key={file.name} onClick={() => onSelect?.(file)} whiteSpace="nowrap" fontFamily="monospace">
+        <ListItem key={file.name} onClick={() => onSelect?.(file)} whiteSpace="nowrap">
           <Button
             width="100%"
             textOverflow="ellipsis"
+            fontFamily="monospace"
             fontWeight="normal"
             fontSize={14}
             lineHeight={1.5}
