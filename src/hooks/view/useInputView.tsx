@@ -28,7 +28,7 @@ export function useInputView(
 ) {
   const [inputView, inputValue] = useView(defaultValue, (state, setState) => (
     <FormControl>
-      <FormLabel>{label}</FormLabel>
+      {label && <FormLabel>{label}</FormLabel>}
       <Input {...inputProps} value={state} onChange={(e) => setState(e.target.value)} />
       {helperText && <FormHelperText>{helperText}</FormHelperText>}
     </FormControl>

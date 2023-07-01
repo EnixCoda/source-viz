@@ -24,9 +24,10 @@ import { DependencyEntry } from "../services/serializers";
 import { getData, prepareGraphData } from "../utils/getData";
 import { DAGDirections } from "../utils/graphDecorators";
 import { CollapsibleSection } from "./CollapsibleSection";
+import { MonoText } from "./MonoText";
 import { NodeList } from "./NodeList";
-import { OpenInVSCode } from "./OpenInVSCode";
 import { NodesFilter } from "./NodesFilter";
+import { LocalPathContextProvider, OpenInVSCode, OpenInVSCodeSettings } from "./OpenInVSCode";
 
 export function Viz({
   entries,
@@ -227,6 +228,7 @@ export function Viz({
   );
 
   return (
+    <LocalPathContextProvider>
     <Box display="flex" ref={containerRef} overflow="auto">
       <div ref={ref} />
       <Box
@@ -246,8 +248,8 @@ export function Viz({
         onPointerDown={onPointerDown}
       />
       <VStack alignItems="stretch" flex={1} gap={2} maxHeight="100%" minW={0} overflow="auto">
-        <Accordion allowMultiple defaultIndex={[1, 4]} minW={0}>
-          <CollapsibleSection label={`Viz configs`}>
+          <Accordion allowMultiple defaultIndex={[0]} minW={0}>
+            <CollapsibleSection label={`General Settings`}>
             <div>{dagPruneModeView}</div>
             <div>{dagModeView}</div>
             <div>{colorByView}</div>
@@ -255,13 +257,18 @@ export function Viz({
             <div>{renderAsTextView}</div>
             <div>{fixFontSizeView}</div>
             <div>{fixedFontSizeView}</div>
+              <div>
+                <OpenInVSCodeSettings />
+              </div>
           </CollapsibleSection>
           <CollapsibleSection label={`Selected Node`}>
             {selectedNode ? (
               <>
-                <Text as="h3" fontSize="lg">
-                  {selectedNode}
-                </Text>
+                  <Heading as="h3" size="sm">
+                    Path
+                  </Heading>
+                  <MonoText wordBreak="break-word">{selectedNode}</MonoText>
+                  <OpenInVSCode layout="text" path={selectedNode} />
                 <FormControl display="flex" alignItems="center" columnGap={1}>
                   <Switch
                     isChecked={
@@ -270,9 +277,8 @@ export function Viz({
                     }
                     onChange={() => toggleExcludeNode(selectedNode)}
                   />
-                  <FormLabel mb={0}>Exclude</FormLabel>
+                    <FormLabel mb={0}>Exclude from viz</FormLabel>
                 </FormControl>
-                <OpenInVSCode filePath={selectedNode} />
                 {/* excludedDependents: excludedDependentsNodes.some(
                       (id) => id === selectedNode
                     ),
@@ -317,7 +323,7 @@ export function Viz({
                 <Heading as="h4" size="sm">
                   Dependents
                 </Heading>
-                {pathToNode?.dependant &&
+                      {(pathToNode?.dependant &&
                   pathToNode.dependant.map((d, index) => (
                     <NodeList
                       key={index}
@@ -326,12 +332,12 @@ export function Viz({
                         onSelect: () => setSelectedNode(id),
                       })}
                     />
-                  ))}
+                        ))) || <Text color="grey">No data</Text>}
 
                 <Heading as="h4" size="sm">
                   Dependencies
                 </Heading>
-                {pathToNode?.dependency &&
+                      {(pathToNode?.dependency &&
                   pathToNode.dependency.map((d, index) => (
                     <NodeList
                       key={index}
@@ -340,13 +346,15 @@ export function Viz({
                         onSelect: () => setSelectedNode(id),
                       })}
                     />
-                  ))}
+                        ))) || <Text color="grey">No data</Text>}
+                    </Box>
+                  ) : null}
               </>
             ) : (
               "No selection yet"
             )}
           </CollapsibleSection>
-          <CollapsibleSection label={`Root Nodes (dependencies, on the right)`}>
+            <CollapsibleSection label={`Root Nodes`}>
             {restrictRootInputView}
             <NodeList
                 nodes={rootsInView}
@@ -356,7 +364,7 @@ export function Viz({
               })}
             />
           </CollapsibleSection>
-          <CollapsibleSection label={`Leaf Nodes (source files, on the left)`}>
+            <CollapsibleSection label={`Leaf Nodes`}>
             {restrictLeavesInputView}
             <NodeList
                 nodes={leavesInView}
@@ -425,5 +433,6 @@ export function Viz({
         </Accordion>
       </VStack>
     </Box>
+    </LocalPathContextProvider>
   );
 }
