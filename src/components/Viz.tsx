@@ -6,6 +6,7 @@ import {
   Heading,
   List,
   ListItem,
+  Select,
   Switch,
   Text,
   VStack,
@@ -216,6 +217,17 @@ export function Viz({
     }
   }, [nodeToFindPathTo, data.dependantMap, data.dependencyMap, selectedNode]);
 
+  const [nodeSelectionHistory, setNodeSelectionHistory] = React.useState<string[]>([]);
+  React.useEffect(() => {
+    if (selectedNode) {
+      setNodeSelectionHistory((history) => {
+        const newHistory = history.filter((node) => node !== selectedNode);
+        newHistory.unshift(selectedNode);
+        return newHistory;
+      });
+    }
+  }, [selectedNode]);
+
   // The in-views
   const renderedNodeIds = React.useMemo(() => renderData?.nodes.map((node) => node.id as string), [renderData.nodes]);
   const leavesInView = React.useMemo(
@@ -307,6 +319,21 @@ export function Viz({
                     onSelect: () => setSelectedNode(id),
                   })}
                 />
+                  <Heading as="h3" size="sm">
+                    Recent selected nodes
+                  </Heading>
+                  <Select
+                    value=""
+                    placeholder="Choosing a node will switch selection"
+                    onChange={(e) => setSelectedNode(e.target.value)}
+                  >
+                    {/* slice 1 to exclude current selection */}
+                    {nodeSelectionHistory.slice(1).map((node) => (
+                      <option key={node} value={node}>
+                        {node}
+                      </option>
+                    ))}
+                  </Select>
                 {/* <Button onClick={() => excludeNodeDependents(selectedNode)}>
                       Toggle exclude its dependents
                     </Button>
