@@ -1,16 +1,4 @@
-import {
-  Accordion,
-  Box,
-  FormControl,
-  FormLabel,
-  Heading,
-  List,
-  ListItem,
-  Select,
-  Switch,
-  Text,
-  VStack,
-} from "@chakra-ui/react";
+import { Accordion, Box, FormControl, FormLabel, Heading, Select, Switch, VStack } from "@chakra-ui/react";
 import useResizeObserver from "@react-hook/resize-observer";
 import * as React from "react";
 import { useWindowSize } from "react-use";
@@ -25,6 +13,8 @@ import { DependencyEntry } from "../services/serializers";
 import { getData, prepareGraphData } from "../utils/getData";
 import { DAGDirections } from "../utils/graphDecorators";
 import { CollapsibleSection } from "./CollapsibleSection";
+import { FindPathToNode } from "./FindPathToNode";
+import { ListOfNodeList } from "./ListOfNodeList";
 import { MonoText } from "./MonoText";
 import { NodeList } from "./NodeList";
 import { NodesFilter } from "./NodesFilter";
@@ -181,50 +171,10 @@ export function Viz({
     render?.(renderData);
   }, [render, renderData]);
 
-  const [nodeToFindPathTo, setNodeToFindPathTo] = React.useState<string | null>(null);
-
-  const pathToNode = React.useMemo(() => {
-    const findPathToNode = (start: string, target: string, map: Map<string, Set<string>>) => {
-      const traversed = new Set<string>();
-      const go = (cur: string, path: string[] = [cur]): string[][] | void => {
-        if (cur === target) return [path];
-
-        if (traversed.has(cur)) return;
-        traversed.add(cur);
-
-        const items = map.get(cur);
-        if (items) {
-          const results: string[][] = [];
-          for (const item of items) {
-            const result = go(item, path.concat(item));
-            if (result) {
-              results.push(...result);
-            }
-          }
-          if (results.length > 0) {
-            return results;
-          }
-        }
-      };
-      return go(start);
-    };
-
-    if (selectedNode && nodeToFindPathTo) {
-      return {
-        dependency: findPathToNode(selectedNode, nodeToFindPathTo, data.dependencyMap),
-        dependant: findPathToNode(selectedNode, nodeToFindPathTo, data.dependantMap),
-      };
-    }
-  }, [nodeToFindPathTo, data.dependantMap, data.dependencyMap, selectedNode]);
-
   const [nodeSelectionHistory, setNodeSelectionHistory] = React.useState<string[]>([]);
   React.useEffect(() => {
     if (selectedNode) {
-      setNodeSelectionHistory((history) => {
-        const newHistory = history.filter((node) => node !== selectedNode);
-        newHistory.unshift(selectedNode);
-        return newHistory;
-      });
+      setNodeSelectionHistory((history) => [selectedNode, ...history.filter((node) => node !== selectedNode)]);
     }
   }, [selectedNode]);
 
@@ -241,84 +191,84 @@ export function Viz({
 
   return (
     <LocalPathContextProvider>
-    <Box display="flex" ref={containerRef} overflow="auto">
-      <div ref={ref} />
-      <Box
-        display="inline-block"
-        width="2px"
-        flexShrink={0}
-        background={"ButtonFace"}
-        _hover={{
-          background: "ButtonHighlight",
-          outline: "1px solid ButtonHighlight",
-        }}
-        _active={{
-          background: "ActiveBorder",
-          outline: "1px solid ActiveBorder",
-        }}
-        cursor="ew-resize"
-        onPointerDown={onPointerDown}
-      />
-      <VStack alignItems="stretch" flex={1} gap={2} maxHeight="100%" minW={0} overflow="auto">
+      <Box display="flex" ref={containerRef} overflow="auto">
+        <div ref={ref} />
+        <Box
+          display="inline-block"
+          width="2px"
+          flexShrink={0}
+          background={"ButtonFace"}
+          _hover={{
+            background: "ButtonHighlight",
+            outline: "1px solid ButtonHighlight",
+          }}
+          _active={{
+            background: "ActiveBorder",
+            outline: "1px solid ActiveBorder",
+          }}
+          cursor="ew-resize"
+          onPointerDown={onPointerDown}
+        />
+        <VStack alignItems="stretch" flex={1} gap={2} maxHeight="100%" minW={0} overflow="auto">
           <Accordion allowMultiple defaultIndex={[0]} minW={0}>
             <CollapsibleSection label={`General Settings`}>
-            <div>{dagPruneModeView}</div>
-            <div>{dagModeView}</div>
-            <div>{colorByView}</div>
-            <div>{fixNodeOnDragEndView}</div>
-            <div>{renderAsTextView}</div>
-            <div>{fixFontSizeView}</div>
-            <div>{fixedFontSizeView}</div>
+              <div>{dagPruneModeView}</div>
+              <div>{dagModeView}</div>
+              <div>{colorByView}</div>
+              <div>{fixNodeOnDragEndView}</div>
+              <div>{renderAsTextView}</div>
+              <div>{fixFontSizeView}</div>
+              <div>{fixedFontSizeView}</div>
               <div>
                 <OpenInVSCodeSettings />
               </div>
-          </CollapsibleSection>
-          <CollapsibleSection label={`Selected Node`}>
-            {selectedNode ? (
-              <>
+            </CollapsibleSection>
+            <CollapsibleSection label={`Selected Node`}>
+              {selectedNode ? (
+                <>
                   <Heading as="h3" size="sm">
                     Path
                   </Heading>
                   <MonoText wordBreak="break-word">{selectedNode}</MonoText>
                   <OpenInVSCode layout="text" path={selectedNode} />
-                <FormControl display="flex" alignItems="center" columnGap={1}>
-                  <Switch
-                    isChecked={
-                      excludedDependentsNodes.some((id) => id === selectedNode) ||
-                      excludedDependenciesNodes.some((id) => id === selectedNode)
-                    }
-                    onChange={() => toggleExcludeNode(selectedNode)}
-                  />
+                  <FormControl display="flex" alignItems="center" columnGap={1}>
+                    <Switch
+                      isChecked={
+                        excludedDependentsNodes.some((id) => id === selectedNode) ||
+                        excludedDependenciesNodes.some((id) => id === selectedNode)
+                      }
+                      onChange={() => toggleExcludeNode(selectedNode)}
+                    />
                     <FormLabel mb={0}>Exclude from viz</FormLabel>
-                </FormControl>
-                {/* excludedDependents: excludedDependentsNodes.some(
+                  </FormControl>
+                  {/* excludedDependents: excludedDependentsNodes.some(
                       (id) => id === selectedNode
-                    ),
+                      ),
                     excludedDependencies: excludedDependenciesNodes.some(
                       (id) => id === selectedNode
                     ), */}
-                <Heading as="h3" size="sm">
-                  Dependencies
-                </Heading>
-                <NodeList
+                  <Heading as="h3" size="sm">
+                    Dependencies
+                  </Heading>
+                  <NodeList
                     nodes={[...(data.dependencyMap.get(selectedNode) || [])].filter((id) =>
                       renderedNodeIds.includes(id)
                     )}
-                  mapProps={(id) => ({
-                    onSelect: () => setSelectedNode(id),
-                  })}
-                />
-                <Heading as="h3" size="sm">
-                  Dependents
-                </Heading>
-                <NodeList
+                    mapProps={(id) => ({
+                      onSelect: () => setSelectedNode(id),
+                    })}
+                  />
+                  <Heading as="h3" size="sm">
+                    Dependents
+                  </Heading>
+                  <NodeList
                     nodes={[...(data.dependantMap.get(selectedNode) || [])].filter((id) =>
                       renderedNodeIds.includes(id)
                     )}
-                  mapProps={(id) => ({
-                    onSelect: () => setSelectedNode(id),
-                  })}
-                />
+                    mapProps={(id) => ({
+                      onSelect: () => setSelectedNode(id),
+                    })}
+                  />
                   <Heading as="h3" size="sm">
                     Recent selected nodes
                   </Heading>
@@ -334,132 +284,102 @@ export function Viz({
                       </option>
                     ))}
                   </Select>
-                {/* <Button onClick={() => excludeNodeDependents(selectedNode)}>
+                  {/* <Button onClick={() => excludeNodeDependents(selectedNode)}>
                       Toggle exclude its dependents
                     </Button>
                     <Button onClick={() => excludeNodeDependencies(selectedNode)}>
-                      Toggle exclude its dependencies
+                    Toggle exclude its dependencies
                     </Button>
                     <Button disabled>TODO: Add to root nodes</Button>
-                */}
-                <Heading as="h3" size="sm">
-                  Path to node
-                </Heading>
-                {findPathToNodeInputView}
+                  */}
 
-                <Heading as="h4" size="sm">
-                  Dependents
-                </Heading>
-                      {(pathToNode?.dependant &&
-                  pathToNode.dependant.map((d, index) => (
-                    <NodeList
-                      key={index}
-                        nodes={d}
-                      mapProps={(id) => ({
-                        onSelect: () => setSelectedNode(id),
-                      })}
-                    />
-                        ))) || <Text color="grey">No data</Text>}
-
-                <Heading as="h4" size="sm">
-                  Dependencies
-                </Heading>
-                      {(pathToNode?.dependency &&
-                  pathToNode.dependency.map((d, index) => (
-                    <NodeList
-                      key={index}
-                        nodes={d}
-                      mapProps={(id) => ({
-                        onSelect: () => setSelectedNode(id),
-                      })}
-                    />
-                        ))) || <Text color="grey">No data</Text>}
-                    </Box>
-                  ) : null}
-              </>
-            ) : (
-              "No selection yet"
-            )}
-          </CollapsibleSection>
+                  <FindPathToNode
+                    nodes={renderedNodeIds}
+                    data={data}
+                    selectedNode={selectedNode}
+                    setSelectedNode={setSelectedNode}
+                  />
+                </>
+              ) : (
+                "No selection yet"
+              )}
+            </CollapsibleSection>
             <CollapsibleSection label={`Root Nodes`}>
-            {restrictRootInputView}
-            <NodeList
+              {restrictRootInputView}
+              <NodeList
                 nodes={rootsInView}
-              mapProps={(id) => ({
-                onExclude: () => toggleExcludeNodeDependents(id),
-                onSelect: () => setSelectedNode(id),
-              })}
-            />
-          </CollapsibleSection>
+                mapProps={(id) => ({
+                  onExclude: () => toggleExcludeNodeDependents(id),
+                  onSelect: () => setSelectedNode(id),
+                })}
+              />
+            </CollapsibleSection>
             <CollapsibleSection label={`Leaf Nodes`}>
-            {restrictLeavesInputView}
-            <NodeList
+              {restrictLeavesInputView}
+              <NodeList
                 nodes={leavesInView}
-              mapProps={(id) => ({
-                onExclude: () => toggleExcludeNodeDependencies(id),
-                onSelect: () => setSelectedNode(id),
-              })}
-            />
-          </CollapsibleSection>
-          <CollapsibleSection label={`Extra Filters`}>
-            <VStack alignItems="stretch" gap={1}>
-              <VStack alignItems="flex-start" as="section" spacing={0}>
-                <Heading as="h3" size="sm">
-                  Exclude Dependents of Them
-                </Heading>
-                <NodeList
+                mapProps={(id) => ({
+                  onExclude: () => toggleExcludeNodeDependencies(id),
+                  onSelect: () => setSelectedNode(id),
+                })}
+              />
+            </CollapsibleSection>
+            <CollapsibleSection label={`Extra Filters`}>
+              <VStack alignItems="stretch" gap={1}>
+                <VStack alignItems="flex-start" as="section" spacing={0}>
+                  <Heading as="h3" size="sm">
+                    Exclude Dependents of Them
+                  </Heading>
+                  <NodeList
                     nodes={excludedDependentsNodes}
-                  mapProps={(id) => ({
-                    onCancel: () => toggleExcludeNodeDependents(id),
-                  })}
-                />
-              </VStack>
-              <VStack alignItems="flex-start" as="section" spacing={0}>
-                <Heading as="h3" size="sm">
-                  Exclude Dependencies of Them
-                </Heading>
-                <NodeList
+                    mapProps={(id) => ({
+                      onCancel: () => toggleExcludeNodeDependents(id),
+                    })}
+                  />
+                </VStack>
+                <VStack alignItems="flex-start" as="section" spacing={0}>
+                  <Heading as="h3" size="sm">
+                    Exclude Dependencies of Them
+                  </Heading>
+                  <NodeList
                     nodes={excludedDependenciesNodes}
-                  mapProps={(id) => ({
-                    onCancel: () => toggleExcludeNodeDependencies(id),
-                  })}
-                />
-              </VStack>
-              <VStack alignItems="flex-start" as="section" spacing={0}>
-                <Heading as="h3" size="sm">
-                  Exclude with regex
-                </Heading>
-                {excludeNodesFilterInputView}
+                    mapProps={(id) => ({
+                      onCancel: () => toggleExcludeNodeDependencies(id),
+                    })}
+                  />
+                </VStack>
+                <VStack alignItems="flex-start" as="section" spacing={0}>
+                  <Heading as="h3" size="sm">
+                    Exclude with regex
+                  </Heading>
+                  {excludeNodesFilterInputView}
                   <NodeList nodes={excludedNodesFromInput} />
+                </VStack>
               </VStack>
-            </VStack>
-          </CollapsibleSection>
-          <CollapsibleSection label={`Look up nodes in view (${renderData?.nodes.length || 0} in total)`}>
+            </CollapsibleSection>
+            <CollapsibleSection label={`Look up nodes in view (${renderData?.nodes.length || 0} in total)`}>
               <NodesFilter
                 nodes={renderedNodeIds}
                 mapProps={(id) => ({
-                onExclude: () => toggleExcludeNode(id),
-                onSelect: () => setSelectedNode(id),
+                  onExclude: () => toggleExcludeNode(id),
+                  onSelect: () => setSelectedNode(id),
                 })}
-            />
-          </CollapsibleSection>
-          <CollapsibleSection label={`Cycles (${cycles.length} in total)`}>
-            <List>
-              {cycles.map((cycle) => (
-                <ListItem key={cycle.join()}>
-                  <NodeList
-                      nodes={cycle}
-                    mapProps={(id) => ({
-                      onSelect: () => setSelectedNode(id),
-                    })}
-                  />
-                </ListItem>
-              ))}
-            </List>
-          </CollapsibleSection>
-        </Accordion>
-      </VStack>
-    </Box>
+              />
+            </CollapsibleSection>
+            <CollapsibleSection label={`Cycles (${cycles.length} in total)`}>
+              <ListOfNodeList
+                lists={cycles}
+                getProps={() => ({
+                  mapProps: (id) => ({
+                    onSelect: () => setSelectedNode(id),
+                  }),
+                })}
+              />
+            </CollapsibleSection>
+            <Box height={360} />
+          </Accordion>
+        </VStack>
+      </Box>
     </LocalPathContextProvider>
   );
 }

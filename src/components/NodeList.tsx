@@ -3,7 +3,7 @@ import { NodeItem, NodeItemProps } from "./NodeItem";
 
 export type NodeListProps = {
   nodes?: string[];
-  mapProps?: (record: string) => Omit<NodeItemProps, "label">;
+  mapProps?: (node: string) => Omit<NodeItemProps, "label">;
   listProps?: ListProps;
 };
 

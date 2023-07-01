@@ -2,7 +2,7 @@ import { ExternalLinkIcon } from "@chakra-ui/icons";
 import { Box, Button, IconButton, Text, Tooltip } from "@chakra-ui/react";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useInputView } from "../hooks/view/useInputView";
-import { ReactState } from "./ReactState";
+import { ReactState } from "./type";
 
 export const LocalPathContext = createContext<ReactState<string> | undefined>(undefined);
 
