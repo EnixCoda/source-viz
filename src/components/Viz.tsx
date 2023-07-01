@@ -15,10 +15,11 @@ import { DAGDirections } from "../utils/graphDecorators";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { FindPathToNode } from "./FindPathToNode";
 import { ListOfNodeList } from "./ListOfNodeList";
+import { LocalPathContextProvider } from "./LocalPathContext";
 import { MonoText } from "./MonoText";
 import { NodeList } from "./NodeList";
 import { NodesFilter } from "./NodesFilter";
-import { LocalPathContextProvider, OpenInVSCode, OpenInVSCodeSettings } from "./OpenInVSCode";
+import { OpenInVSCode, SettingsOfOpenInVSCode } from "./OpenInVSCode";
 
 export function Viz({
   entries,
@@ -220,7 +221,7 @@ export function Viz({
               <div>{fixFontSizeView}</div>
               <div>{fixedFontSizeView}</div>
               <div>
-                <OpenInVSCodeSettings />
+                <SettingsOfOpenInVSCode />
               </div>
             </CollapsibleSection>
             <CollapsibleSection label={`Selected Node`}>
