@@ -1,4 +1,4 @@
-import { Accordion, Box, FormControl, FormLabel, Heading, Select, Switch, VStack } from "@chakra-ui/react";
+import { Accordion, Box, FormControl, FormLabel, Heading, Select, Switch, Text, VStack } from "@chakra-ui/react";
 import useResizeObserver from "@react-hook/resize-observer";
 import * as React from "react";
 import { useWindowSize } from "react-use";
@@ -85,7 +85,9 @@ export function Viz({
   );
 
   // Restrictions
-  const [restrictRootInputView, restrictRootsRegExp] = useRegExpInputView();
+  const [restrictRootInputView, restrictRootsRegExp] = useRegExpInputView("", {
+    helperText: "If not empty, only nodes matching this regex will be roots.",
+  });
   const restrictedRoots = React.useMemo(
     () =>
       new Set(
@@ -95,7 +97,9 @@ export function Viz({
       ),
     [data.dependencies, restrictRootsRegExp, allExcludedNodes]
   );
-  const [restrictLeavesInputView, restrictLeavesRegExp] = useRegExpInputView();
+  const [restrictLeavesInputView, restrictLeavesRegExp] = useRegExpInputView("", {
+    helperText: "If not empty, only nodes matching this regex will be leaves.",
+  });
   const restrictedLeaves = React.useMemo(
     () =>
       new Set(
@@ -311,6 +315,7 @@ export function Viz({
             </CollapsibleSection>
             <CollapsibleSection label={`Root Nodes`}>
               {restrictRootInputView}
+              <Text>Below are the nodes treated as root nodes in the viz</Text>
               <NodeList
                 nodes={rootsInView}
                 mapProps={(id) => ({
@@ -321,6 +326,7 @@ export function Viz({
             </CollapsibleSection>
             <CollapsibleSection label={`Leaf Nodes`}>
               {restrictLeavesInputView}
+              <Text>Below are the nodes treated as leaf nodes in the viz</Text>
               <NodeList
                 nodes={leavesInView}
                 mapProps={(id) => ({

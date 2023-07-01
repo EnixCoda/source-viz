@@ -1,5 +1,6 @@
 import {
   FormControl,
+  FormErrorMessage,
   FormHelperText,
   FormLabel,
   Input,
@@ -14,28 +15,30 @@ import {
 import * as React from "react";
 import { useView } from "./useView";
 
+export type UseInputViewConfig = {
+  inputProps?: InputProps;
+  label?: React.ReactNode;
+  helperText?: React.ReactNode;
+  errorMessage?: React.ReactNode;
+};
+
 export function useInputView(
   defaultValue: string = "",
-  {
-    label,
-    inputProps,
-    helperText,
-  }: {
-    inputProps?: InputProps;
-    label?: React.ReactNode;
-    helperText?: React.ReactNode;
-  } = {}
+  { label, inputProps, helperText, errorMessage }: UseInputViewConfig = {}
 ) {
-  const [inputView, inputValue] = useView(defaultValue, (state, setState) => (
+  return useView(defaultValue, (state, setState) => (
     <FormControl>
       {label && <FormLabel>{label}</FormLabel>}
-      <Input {...inputProps} value={state} onChange={(e) => setState(e.target.value)} />
+      <Input
+        isInvalid={inputProps?.isInvalid || !!errorMessage}
+        {...inputProps}
+        value={state}
+        onChange={(e) => setState(e.target.value)}
+      />
       {helperText && <FormHelperText>{helperText}</FormHelperText>}
+      {errorMessage && <FormErrorMessage>{errorMessage}</FormErrorMessage>}
     </FormControl>
   ));
-  const view = React.useMemo(() => <>{inputView}</>, [inputView]);
-
-  return [view, inputValue] as const;
 }
 
 export function useNumberInputView(
