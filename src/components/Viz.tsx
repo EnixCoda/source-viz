@@ -69,7 +69,9 @@ export function Viz({
   );
 
   // Excludes
-  const [excludeNodesFilterInputView, excludeNodesFilterRegExp] = useRegExpInputView("test");
+  const [excludeNodesFilterInputView, excludeNodesFilterRegExp] = useRegExpInputView("test", {
+    helperText: "Nodes match this regex will be excluded",
+  });
   const allNodes = React.useMemo(() => [...data.nodes.keys()].sort(), [data.nodes]);
   const excludedNodesFromInput = React.useMemo(
     () => (excludeNodesFilterRegExp ? allNodes.filter((dep) => dep.match(excludeNodesFilterRegExp)) : []),
@@ -92,7 +94,7 @@ export function Viz({
   // Restrictions
   const [restrictRootInputView, restrictRootsRegExp] = useRegExpInputView("", {
     inputProps: { placeholder: "Filter nodes with RegExp" },
-    helperText: "Only nodes match this regex will be roots.",
+    helperText: "Only nodes match this regex will be regarded as roots.",
   });
   const restrictedRoots = React.useMemo(
     () =>
@@ -103,7 +105,7 @@ export function Viz({
   );
   const [restrictLeavesInputView, restrictLeavesRegExp] = useRegExpInputView("", {
     inputProps: { placeholder: "Filter nodes with RegExp" },
-    helperText: "Only nodes match this regex will be leave.",
+    helperText: "Only nodes match this regex will be regarded as leave.",
   });
   const restrictedLeaves = React.useMemo(
     () =>
@@ -359,7 +361,7 @@ export function Viz({
               <VStack alignItems="stretch" gap={1}>
                 <VStack alignItems="flex-start" as="section" spacing={0}>
                   <Heading as="h3" size="sm">
-                    Exclude Dependents of Them
+                    Dependents of these nodes have been excluded
                   </Heading>
                   <NodeList
                     nodes={excludedDependentsNodes}
@@ -370,7 +372,7 @@ export function Viz({
                 </VStack>
                 <VStack alignItems="flex-start" as="section" spacing={0}>
                   <Heading as="h3" size="sm">
-                    Exclude Dependencies of Them
+                    Dependencies of these nodes have been excluded
                   </Heading>
                   <NodeList
                     nodes={excludedDependenciesNodes}
