@@ -36,7 +36,7 @@ export function Viz({
   const data = React.useMemo(() => prepareGraphData(entries), [entries]);
   const [renderAsTextView, renderAsText] = useCheckboxView("Render as Text", true);
   const [colorByView, colorBy] = useSelectView(
-    "Color by: ",
+    "Color by",
     [
       { value: "depth", label: "File depth" },
       { value: "connection-both", label: "Connections" },
@@ -47,7 +47,7 @@ export function Viz({
   );
   const [fixNodeOnDragEndView, fixNodeOnDragEnd] = useCheckboxView("Fix node on drag end", true);
   const [dagModeView, dagMode] = useSelectView<DAGDirections>(
-    "DAG Mode: ",
+    "DAG Mode",
     [
       { value: null, label: "Disable (render circular references)" },
       { value: "lr", label: "Left to Right" },
@@ -60,7 +60,7 @@ export function Viz({
     "lr"
   );
   const [dagPruneModeView, dagPruneMode] = useSelectView(
-    "DAG Prune Mode: ",
+    "DAG Prune Mode",
     dagMode
       ? [
           { value: "less roots", label: "Less roots" },
@@ -226,10 +226,10 @@ export function Viz({
           cursor="ew-resize"
           onPointerDown={onPointerDown}
         />
-        <VStack alignItems="stretch" flex={1} gap={2} maxHeight="100%" minW={0} overflow="auto">
-          <Accordion allowMultiple defaultIndex={[0]} minW={0}>
+        <VStack alignItems="stretch" flex={1} maxHeight="100%" minW={0} overflow="auto">
+          <Accordion defaultIndex={[0]} minW={0}>
             <CollapsibleSection label={`General Settings`}>
-              <Box display="flex" flexDirection="column" gap={2}>
+              <VStack alignItems="stretch">
                 <div>{dagModeView}</div>
                 <div>{dagPruneModeView}</div>
                 <div>{colorByView}</div>
@@ -243,11 +243,11 @@ export function Viz({
                 <div>
                   <ExportButton data={entries} />
                 </div>
-              </Box>
+              </VStack>
             </CollapsibleSection>
             <CollapsibleSection label={`Selected Node`}>
               {selectedNode ? (
-                <Box display="flex" flexDirection="column" gap={2}>
+                <VStack alignItems="flex-start">
                   <Heading as="h3" size="sm">
                     Path
                   </Heading>
@@ -294,7 +294,7 @@ export function Viz({
                     })}
                   />
                   <Heading as="h3" size="sm">
-                    Recent selected nodes
+                    Recently selected nodes
                   </Heading>
                   <Select
                     value=""
@@ -323,7 +323,7 @@ export function Viz({
                     selectedNode={selectedNode}
                     setSelectedNode={setSelectedNode}
                   />
-                </Box>
+                </VStack>
               ) : (
                 <Text color="gray.500">No selection yet</Text>
               )}
@@ -367,7 +367,7 @@ export function Viz({
               />
             </CollapsibleSection>
             <CollapsibleSection label={`Extra Filters`}>
-              <VStack alignItems="stretch" gap={1}>
+              <VStack alignItems="stretch">
                 <VStack alignItems="flex-start" as="section" spacing={0}>
                   <Heading as="h3" size="sm">
                     Dependents of these nodes have been excluded
@@ -412,9 +412,7 @@ export function Viz({
               <ListOfNodeList
                 lists={cycles}
                 getProps={() => ({
-                  mapProps: (id) => ({
-                    onSelect: () => setSelectedNode(id),
-                  }),
+                  mapProps: (id) => ({ onSelect: () => setSelectedNode(id) }),
                 })}
               />
             </CollapsibleSection>

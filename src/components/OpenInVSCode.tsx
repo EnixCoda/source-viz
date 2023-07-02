@@ -1,6 +1,5 @@
 import { ExternalLinkIcon } from "@chakra-ui/icons";
 import {
-  Box,
   Button,
   Divider,
   IconButton,
@@ -12,6 +11,7 @@ import {
   ModalHeader,
   ModalOverlay,
   Text,
+  VStack,
   useDisclosure,
 } from "@chakra-ui/react";
 import { useContext, useEffect } from "react";
@@ -88,7 +88,7 @@ function OpenInVSCodeSettingsContent({ example }: { example?: string }) {
   }, [input, setValue]);
 
   return (
-    <Box display="flex" flexDirection="column" gap={1}>
+    <VStack alignItems="flex-start" gap={1}>
       <Text>Please provide path of scan root, then you can open files in VSCode by one click.</Text>
       {view}
       <Text>Settings will be saved immediately as you type.</Text>
@@ -106,7 +106,7 @@ function OpenInVSCodeSettingsContent({ example }: { example?: string }) {
           </Text>
         </>
       )}
-    </Box>
+    </VStack>
   );
 }
 
