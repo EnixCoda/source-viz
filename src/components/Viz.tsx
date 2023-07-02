@@ -322,6 +322,7 @@ export function Viz({
                     data={data}
                     selectedNode={selectedNode}
                     setSelectedNode={setSelectedNode}
+                    nodeSelectionHistory={nodeSelectionHistory}
                   />
                 </VStack>
               ) : (
