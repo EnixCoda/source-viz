@@ -43,14 +43,6 @@ export function Viz({
     "connection-both"
   );
   const [fixNodeOnDragEndView, fixNodeOnDragEnd] = useCheckboxView("Fix node on drag end", true);
-  const [dagPruneModeView, dagPruneMode] = useSelectView(
-    "DAG Prune Mode: ",
-    [
-      { value: "less roots", label: "Less roots" },
-      { value: "less leave", label: "Less leave" },
-    ],
-    "less roots"
-  );
   const [dagModeView, dagMode] = useSelectView<DAGDirections>(
     "DAG Mode: ",
     [
@@ -63,6 +55,17 @@ export function Viz({
       { value: "radialin", label: "Radial In" },
     ],
     "lr"
+  );
+  const [dagPruneModeView, dagPruneMode] = useSelectView(
+    "DAG Prune Mode: ",
+    dagMode
+      ? [
+          { value: "less roots", label: "Less roots" },
+          { value: "less leave", label: "Less leave" },
+        ]
+      : [],
+    "less roots",
+    { isDisabled: !dagMode }
   );
 
   // Excludes
@@ -219,8 +222,8 @@ export function Viz({
           <Accordion allowMultiple defaultIndex={[0]} minW={0}>
             <CollapsibleSection label={`General Settings`}>
               <Box display="flex" flexDirection="column" gap={2}>
-                <div>{dagPruneModeView}</div>
                 <div>{dagModeView}</div>
+                <div>{dagPruneModeView}</div>
                 <div>{colorByView}</div>
                 <div>{fixNodeOnDragEndView}</div>
                 <div>{renderAsTextView}</div>
