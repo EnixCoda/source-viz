@@ -3,10 +3,9 @@ import { DependencyEntry } from "../services/serializers";
 import { safeMapGet } from "./general";
 
 export function prepareGraphData(data: DependencyEntry[]) {
+  const nodes = new Set<string>(data.flatMap(([file, deps]) => [file, ...deps.map(([dep]) => dep)]));
   const dependencies = new Set<string>(data.flatMap(([, deps]) => deps.map(([dep]) => dep)));
-  const nodesArray = data.map(([file]) => file);
-  const nodes = new Set(nodesArray);
-  const rootFiles = new Set<string>(nodesArray.filter((file) => !dependencies.has(file)));
+  const dependents = new Set<string>(data.map(([file]) => file).filter((file) => !dependencies.has(file)));
   const dependencyMap = new Map<string, Set<string>>(); // file -> deps
   const dependantMap = new Map<string, Set<string>>(); // dep -> files
   for (const [file, deps] of data) {
@@ -15,12 +14,12 @@ export function prepareGraphData(data: DependencyEntry[]) {
       safeMapGet(dependantMap, dep, () => new Set<string>()).add(file);
     }
   }
-  return { nodes, dependantMap, dependencyMap, dependencies, rootFiles };
+  return { nodes, dependantMap, dependencyMap, dependencies, dependents };
 }
 
 export type PreparedData = ReturnType<typeof prepareGraphData>;
 
-type DAGPruneMode = "less leaves" | "less roots";
+type DAGPruneMode = "less leave" | "less roots";
 
 export const getData = (
   { dependantMap, dependencyMap }: PreparedData,
@@ -28,14 +27,14 @@ export const getData = (
     roots,
     excludeUp = new Set(),
     excludeDown = new Set(),
-    leaves,
+    leave,
     preventCycle,
     dagPruneMode = "less roots",
   }: {
     roots?: Set<string>;
     excludeUp?: Set<string>;
     excludeDown?: Set<string>;
-    leaves?: Set<string>;
+    leave?: Set<string>;
     preventCycle?: boolean;
     dagPruneMode?: DAGPruneMode;
   } = {}
@@ -88,12 +87,12 @@ export const getData = (
 
   const [downTraversedNodes, upTraversedNodes] =
     dagPruneMode === "less roots"
-      ? [traverse(roots || new Set(), "dependant"), traverse(leaves || new Set(), "dependency")]
-      : [traverse(leaves || new Set(), "dependency"), traverse(roots || new Set(), "dependant")].reverse();
+      ? [traverse(roots || new Set(), "dependant"), traverse(leave || new Set(), "dependency")]
+      : [traverse(leave || new Set(), "dependency"), traverse(roots || new Set(), "dependant")].reverse();
 
-  // Prune network if roots and leaves are not same
+  // Prune network if roots and leave are not same
   // This might not be very accurate
-  if (roots && leaves) {
+  if (roots && leave) {
     const outOfRangeNodes = new Set<string>();
     for (const node of nodes.values()) {
       if (!(upTraversedNodes.has(node.id) && downTraversedNodes.has(node.id))) {

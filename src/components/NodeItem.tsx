@@ -19,6 +19,11 @@ export function NodeItem({
 }: NodeItemProps) {
   return (
     <HStack gap={1} whiteSpace="nowrap">
+      {onSelect && (
+        <Button size="xs" flexShrink={0} onClick={onSelect}>
+          Select
+        </Button>
+      )}
       {onExclude && (
         <Button size="xs" flexShrink={0} onClick={onExclude}>
           Exclude
@@ -29,11 +34,6 @@ export function NodeItem({
           Cancel
         </Button>
       )}
-      {onSelect && (
-        <Button size="xs" flexShrink={0} onClick={onSelect}>
-          Select
-        </Button>
-      )}{" "}
       <MonoText fontSize="sm" overflow="hidden" textOverflow="ellipsis" title={title}>
         {label}
       </MonoText>

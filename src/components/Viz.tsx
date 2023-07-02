@@ -1,4 +1,4 @@
-import { Accordion, Box, FormControl, FormLabel, Heading, Select, Switch, Text, VStack } from "@chakra-ui/react";
+import { Accordion, Box, Heading, Select, Text, VStack } from "@chakra-ui/react";
 import useResizeObserver from "@react-hook/resize-observer";
 import * as React from "react";
 import { useWindowSize } from "react-use";
@@ -20,6 +20,7 @@ import { MonoText } from "./MonoText";
 import { NodeList } from "./NodeList";
 import { NodesFilter } from "./NodesFilter";
 import { OpenInVSCode, SettingsOfOpenInVSCode } from "./OpenInVSCode";
+import { Switch } from "./Switch";
 
 export function Viz({
   entries,
@@ -46,7 +47,7 @@ export function Viz({
     "DAG Prune Mode: ",
     [
       { value: "less roots", label: "Less roots" },
-      { value: "less leaves", label: "Less leaves" },
+      { value: "less leave", label: "Less leave" },
     ],
     "less roots"
   );
@@ -66,9 +67,10 @@ export function Viz({
 
   // Excludes
   const [excludeNodesFilterInputView, excludeNodesFilterRegExp] = useRegExpInputView("test");
+  const allNodes = React.useMemo(() => [...data.nodes.keys()].sort(), [data.nodes]);
   const excludedNodesFromInput = React.useMemo(
-    () => (excludeNodesFilterRegExp ? [...data.nodes.keys()].filter((dep) => dep.match(excludeNodesFilterRegExp)) : []),
-    [excludeNodesFilterRegExp, data.nodes]
+    () => (excludeNodesFilterRegExp ? allNodes.filter((dep) => dep.match(excludeNodesFilterRegExp)) : []),
+    [excludeNodesFilterRegExp, allNodes]
   );
   const [excludedDependentsNodes, toggleExcludeNodeDependents] = useSet<string>();
   const [excludedDependenciesNodes, toggleExcludeNodeDependencies] = useSet<string>();
@@ -86,28 +88,26 @@ export function Viz({
 
   // Restrictions
   const [restrictRootInputView, restrictRootsRegExp] = useRegExpInputView("", {
-    helperText: "If not empty, only nodes matching this regex will be roots.",
+    inputProps: { placeholder: "Filter nodes with RegExp" },
+    helperText: "Only nodes match this regex will be roots.",
   });
   const restrictedRoots = React.useMemo(
     () =>
       new Set(
-        [...data.dependencies.keys()].filter(
-          (id) => !allExcludedNodes.has(id) && (!restrictRootsRegExp || id.match(restrictRootsRegExp))
-        )
+        allNodes.filter((id) => !allExcludedNodes.has(id) && (!restrictRootsRegExp || id.match(restrictRootsRegExp)))
       ),
-    [data.dependencies, restrictRootsRegExp, allExcludedNodes]
+    [allNodes, allExcludedNodes, restrictRootsRegExp]
   );
   const [restrictLeavesInputView, restrictLeavesRegExp] = useRegExpInputView("", {
-    helperText: "If not empty, only nodes matching this regex will be leaves.",
+    inputProps: { placeholder: "Filter nodes with RegExp" },
+    helperText: "Only nodes match this regex will be leave.",
   });
   const restrictedLeaves = React.useMemo(
     () =>
       new Set(
-        [...data.nodes.keys()].filter(
-          (id) => !allExcludedNodes.has(id) && (!restrictLeavesRegExp || id.match(restrictLeavesRegExp))
-        )
+        allNodes.filter((id) => !allExcludedNodes.has(id) && (!restrictLeavesRegExp || id.match(restrictLeavesRegExp)))
       ),
-    [data.nodes, restrictLeavesRegExp, allExcludedNodes]
+    [allNodes, allExcludedNodes, restrictLeavesRegExp]
   );
 
   // Graph
@@ -161,7 +161,7 @@ export function Viz({
   const getDataOptions = React.useMemo(
     () => ({
       roots: restrictedRoots,
-      leaves: restrictedLeaves,
+      leave: restrictedLeaves,
       preventCycle: dagMode !== null,
       dagPruneMode,
       excludeUp: allExcludedNodes,
@@ -184,6 +184,7 @@ export function Viz({
   }, [selectedNode]);
 
   // The in-views
+  const [inView, setInView] = React.useState(true);
   const renderedNodeIds = React.useMemo(() => renderData?.nodes.map((node) => node.id as string), [renderData.nodes]);
   const leavesInView = React.useMemo(
     () => renderedNodeIds.filter((id) => renderData.links.every(({ target }) => target !== id)),
@@ -240,16 +241,16 @@ export function Viz({
                   <div>
                     <OpenInVSCode layout="text" path={selectedNode} />
                   </div>
-                  <FormControl display="flex" alignItems="center" columnGap={1}>
-                    <Switch
-                      isChecked={
-                        excludedDependentsNodes.some((id) => id === selectedNode) ||
-                        excludedDependenciesNodes.some((id) => id === selectedNode)
-                      }
-                      onChange={() => toggleExcludeNode(selectedNode)}
-                    />
-                    <FormLabel mb={0}>Exclude from viz</FormLabel>
-                  </FormControl>
+                  <Switch
+                    isChecked={
+                      excludedDependentsNodes.some((id) => id === selectedNode) ||
+                      excludedDependenciesNodes.some((id) => id === selectedNode)
+                    }
+                    onChange={() => toggleExcludeNode(selectedNode)}
+                  >
+                    Exclude from viz
+                  </Switch>
+
                   {/* excludedDependents: excludedDependentsNodes.some(
                       (id) => id === selectedNode
                       ),
@@ -310,14 +311,22 @@ export function Viz({
                   />
                 </Box>
               ) : (
-                "No selection yet"
+                <Text color="gray.500">No selection yet</Text>
               )}
             </CollapsibleSection>
             <CollapsibleSection label={`Root Nodes`}>
+              <Text>These nodes have no dependencies or they are in dependency cycles.</Text>
               {restrictRootInputView}
-              <Text>Below are the nodes treated as root nodes in the viz</Text>
+              <Text>Nodes below are treated as root nodes when generating the viz.</Text>
+              <Switch
+                isDisabled={restrictRootsRegExp === null}
+                isChecked={restrictRootsRegExp === null || inView}
+                onChange={() => setInView(!inView)}
+              >
+                Hide nodes not rendered as root
+              </Switch>
               <NodeList
-                nodes={rootsInView}
+                nodes={restrictRootsRegExp === null || inView ? rootsInView : [...restrictedRoots]}
                 mapProps={(id) => ({
                   onExclude: () => toggleExcludeNodeDependents(id),
                   onSelect: () => setSelectedNode(id),
@@ -325,10 +334,18 @@ export function Viz({
               />
             </CollapsibleSection>
             <CollapsibleSection label={`Leaf Nodes`}>
+              <Text>These nodes have no dependents or they are in dependency cycles.</Text>
               {restrictLeavesInputView}
-              <Text>Below are the nodes treated as leaf nodes in the viz</Text>
+              <Text>Nodes below are treated as leaf nodes when generating the viz.</Text>
+              <Switch
+                isDisabled={restrictLeavesRegExp === null}
+                isChecked={restrictLeavesRegExp === null || inView}
+                onChange={() => setInView(!inView)}
+              >
+                Hide nodes not rendered as leave
+              </Switch>
               <NodeList
-                nodes={leavesInView}
+                nodes={restrictLeavesRegExp === null || inView ? leavesInView : [...restrictedLeaves]}
                 mapProps={(id) => ({
                   onExclude: () => toggleExcludeNodeDependencies(id),
                   onSelect: () => setSelectedNode(id),

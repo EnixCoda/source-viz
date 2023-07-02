@@ -8,7 +8,7 @@ export function useRegExpInputView(defaultValue: string = "", config: UseInputVi
   const [view, inputValue] = useInputView(defaultValue, {
     errorMessage: isInvalid && "Invalid RegExp",
     ...config,
-    inputProps: { ...config.inputProps, isInvalid, placeholder: "Regular Expression" },
+    inputProps: { isInvalid, placeholder: "Regular Expression", ...config.inputProps },
   });
   const regExp = React.useMemo(() => getRegExp(inputValue), [inputValue]);
   const [lastValidRegExp, setLastValidRegExp] = React.useState<RegExp | null>(null);
