@@ -10,6 +10,7 @@ import { useNumberInputView } from "../hooks/view/useInputView";
 import { useRegExpInputView } from "../hooks/view/useRegExpInputView";
 import { useSelectView } from "../hooks/view/useSelectView";
 import { DependencyEntry } from "../services/serializers";
+import { carry } from "../utils/general";
 import { getData, prepareGraphData } from "../utils/getData";
 import { DAGDirections } from "../utils/graphDecorators";
 import { CollapsibleSection } from "./CollapsibleSection";
@@ -193,14 +194,14 @@ export function Viz({
 
   // The in-views
   const [inView, setInView] = React.useState(true);
-  const renderedNodeIds = React.useMemo(() => renderData?.nodes.map((node) => node.id as string), [renderData.nodes]);
+  const renderedNodes = React.useMemo(() => renderData?.nodes.map((node) => node.id as string), [renderData.nodes]);
   const leavesInView = React.useMemo(
-    () => renderedNodeIds.filter((id) => renderData.links.every(({ target }) => target !== id)),
-    [renderedNodeIds, renderData.links]
+    () => renderedNodes.filter((id) => renderData.links.every(({ target }) => target !== id)),
+    [renderedNodes, renderData.links]
   );
   const rootsInView = React.useMemo(
-    () => renderedNodeIds.filter((id) => renderData.links.every(({ source }) => source !== id)),
-    [renderedNodeIds, renderData.links]
+    () => renderedNodes.filter((id) => renderData.links.every(({ source }) => source !== id)),
+    [renderedNodes, renderData.links]
   );
 
   return (
@@ -275,23 +276,19 @@ export function Viz({
                     Dependencies
                   </Heading>
                   <NodeList
-                    nodes={[...(data.dependencyMap.get(selectedNode) || [])].filter((id) =>
-                      renderedNodeIds.includes(id)
+                    nodes={carry(data.dependencyMap.get(selectedNode), (set) =>
+                      set ? renderedNodes.filter((id) => set.has(id)) : renderedNodes
                     )}
-                    mapProps={(id) => ({
-                      onSelect: () => setSelectedNode(id),
-                    })}
+                    mapProps={(id) => ({ onSelect: () => setSelectedNode(id) })}
                   />
                   <Heading as="h3" size="sm">
                     Dependents
                   </Heading>
                   <NodeList
-                    nodes={[...(data.dependantMap.get(selectedNode) || [])].filter((id) =>
-                      renderedNodeIds.includes(id)
+                    nodes={carry(data.dependantMap.get(selectedNode), (set) =>
+                      set ? renderedNodes.filter((id) => set.has(id)) : renderedNodes
                     )}
-                    mapProps={(id) => ({
-                      onSelect: () => setSelectedNode(id),
-                    })}
+                    mapProps={(id) => ({ onSelect: () => setSelectedNode(id) })}
                   />
                   <Heading as="h3" size="sm">
                     Recently selected nodes
@@ -318,7 +315,7 @@ export function Viz({
                   */}
 
                   <FindPathToNode
-                    nodes={renderedNodeIds}
+                    nodes={renderedNodes}
                     data={data}
                     selectedNode={selectedNode}
                     setSelectedNode={setSelectedNode}
@@ -402,7 +399,7 @@ export function Viz({
             </CollapsibleSection>
             <CollapsibleSection label={`Look up nodes in view (${renderData?.nodes.length || 0} in total)`}>
               <NodesFilter
-                nodes={renderedNodeIds}
+                nodes={renderedNodes}
                 mapProps={(id) => ({
                   onExclude: () => toggleExcludeNode(id),
                   onSelect: () => setSelectedNode(id),

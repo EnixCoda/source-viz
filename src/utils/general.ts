@@ -53,3 +53,5 @@ export function download(data: BlobPart, filename: string, type?: string) {
     window.URL.revokeObjectURL(url);
   }, 0);
 }
+
+export const carry = <T, R>(t: T, f: (t: T) => R): R => f(t);
