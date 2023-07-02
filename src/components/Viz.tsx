@@ -47,6 +47,8 @@ export function Viz({
     "connection-both"
   );
   const [fixNodeOnDragEndView, fixNodeOnDragEnd] = useCheckboxView("Fix node on drag end", true);
+
+  const [pruneCycleView, pruneCycle] = useCheckboxView("Prune Cycle", false);
   const [dagModeView, dagMode] = useSelectView<DAGDirections>(
     "DAG Mode",
     [
@@ -58,7 +60,8 @@ export function Viz({
       { value: "radialout", label: "Radial Out" },
       { value: "radialin", label: "Radial In" },
     ],
-    "lr"
+    "lr",
+    { isDisabled: pruneCycle }
   );
   const [dagPruneModeView, dagPruneMode] = useSelectView(
     "DAG Prune Mode",
@@ -69,7 +72,7 @@ export function Viz({
         ]
       : [],
     "less roots",
-    { isDisabled: !dagMode }
+    { isDisabled: !dagMode || pruneCycle }
   );
 
   // Excludes
@@ -158,7 +161,7 @@ export function Viz({
 
   const [ref, render, selectedNode, setSelectedNode] = useGraph({
     data,
-    dagMode,
+    dagMode: pruneCycle ? null : dagMode,
     fixNodeOnDragEnd,
     renderAsText,
     width: actualWidth,
@@ -171,16 +174,37 @@ export function Viz({
     () => ({
       roots: restrictedRoots,
       leave: restrictedLeaves,
-      preventCycle: dagMode !== null,
+      preventCycle: pruneCycle ? false : dagMode !== null,
       dagPruneMode,
       excludeUp: allExcludedNodes,
       excludeDown: allExcludedNodes,
     }),
-    [restrictedRoots, restrictedLeaves, dagMode, dagPruneMode, allExcludedNodes]
+    [restrictedRoots, restrictedLeaves, pruneCycle, dagMode, dagPruneMode, allExcludedNodes]
   );
 
-  const { cycles, nodes, links } = React.useMemo(() => getData(data, getDataOptions), [data, getDataOptions]);
-  const renderData = React.useMemo(() => ({ nodes, links }), [nodes, links]);
+  const graphData = React.useMemo(() => getData(data, getDataOptions), [data, getDataOptions]);
+  const { cycles, nodes, links } = React.useMemo(
+    () =>
+      pruneCycle
+        ? carry(
+            graphData.nodes.filter((node) => graphData.cycles.some((cycle) => cycle.includes(node.id))),
+            (nodes) => ({
+              cycles: graphData.cycles,
+              nodes,
+              links: graphData.links.filter(
+                ({ source, target }) =>
+                  nodes.some((node) => node.id === source) && nodes.some((node) => node.id === target)
+              ),
+            })
+          )
+        : graphData,
+    [graphData, pruneCycle]
+  );
+
+  const renderData = React.useMemo(
+    () => ({ nodes: nodes.map((_) => ({ ..._ })), links: links.map((_) => ({ ..._ })) }),
+    [nodes, links]
+  );
   React.useEffect(() => {
     render?.(renderData);
   }, [render, renderData]);
@@ -233,6 +257,7 @@ export function Viz({
               <VStack alignItems="stretch">
                 <div>{dagModeView}</div>
                 <div>{dagPruneModeView}</div>
+                <div>{pruneCycleView}</div>
                 <div>{colorByView}</div>
                 <div>{fixNodeOnDragEndView}</div>
                 <div>{renderAsTextView}</div>

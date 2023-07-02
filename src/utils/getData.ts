@@ -2,6 +2,10 @@ import { NodeObject } from "force-graph";
 import { DependencyEntry } from "../services/serializers";
 import { safeMapGet } from "./general";
 
+interface SNodeObject extends NodeObject {
+  id: string;
+}
+
 export function prepareGraphData(data: DependencyEntry[]) {
   const nodes = new Set<string>(data.flatMap(([file, deps]) => [file, ...deps.map(([dep]) => dep)]));
   const dependencies = new Set<string>(data.flatMap(([, deps]) => deps.map(([dep]) => dep)));
@@ -39,15 +43,15 @@ export const getData = (
     dagPruneMode?: DAGPruneMode;
   } = {}
 ) => {
-  const nodes = new Map<string, NodeObject>();
+  const nodes = new Map<string, SNodeObject>();
   const links = new Map<string, Set<string>>();
-  const traversedNodes = new Set<NodeObject["id"]>();
+  const traversedNodes = new Set<SNodeObject["id"]>();
 
   type TraverseDirection = "dependant" | "dependency";
 
   const cycles: string[][] = [];
 
-  const traverseData = (id: string, direction: TraverseDirection, preventCycle = true, stack: string[] = []) => {
+  const traverseData = (id: string, direction: TraverseDirection, stack: string[] = []) => {
     if (stack.includes(id)) {
       cycles.push(stack.slice(stack.indexOf(id)));
       if (preventCycle) return;
@@ -65,7 +69,7 @@ export const getData = (
         if (excludeUp.has(dependency)) continue;
         if (excludeDown.has(dependency)) continue;
         safeMapGet(links, id, () => new Set()).add(dependency);
-        traverseData(dependency, direction, preventCycle, [...stack, id]);
+        traverseData(dependency, direction, [...stack, id]);
       }
     }
 
@@ -74,14 +78,14 @@ export const getData = (
         if (excludeUp.has(dependant)) continue;
         if (excludeDown.has(dependant)) continue;
         safeMapGet(links, dependant, () => new Set()).add(id);
-        traverseData(dependant, direction, preventCycle, [...stack, id]);
+        traverseData(dependant, direction, [...stack, id]);
       }
     }
   };
 
   const traverse = (startNodes: Set<string>, direction: "dependant" | "dependency") => {
     traversedNodes.clear();
-    for (const r of startNodes) traverseData(r, direction, preventCycle);
+    for (const r of startNodes) traverseData(r, direction);
     return new Set(traversedNodes);
   };
 
