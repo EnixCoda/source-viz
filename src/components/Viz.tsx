@@ -13,6 +13,7 @@ import { DependencyEntry } from "../services/serializers";
 import { getData, prepareGraphData } from "../utils/getData";
 import { DAGDirections } from "../utils/graphDecorators";
 import { CollapsibleSection } from "./CollapsibleSection";
+import { ExportButton } from "./ExportButton";
 import { FindPathToNode } from "./FindPathToNode";
 import { ListOfNodeList } from "./ListOfNodeList";
 import { LocalPathContextProvider } from "./LocalPathContext";
@@ -25,9 +26,11 @@ import { Switch } from "./Switch";
 export function Viz({
   entries,
   setData,
+  backButton,
 }: {
   entries: DependencyEntry[];
   setData: (entries: DependencyEntry[]) => void;
+  backButton?: React.ReactNode;
 }) {
   // Use views
   const data = React.useMemo(() => prepareGraphData(entries), [entries]);
@@ -203,7 +206,10 @@ export function Viz({
   return (
     <LocalPathContextProvider>
       <Box display="flex" ref={containerRef} overflow="auto">
-        <div ref={ref} />
+        <div>
+          {backButton}
+          <div ref={ref} />
+        </div>
         <Box
           display="inline-block"
           width="2px"
@@ -233,6 +239,9 @@ export function Viz({
                 <div>{fixedFontSizeView}</div>
                 <div>
                   <SettingsOfOpenInVSCode />
+                </div>
+                <div>
+                  <ExportButton data={entries} />
                 </div>
               </Box>
             </CollapsibleSection>
