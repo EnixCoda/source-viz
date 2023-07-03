@@ -29,15 +29,13 @@ export const getData = (
   { dependantMap, dependencyMap }: PreparedData,
   {
     roots,
-    excludeUp = new Set(),
-    excludeDown = new Set(),
+    excludes = new Set(),
     leave,
     preventCycle,
     dagPruneMode = "less roots",
   }: {
     roots?: Set<string>;
-    excludeUp?: Set<string>;
-    excludeDown?: Set<string>;
+    excludes?: Set<string>;
     leave?: Set<string>;
     preventCycle?: boolean;
     dagPruneMode?: DAGPruneMode;
@@ -56,8 +54,7 @@ export const getData = (
       cycles.push(stack.slice(stack.indexOf(id)));
       if (preventCycle) return;
     }
-
-    if (excludeDown.has(id) || excludeUp.has(id)) return;
+    if (excludes.has(id)) return;
 
     if (traversedNodes.has(id)) return;
     traversedNodes.add(id);
@@ -66,8 +63,7 @@ export const getData = (
 
     if (direction === "dependency") {
       for (const dependency of dependencyMap.get(id)?.values() || []) {
-        if (excludeUp.has(dependency)) continue;
-        if (excludeDown.has(dependency)) continue;
+        if (excludes.has(dependency)) continue;
         safeMapGet(links, id, () => new Set()).add(dependency);
         traverseData(dependency, direction, [...stack, id]);
       }
@@ -75,8 +71,7 @@ export const getData = (
 
     if (direction === "dependant") {
       for (const dependant of dependantMap.get(id)?.values() || []) {
-        if (excludeUp.has(dependant)) continue;
-        if (excludeDown.has(dependant)) continue;
+        if (excludes.has(dependant)) continue;
         safeMapGet(links, dependant, () => new Set()).add(id);
         traverseData(dependant, direction, [...stack, id]);
       }

@@ -84,18 +84,10 @@ export function Viz({
     () => (excludeNodesFilterRegExp ? allNodes.filter((dep) => dep.match(excludeNodesFilterRegExp)) : []),
     [excludeNodesFilterRegExp, allNodes]
   );
-  const [excludedDependentsNodes, toggleExcludeNodeDependents] = useSet<string>();
-  const [excludedDependenciesNodes, toggleExcludeNodeDependencies] = useSet<string>();
-  const toggleExcludeNode = React.useCallback(
-    (id: string) => {
-      toggleExcludeNodeDependencies(id);
-      toggleExcludeNodeDependents(id);
-    },
-    [toggleExcludeNodeDependencies, toggleExcludeNodeDependents]
-  );
+  const [excludedNodes, toggleExcludeNode] = useSet<string>();
   const allExcludedNodes = React.useMemo(
-    () => new Set([...excludedNodesFromInput, ...excludedDependentsNodes, ...excludedDependenciesNodes]),
-    [excludedNodesFromInput, excludedDependentsNodes, excludedDependenciesNodes]
+    () => new Set([...excludedNodesFromInput, ...excludedNodes]),
+    [excludedNodesFromInput, excludedNodes]
   );
 
   // Restrictions
@@ -176,8 +168,7 @@ export function Viz({
       leave: restrictedLeaves,
       preventCycle: pruneCycle ? false : dagMode !== null,
       dagPruneMode,
-      excludeUp: allExcludedNodes,
-      excludeDown: allExcludedNodes,
+      excludes: allExcludedNodes,
     }),
     [restrictedRoots, restrictedLeaves, pruneCycle, dagMode, dagPruneMode, allExcludedNodes]
   );
@@ -282,21 +273,12 @@ export function Viz({
                     <OpenInVSCode layout="text" path={selectedNode} />
                   </div>
                   <Switch
-                    isChecked={
-                      excludedDependentsNodes.some((id) => id === selectedNode) ||
-                      excludedDependenciesNodes.some((id) => id === selectedNode)
-                    }
+                    isChecked={allExcludedNodes.has(selectedNode)}
                     onChange={() => toggleExcludeNode(selectedNode)}
                   >
                     Exclude from viz
                   </Switch>
 
-                  {/* excludedDependents: excludedDependentsNodes.some(
-                      (id) => id === selectedNode
-                      ),
-                    excludedDependencies: excludedDependenciesNodes.some(
-                      (id) => id === selectedNode
-                    ), */}
                   <Heading as="h3" size="sm">
                     Dependencies
                   </Heading>
@@ -365,7 +347,7 @@ export function Viz({
               <NodeList
                 nodes={restrictRootsRegExp === null || inView ? rootsInView : [...restrictedRoots]}
                 mapProps={(id) => ({
-                  onExclude: () => toggleExcludeNodeDependents(id),
+                  onExclude: () => toggleExcludeNode(id),
                   onSelect: () => setSelectedNode(id),
                 })}
               />
@@ -384,7 +366,7 @@ export function Viz({
               <NodeList
                 nodes={restrictLeavesRegExp === null || inView ? leavesInView : [...restrictedLeaves]}
                 mapProps={(id) => ({
-                  onExclude: () => toggleExcludeNodeDependencies(id),
+                  onExclude: () => toggleExcludeNode(id),
                   onSelect: () => setSelectedNode(id),
                 })}
               />
@@ -393,23 +375,12 @@ export function Viz({
               <VStack alignItems="stretch">
                 <VStack alignItems="flex-start" as="section" spacing={0}>
                   <Heading as="h3" size="sm">
-                    Dependents of these nodes have been excluded
+                    These nodes have been excluded
                   </Heading>
                   <NodeList
-                    nodes={excludedDependentsNodes}
+                    nodes={excludedNodes}
                     mapProps={(id) => ({
-                      onCancel: () => toggleExcludeNodeDependents(id),
-                    })}
-                  />
-                </VStack>
-                <VStack alignItems="flex-start" as="section" spacing={0}>
-                  <Heading as="h3" size="sm">
-                    Dependencies of these nodes have been excluded
-                  </Heading>
-                  <NodeList
-                    nodes={excludedDependenciesNodes}
-                    mapProps={(id) => ({
-                      onCancel: () => toggleExcludeNodeDependencies(id),
+                      onCancel: () => toggleExcludeNode(id),
                     })}
                   />
                 </VStack>
