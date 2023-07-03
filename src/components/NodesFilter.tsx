@@ -1,4 +1,4 @@
-import { Box } from "@chakra-ui/react";
+import { VStack } from "@chakra-ui/react";
 import * as React from "react";
 import { useRegExpInputView } from "../hooks/view/useRegExpInputView";
 import { NodeList, NodeListProps } from "./NodeList";
@@ -8,9 +8,9 @@ export function NodesFilter({ nodes, ...rest }: NodeListProps) {
   const filteredNodes = React.useMemo(() => nodes?.filter((id) => !regExp || id.match(regExp)), [nodes, regExp]);
 
   return (
-    <Box>
+    <VStack maxWidth="100%" alignItems="flex-start">
       {view}
       <NodeList {...rest} nodes={filteredNodes} />
-    </Box>
+    </VStack>
   );
 }

@@ -243,7 +243,7 @@ export function Viz({
           onPointerDown={onPointerDown}
         />
         <VStack alignItems="stretch" flex={1} maxHeight="100%" minW={0} overflow="auto">
-          <Accordion defaultIndex={[0]} minW={0}>
+          <Accordion defaultIndex={[0]} minW={0} allowToggle>
             <CollapsibleSection label={`General Settings`}>
               <VStack alignItems="stretch">
                 <div>{dagModeView}</div>
@@ -334,46 +334,51 @@ export function Viz({
               )}
             </CollapsibleSection>
             <CollapsibleSection label={`Root Nodes`}>
-              <Text>These nodes have no dependencies or they are in dependency cycles.</Text>
-              {restrictRootInputView}
-              <Text>Nodes below are treated as root nodes when generating the viz.</Text>
-              <Switch
-                isDisabled={restrictRootsRegExp === null}
-                isChecked={restrictRootsRegExp === null || inView}
-                onChange={() => setInView(!inView)}
-              >
-                Hide nodes not rendered as root
-              </Switch>
-              <NodeList
-                nodes={restrictRootsRegExp === null || inView ? rootsInView : [...restrictedRoots]}
-                mapProps={(id) => ({
-                  onExclude: () => toggleExcludeNode(id),
-                  onSelect: () => setSelectedNode(id),
-                })}
-              />
+              <VStack alignItems="flex-start">
+                <Text>
+                  These nodes have no dependencies, some of them are 3rd party dependencies, or they are in dependency
+                  cycles.
+                </Text>
+                {restrictRootInputView}
+                <Switch
+                  isDisabled={restrictRootsRegExp === null}
+                  isChecked={restrictRootsRegExp === null || inView}
+                  onChange={() => setInView(!inView)}
+                >
+                  Hide nodes not rendered as root
+                </Switch>
+                <NodeList
+                  nodes={restrictRootsRegExp === null || inView ? rootsInView : [...restrictedRoots]}
+                  mapProps={(id) => ({
+                    onExclude: () => toggleExcludeNode(id),
+                    onSelect: () => setSelectedNode(id),
+                  })}
+                />
+              </VStack>
             </CollapsibleSection>
             <CollapsibleSection label={`Leaf Nodes`}>
-              <Text>These nodes have no dependents or they are in dependency cycles.</Text>
-              {restrictLeavesInputView}
-              <Text>Nodes below are treated as leaf nodes when generating the viz.</Text>
-              <Switch
-                isDisabled={restrictLeavesRegExp === null}
-                isChecked={restrictLeavesRegExp === null || inView}
-                onChange={() => setInView(!inView)}
-              >
-                Hide nodes not rendered as leave
-              </Switch>
-              <NodeList
-                nodes={restrictLeavesRegExp === null || inView ? leavesInView : [...restrictedLeaves]}
-                mapProps={(id) => ({
-                  onExclude: () => toggleExcludeNode(id),
-                  onSelect: () => setSelectedNode(id),
-                })}
-              />
+              <VStack alignItems="flex-start">
+                <Text>These nodes are source files, which have no dependents, or they are in dependency cycles.</Text>
+                {restrictLeavesInputView}
+                <Switch
+                  isDisabled={restrictLeavesRegExp === null}
+                  isChecked={restrictLeavesRegExp === null || inView}
+                  onChange={() => setInView(!inView)}
+                >
+                  Hide nodes not rendered as leave
+                </Switch>
+                <NodeList
+                  nodes={restrictLeavesRegExp === null || inView ? leavesInView : [...restrictedLeaves]}
+                  mapProps={(id) => ({
+                    onExclude: () => toggleExcludeNode(id),
+                    onSelect: () => setSelectedNode(id),
+                  })}
+                />
+              </VStack>
             </CollapsibleSection>
             <CollapsibleSection label={`Extra Filters`}>
               <VStack alignItems="stretch">
-                <VStack alignItems="flex-start" as="section" spacing={0}>
+                <VStack alignItems="flex-start" as="section">
                   <Heading as="h3" size="sm">
                     These nodes have been excluded
                   </Heading>
@@ -384,7 +389,7 @@ export function Viz({
                     })}
                   />
                 </VStack>
-                <VStack alignItems="flex-start" as="section" spacing={0}>
+                <VStack alignItems="flex-start" as="section">
                   <Heading as="h3" size="sm">
                     Exclude with regex
                   </Heading>
@@ -393,22 +398,30 @@ export function Viz({
                 </VStack>
               </VStack>
             </CollapsibleSection>
-            <CollapsibleSection label={`Look up nodes in view (${renderData?.nodes.length || 0} in total)`}>
-              <NodesFilter
-                nodes={renderedNodes}
-                mapProps={(id) => ({
-                  onExclude: () => toggleExcludeNode(id),
-                  onSelect: () => setSelectedNode(id),
-                })}
-              />
+            <CollapsibleSection label={`Look up nodes`}>
+              <VStack alignItems="stretch">
+                <Switch isChecked={inView} onChange={() => setInView(!inView)}>
+                  Hide nodes not rendered in viz
+                </Switch>
+                <NodesFilter
+                  nodes={inView ? renderedNodes : allNodes}
+                  mapProps={(id) => ({
+                    onExclude: () => toggleExcludeNode(id),
+                    onSelect: () => setSelectedNode(id),
+                  })}
+                />
+              </VStack>
             </CollapsibleSection>
-            <CollapsibleSection label={`Cycles (${cycles.length} in total)`}>
-              <ListOfNodeList
-                lists={cycles}
-                getProps={() => ({
-                  mapProps: (id) => ({ onSelect: () => setSelectedNode(id) }),
-                })}
-              />
+            <CollapsibleSection label={`Cycles`}>
+              <VStack alignItems="flex-start">
+                <Text>There are {cycles.length} cycles</Text>
+                <ListOfNodeList
+                  lists={cycles}
+                  getProps={() => ({
+                    mapProps: (id) => ({ onSelect: () => setSelectedNode(id) }),
+                  })}
+                />
+              </VStack>
             </CollapsibleSection>
             <Box height={360} />
           </Accordion>
