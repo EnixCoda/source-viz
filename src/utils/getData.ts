@@ -40,7 +40,7 @@ export const getData = (
     leave?: Set<NodeId>;
     excludes?: Set<NodeId>;
     preventCycle?: boolean;
-    dagPruneMode?: DAGPruneMode;
+    dagPruneMode?: DAGPruneMode | null;
   } = {}
 ) => {
   // Traverse through dependency map and dependent map starting from roots and leave to explore the graph

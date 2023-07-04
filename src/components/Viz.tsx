@@ -33,53 +33,13 @@ export function Viz({
   setData: (entries: DependencyEntry[]) => void;
   backButton?: React.ReactNode;
 }) {
-  // Use views
   const data = React.useMemo(() => prepareGraphData(entries), [entries]);
-  const [renderAsTextView, renderAsText] = useCheckboxView("Render as Text", true);
-  const [colorByView, colorBy] = useSelectView(
-    "Color by",
-    [
-      { value: "depth", label: "File depth" },
-      { value: "connection-both", label: "Connections" },
-      { value: "connection-dependency", label: "Connections (dependency)" },
-      { value: "connection-dependant", label: "Connections (dependant)" },
-    ],
-    "connection-both"
-  );
-  const [fixNodeOnDragEndView, fixNodeOnDragEnd] = useCheckboxView("Fix node on drag end", true);
-
-  const [pruneCycleView, pruneCycle] = useCheckboxView("Prune Cycle", false);
-  const [dagModeView, dagMode] = useSelectView<DAGDirections>(
-    "DAG Mode",
-    [
-      { value: null, label: "Disable (render circular references)" },
-      { value: "lr", label: "Left to Right" },
-      { value: "rl", label: "Right to Left" },
-      { value: "td", label: "Top to Bottom" },
-      { value: "bu", label: "Bottom to Top" },
-      { value: "radialout", label: "Radial Out" },
-      { value: "radialin", label: "Radial In" },
-    ],
-    "lr",
-    { isDisabled: pruneCycle }
-  );
-  const [dagPruneModeView, dagPruneMode] = useSelectView(
-    "DAG Prune Mode",
-    dagMode
-      ? [
-          { value: "less roots", label: "Less roots" },
-          { value: "less leave", label: "Less leave" },
-        ]
-      : [],
-    "less roots",
-    { isDisabled: !dagMode || pruneCycle }
-  );
+  const allNodes = React.useMemo(() => [...data.nodes.keys()].sort(), [data.nodes]);
 
   // Excludes
   const [excludeNodesFilterInputView, excludeNodesFilterRegExp] = useRegExpInputView("test", {
     helperText: "Nodes match this regex will be excluded",
   });
-  const allNodes = React.useMemo(() => [...data.nodes.keys()].sort(), [data.nodes]);
   const excludedNodesFromInput = React.useMemo(
     () => (excludeNodesFilterRegExp ? allNodes.filter((dep) => dep.match(excludeNodesFilterRegExp)) : []),
     [excludeNodesFilterRegExp, allNodes]
@@ -88,6 +48,10 @@ export function Viz({
   const allExcludedNodes = React.useMemo(
     () => new Set([...excludedNodesFromInput, ...excludedNodes]),
     [excludedNodesFromInput, excludedNodes]
+  );
+  const nonExcludedNodes = React.useMemo(
+    () => allNodes.filter((id) => !allExcludedNodes.has(id)),
+    [allNodes, allExcludedNodes]
   );
 
   // Restrictions
@@ -98,9 +62,9 @@ export function Viz({
   const restrictedRoots = React.useMemo(
     () =>
       new Set(
-        allNodes.filter((id) => !allExcludedNodes.has(id) && (!restrictRootsRegExp || id.match(restrictRootsRegExp)))
+        carry(nonExcludedNodes, (ns) => (restrictRootsRegExp ? ns.filter((id) => id.match(restrictRootsRegExp)) : ns))
       ),
-    [allNodes, allExcludedNodes, restrictRootsRegExp]
+    [nonExcludedNodes, restrictRootsRegExp]
   );
   const [restrictLeavesInputView, restrictLeavesRegExp] = useRegExpInputView("", {
     inputProps: { placeholder: "Filter nodes with RegExp" },
@@ -109,14 +73,71 @@ export function Viz({
   const restrictedLeaves = React.useMemo(
     () =>
       new Set(
-        allNodes.filter((id) => !allExcludedNodes.has(id) && (!restrictLeavesRegExp || id.match(restrictLeavesRegExp)))
+        carry(nonExcludedNodes, (ns) => (restrictLeavesRegExp ? ns.filter((id) => id.match(restrictLeavesRegExp)) : ns))
       ),
-    [allNodes, allExcludedNodes, restrictLeavesRegExp]
+    [nonExcludedNodes, restrictLeavesRegExp]
   );
 
   // Graph
+  const [cycleCount, setCycleCount] = React.useState<number | null>(null);
+  const [pruneCycleView, pruneCycle] = useCheckboxView(
+    cycleCount === null ? `Prune Cycle` : `Prune Cycle (${cycleCount} in total)`,
+    false,
+    {
+      helperText: "Prune cycle will hide the nodes NOT in a cycle",
+    }
+  );
+  const [enableDagModeView, $enableDagMode] = useCheckboxView("Enable DAG Mode", true, {
+    helperText: "DAG Mode will prune dependency cycles",
+    checkboxProps: {
+      isDisabled: pruneCycle,
+    },
+  });
+  const enableDagMode = $enableDagMode && !pruneCycle;
+  const [dagModeView, $dagMode] = useSelectView<DAGDirections>(
+    "DAG Mode",
+    [
+      { value: "lr", label: "Leaf(source file) on the left" },
+      { value: "rl", label: "Root(dependency) on the left" },
+      // such modes are not useful
+      // { value: "td", label: "Top to Bottom" },
+      // { value: "bu", label: "Bottom to Top" },
+      { value: "radialout", label: "Radial Out" },
+      { value: "radialin", label: "Radial In" },
+    ],
+    "lr",
+    { isDisabled: !enableDagMode }
+  );
+  const dagMode = enableDagMode ? $dagMode : null;
+  const [dagPruneModeView, $dagPruneMode] = useSelectView(
+    "DAG Prune Mode",
+    dagMode
+      ? [
+          { value: "less roots", label: "Less roots" },
+          { value: "less leave", label: "Less leave" },
+        ]
+      : [],
+    "less roots",
+    { isDisabled: !enableDagMode }
+  );
+  const dagPruneMode = enableDagMode ? $dagPruneMode : null;
+
+  const [colorByView, colorBy] = useSelectView(
+    "Color nodes by",
+    [
+      { value: "depth", label: "File depth" },
+      { value: "connection-both", label: "Connections" },
+      { value: "connection-dependency", label: "Connections (dependency)" },
+      { value: "connection-dependant", label: "Connections (dependant)" },
+    ],
+    "connection-both"
+  );
+  const [fixNodeOnDragEndView, fixNodeOnDragEnd] = useCheckboxView("Fix node on drag end", true);
+  const [renderAsTextView, renderAsText] = useCheckboxView("Render as Text", true);
   const [fixFontSizeView, fixFontSize] = useCheckboxView("Fix font size to canvas", true, {
-    isDisabled: !renderAsText,
+    checkboxProps: {
+      isDisabled: !renderAsText,
+    },
   });
   const [fixedFontSizeView, fixedFontSize] = useNumberInputView(4, {
     label: "Fixed Font Size",
@@ -127,6 +148,8 @@ export function Viz({
       isDisabled: !fixFontSize || !renderAsText,
     },
   });
+
+  // handling panel sizes
   const [[width, height], setSize] = React.useState(() => [window.innerWidth / 2, window.innerHeight]);
   const windowSize = useWindowSize(width, height);
   const vizWidthLimit = React.useMemo(() => {
@@ -148,12 +171,11 @@ export function Viz({
       setSize(([width, height]) => [width, entry.contentRect.height]);
     }, [])
   );
-
   const { onPointerDown } = useResizeHandler([width, height], setSize);
 
   const [ref, render, selectedNode, setSelectedNode] = useGraph({
     data,
-    dagMode: pruneCycle ? null : dagMode,
+    dagMode,
     fixNodeOnDragEnd,
     renderAsText,
     width: actualWidth,
@@ -166,11 +188,11 @@ export function Viz({
     () => ({
       roots: restrictedRoots,
       leave: restrictedLeaves,
-      preventCycle: pruneCycle ? false : dagMode !== null,
+      preventCycle: enableDagMode,
       dagPruneMode,
       excludes: allExcludedNodes,
     }),
-    [restrictedRoots, restrictedLeaves, pruneCycle, dagMode, dagPruneMode, allExcludedNodes]
+    [restrictedRoots, restrictedLeaves, enableDagMode, dagPruneMode, allExcludedNodes]
   );
 
   const graphData = React.useMemo(() => getData(data, getDataOptions), [data, getDataOptions]);
@@ -191,6 +213,7 @@ export function Viz({
         : graphData,
     [graphData, pruneCycle]
   );
+  React.useEffect(() => setCycleCount(cycles.length), [cycles.length]);
 
   const renderData = React.useMemo(
     () => ({ nodes: nodes.map((_) => ({ ..._ })), links: links.map((_) => ({ ..._ })) }),
@@ -246,9 +269,10 @@ export function Viz({
           <Accordion defaultIndex={[0]} minW={0} allowToggle>
             <CollapsibleSection label={`General Settings`}>
               <VStack alignItems="stretch">
+                <div>{pruneCycleView}</div>
+                <div>{enableDagModeView}</div>
                 <div>{dagModeView}</div>
                 <div>{dagPruneModeView}</div>
-                <div>{pruneCycleView}</div>
                 <div>{colorByView}</div>
                 <div>{fixNodeOnDragEndView}</div>
                 <div>{renderAsTextView}</div>
@@ -333,7 +357,7 @@ export function Viz({
                 <Text color="gray.500">No selection yet</Text>
               )}
             </CollapsibleSection>
-            <CollapsibleSection label={`Root Nodes`}>
+            <CollapsibleSection label={`Root Nodes (dependencies)`}>
               <VStack alignItems="flex-start">
                 <Text>
                   These nodes have no dependencies, some of them are 3rd party dependencies, or they are in dependency
@@ -356,7 +380,7 @@ export function Viz({
                 />
               </VStack>
             </CollapsibleSection>
-            <CollapsibleSection label={`Leaf Nodes`}>
+            <CollapsibleSection label={`Leaf Nodes (source files)`}>
               <VStack alignItems="flex-start">
                 <Text>These nodes are source files, which have no dependents, or they are in dependency cycles.</Text>
                 {restrictLeavesInputView}
@@ -413,7 +437,7 @@ export function Viz({
               </VStack>
             </CollapsibleSection>
             <CollapsibleSection label={`Cycles`}>
-              <VStack alignItems="flex-start">
+              <VStack alignItems="stretch">
                 <Text>There are {cycles.length} cycles</Text>
                 <ListOfNodeList
                   lists={cycles}
