@@ -22,12 +22,17 @@ type Accessor<In, Out> = Out | string | ((obj: In) => Out);
 type NodeAccessor<T> = Accessor<NodeObject, T>;
 type LinkAccessor<T> = Accessor<LinkObject, T>;
 
-type CanvasCustomRenderMode = 'replace' | 'before' | 'after';
+type CanvasCustomRenderMode = "replace" | "before" | "after";
 export type CanvasCustomRenderModeFn<T> = (obj: T) => CanvasCustomRenderMode | any;
 export type CanvasCustomRenderFn<T> = (obj: T, canvasContext: CanvasRenderingContext2D, globalScale: number) => void;
-export type CanvasPointerAreaPaintFn<T> = (obj: T, paintColor: string, canvasContext: CanvasRenderingContext2D, globalScale: number) => void;
+export type CanvasPointerAreaPaintFn<T> = (
+  obj: T,
+  paintColor: string,
+  canvasContext: CanvasRenderingContext2D,
+  globalScale: number
+) => void;
 
-type DagMode = 'td' | 'bu' | 'lr' | 'rl' | 'radialout' | 'radialin';
+type DagMode = "td" | "bu" | "lr" | "rl" | "radialout" | "radialin";
 
 interface ForceFn {
   (alpha: number): void;
@@ -120,7 +125,7 @@ export interface ForceGraphGenericInstance<ChainableInstance> {
   autoPauseRedraw(enable?: boolean): ChainableInstance;
   pauseAnimation(): ChainableInstance;
   resumeAnimation(): ChainableInstance;
-  centerAt(): {x: number, y: number};
+  centerAt(): { x: number; y: number };
   centerAt(x?: number, y?: number, durationMs?: number): ChainableInstance;
   zoom(): number;
   zoom(scale: number, durationMs?: number): ChainableInstance;
@@ -130,10 +135,12 @@ export interface ForceGraphGenericInstance<ChainableInstance> {
   maxZoom(): number;
   maxZoom(scale: number): ChainableInstance;
   onRenderFramePre(callback: (canvasContext: CanvasRenderingContext2D, globalScale: number) => void): ChainableInstance;
-  onRenderFramePost(callback: (canvasContext: CanvasRenderingContext2D, globalScale: number) => void): ChainableInstance;
+  onRenderFramePost(
+    callback: (canvasContext: CanvasRenderingContext2D, globalScale: number) => void
+  ): ChainableInstance;
 
   // Force engine (d3-force) configuration
-  dagMode(): DagMode;
+  dagMode(): DagMode | null;
   dagMode(mode: DagMode | null): ChainableInstance;
   dagLevelDistance(): number | null;
   dagLevelDistance(distance: number): ChainableInstance;
@@ -147,8 +154,8 @@ export interface ForceGraphGenericInstance<ChainableInstance> {
   d3AlphaDecay(alphaDecay: number): ChainableInstance;
   d3VelocityDecay(): number;
   d3VelocityDecay(velocityDecay: number): ChainableInstance;
-  d3Force(forceName: 'link' | 'charge' | 'center' | string): ForceFn | undefined;
-  d3Force(forceName: 'link' | 'charge' | 'center' | string, forceFn: ForceFn): ChainableInstance;
+  d3Force(forceName: "link" | "charge" | "center" | string): ForceFn | undefined;
+  d3Force(forceName: "link" | "charge" | "center" | string, forceFn: ForceFn | null): ChainableInstance;
   d3ReheatSimulation(): ChainableInstance;
   warmupTicks(): number;
   warmupTicks(ticks: number): ChainableInstance;
@@ -163,8 +170,8 @@ export interface ForceGraphGenericInstance<ChainableInstance> {
   onNodeClick(callback: (node: NodeObject, event: MouseEvent) => void): ChainableInstance;
   onNodeRightClick(callback: (node: NodeObject, event: MouseEvent) => void): ChainableInstance;
   onNodeHover(callback: (node: NodeObject | null, previousNode: NodeObject | null) => void): ChainableInstance;
-  onNodeDrag(callback: (node: NodeObject, translate: { x: number, y: number }) => void): ChainableInstance;
-  onNodeDragEnd(callback: (node: NodeObject, translate: { x: number, y: number }) => void): ChainableInstance;
+  onNodeDrag(callback: (node: NodeObject, translate: { x: number; y: number }) => void): ChainableInstance;
+  onNodeDragEnd(callback: (node: NodeObject, translate: { x: number; y: number }) => void): ChainableInstance;
   onLinkClick(callback: (link: LinkObject, event: MouseEvent) => void): ChainableInstance;
   onLinkRightClick(callback: (link: LinkObject, event: MouseEvent) => void): ChainableInstance;
   onLinkHover(callback: (link: LinkObject | null, previousLink: LinkObject | null) => void): ChainableInstance;
@@ -172,8 +179,8 @@ export interface ForceGraphGenericInstance<ChainableInstance> {
   linkHoverPrecision(precision: number): ChainableInstance;
   onBackgroundClick(callback: (event: MouseEvent) => void): ChainableInstance;
   onBackgroundRightClick(callback: (event: MouseEvent) => void): ChainableInstance;
-  onZoom(callback: (transform: {k: number, x: number, y: number}) => void): ChainableInstance;
-  onZoomEnd(callback: (transform: {k: number, x: number, y: number}) => void): ChainableInstance;
+  onZoom(callback: (transform: { k: number; x: number; y: number }) => void): ChainableInstance;
+  onZoomEnd(callback: (transform: { k: number; x: number; y: number }) => void): ChainableInstance;
   enableNodeDrag(): boolean;
   enableNodeDrag(enable: boolean): ChainableInstance;
   enableZoomInteraction(): boolean;
@@ -184,9 +191,9 @@ export interface ForceGraphGenericInstance<ChainableInstance> {
   enablePointerInteraction(enable?: boolean): ChainableInstance;
 
   // Utility
-  getGraphBbox(nodeFilter?: (node: NodeObject) => boolean): { x: [number, number], y: [number, number] };
-  screen2GraphCoords(x: number, y: number): { x: number, y: number };
-  graph2ScreenCoords(x: number, y: number): { x: number, y: number };
+  getGraphBbox(nodeFilter?: (node: NodeObject) => boolean): { x: [number, number]; y: [number, number] };
+  screen2GraphCoords(x: number, y: number): { x: number; y: number };
+  graph2ScreenCoords(x: number, y: number): { x: number; y: number };
 }
 
 export type ForceGraphInstance = ForceGraphGenericInstance<ForceGraphInstance>;

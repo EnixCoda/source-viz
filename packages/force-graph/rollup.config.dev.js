@@ -1,5 +1,3 @@
-import { cjsAndEsm } from "./rollup.config";
+import buildConfig from "./rollup.config.js";
 
-const config = cjsAndEsm;
-
-export default config;
+export default buildConfig;
