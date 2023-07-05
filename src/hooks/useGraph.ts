@@ -1,4 +1,4 @@
-import { ForceGraphInstance, GraphData } from "force-graph";
+import { DagMode, ForceGraphInstance, GraphData } from "force-graph";
 import * as React from "react";
 import { createGraph } from "../utils/ForceGraphBinding";
 import { wrapNewStateForDispatching } from "../utils/general";
@@ -6,7 +6,6 @@ import { PreparedData } from "../utils/getData";
 import {
   colorByDepth,
   colorByHeat,
-  DAGDirections,
   freezeNodeOnDragEnd,
   highlightNodeOnHover,
   renderAsDAG,
@@ -25,7 +24,7 @@ export function useGraph({
   colorBy = "depth",
 }: {
   data: PreparedData;
-  dagMode: DAGDirections | null;
+  dagMode: DagMode | null;
   renderAsText: boolean;
   fixNodeOnDragEnd: boolean;
   width: number;

@@ -1,12 +1,8 @@
-import { NodeObject as ForceGraphNodeObject } from "force-graph";
+import { NodeObject } from "force-graph";
 import { DependencyEntry } from "../services/serializers";
 import { safeMapGet } from "./general";
 
 type NodeId = string;
-
-interface NodeObject extends ForceGraphNodeObject {
-  id: NodeId;
-}
 
 export function prepareGraphData(data: DependencyEntry[]) {
   const nodes = new Set<NodeId>(data.flatMap(([file, deps]) => [file, ...deps.map(([dep]) => dep)]));

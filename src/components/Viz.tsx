@@ -1,5 +1,6 @@
 import { Accordion, Box, Heading, Select, Text, VStack } from "@chakra-ui/react";
 import useResizeObserver from "@react-hook/resize-observer";
+import { DagMode } from "force-graph";
 import * as React from "react";
 import { useWindowSize } from "react-use";
 import { useGraph } from "../hooks/useGraph";
@@ -12,7 +13,6 @@ import { useSelectView } from "../hooks/view/useSelectView";
 import { DependencyEntry } from "../services/serializers";
 import { carry } from "../utils/general";
 import { getData, prepareGraphData } from "../utils/getData";
-import { DAGDirections } from "../utils/graphDecorators";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { ExportButton } from "./ExportButton";
 import { FindPathToNode } from "./FindPathToNode";
@@ -94,7 +94,7 @@ export function Viz({
     },
   });
   const enableDagMode = $enableDagMode && !pruneCycle;
-  const [dagModeView, $dagMode] = useSelectView<DAGDirections>(
+  const [dagModeView, $dagMode] = useSelectView<DagMode>(
     "DAG Mode",
     [
       { value: "lr", label: "Leaf(source file) on the left" },
@@ -232,7 +232,7 @@ export function Viz({
 
   // The in-views
   const [inView, setInView] = React.useState(true);
-  const renderedNodes = React.useMemo(() => renderData?.nodes.map((node) => node.id as string), [renderData.nodes]);
+  const renderedNodes = React.useMemo(() => renderData?.nodes.map((node) => node.id), [renderData.nodes]);
   const leavesInView = React.useMemo(
     () => renderedNodes.filter((id) => renderData.links.every(({ target }) => target !== id)),
     [renderedNodes, renderData.links]

@@ -4,7 +4,7 @@ export interface GraphData {
 }
 
 export interface NodeObject {
-  id?: string | number;
+  id: string;
   x?: number;
   y?: number;
   vx?: number;
@@ -14,8 +14,8 @@ export interface NodeObject {
 }
 
 export interface LinkObject {
-  source?: string | number | NodeObject;
-  target?: string | number | NodeObject;
+  source?: NodeObject["id"] | NodeObject;
+  target?: NodeObject["id"] | NodeObject;
 }
 
 type Accessor<In, Out> = Out | string | ((obj: In) => Out);
@@ -32,7 +32,7 @@ export type CanvasPointerAreaPaintFn<T> = (
   globalScale: number
 ) => void;
 
-type DagMode = "td" | "bu" | "lr" | "rl" | "radialout" | "radialin";
+export type DagMode = "td" | "bu" | "lr" | "rl" | "radialout" | "radialin";
 
 interface ForceFn {
   (alpha: number): void;

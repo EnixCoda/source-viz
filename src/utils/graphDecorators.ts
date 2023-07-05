@@ -1,15 +1,19 @@
 import { forceCollide } from "d3";
-import { ForceGraphInstance, GraphData, LinkObject, NodeObject } from "force-graph";
+import { DagMode, ForceGraphInstance, GraphData, LinkObject, NodeObject } from "force-graph";
+import { carry } from "./general";
 import { PreparedData } from "./getData";
 
 export function colorByHeat(graph: ForceGraphInstance, mode: "source" | "target" | "both") {
+  type NodeObjectWithHeat = NodeObject & {
+    heat?: number;
+  };
+
   const mapData = (graphData: GraphData) => {
     graph.nodeAutoColorBy("heat");
 
-    const getId = (node: LinkObject["source"] | LinkObject["target"]) =>
-      typeof node === "string" || typeof node === "number" ? node : node?.id;
+    const getId = (node: LinkObject["source"] | LinkObject["target"]) => (typeof node === "string" ? node : node?.id);
 
-    const countMap = new Map<string | number, number>();
+    const countMap = new Map<NodeObject["id"], number>();
     graphData.links.forEach((link) => {
       if (mode !== "target") {
         const source = getId(link.source);
@@ -21,9 +25,7 @@ export function colorByHeat(graph: ForceGraphInstance, mode: "source" | "target"
       }
     });
 
-    graphData.nodes.forEach(
-      (node) => ((node as NodeObject & { heat: number }).heat = (node.id && countMap.get(node.id)) || 0)
-    );
+    graphData.nodes.forEach((node) => ((node as NodeObjectWithHeat).heat = (node.id && countMap.get(node.id)) || 0));
 
     return graphData;
   };
@@ -34,11 +36,15 @@ export function colorByHeat(graph: ForceGraphInstance, mode: "source" | "target"
 }
 
 export function colorByDepth(graph: ForceGraphInstance) {
-  const getDepth = (node: NodeObject) => [...((node.id as string).matchAll(/\//g) || [])].length;
+  type NodeObjectWithDepth = NodeObject & {
+    depth: number;
+  };
+
+  const getDepth = (node: NodeObject) => [...(node.id?.matchAll(/\//g) || [])].length;
   graph.nodeAutoColorBy("depth");
 
   const mapData = ({ nodes, links }: GraphData) => {
-    nodes.forEach((node) => ((node as NodeObject & { depth: number }).depth ||= getDepth(node)));
+    nodes.forEach((node) => ((node as NodeObjectWithDepth).depth ||= getDepth(node)));
 
     return {
       nodes,
@@ -51,11 +57,21 @@ export function colorByDepth(graph: ForceGraphInstance) {
   };
 }
 
-export function renderNodeAsText(graph: ForceGraphInstance, getSelection: () => string | null, fixedFontSize?: number) {
-  const backgroundDimensionsMap = new Map<string, [number, number]>();
+export function renderNodeAsText(
+  graph: ForceGraphInstance,
+  getSelection: () => NodeObject["id"] | null,
+  fixedFontSize?: number
+) {
+  type NodeObjectWithColor = NodeObject & {
+    color?: string;
+  };
+
+  const backgroundDimensionsMap = new Map<NodeObject["id"], [number, number]>();
   graph
-    .nodeCanvasObject((node, ctx, globalScale) => {
-      const label = node.id as string;
+    .nodeCanvasObject(($node, ctx, globalScale) => {
+      const node = $node as NodeObjectWithColor;
+
+      const label = node.id;
       const fontSize = fixedFontSize ?? 12 / globalScale;
       ctx.font = `${fontSize}px Sans-Serif`;
       const textWidth = ctx.measureText(label).width;
@@ -81,13 +97,13 @@ export function renderNodeAsText(graph: ForceGraphInstance, getSelection: () => 
 
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillStyle = (node as any).color;
+      if (node.color) ctx.fillStyle = node.color;
       ctx.fillText(label, node.x!, node.y!);
 
-      backgroundDimensionsMap.set(node.id as string, backgroundDimensions); // to re-use in nodePointerAreaPaint
+      backgroundDimensionsMap.set(node.id, backgroundDimensions); // to re-use in nodePointerAreaPaint
     })
     .nodePointerAreaPaint((node, color, ctx) => {
-      const backgroundDimensions = backgroundDimensionsMap.get(node.id as string);
+      const backgroundDimensions = backgroundDimensionsMap.get(node.id);
       if (backgroundDimensions) {
         ctx.fillStyle = color;
         ctx.fillRect(
@@ -108,14 +124,14 @@ export function freezeNodeOnDragEnd(graph: ForceGraphInstance) {
 }
 
 export function highlightNodeOnHover(graph: ForceGraphInstance, { dependantMap, dependencyMap }: PreparedData) {
-  const highlightNodes = new Set<string>();
-  let hoverNode: string | null = null;
+  const highlightNodes = new Set<NodeObject["id"]>();
+  let hoverNode: NodeObject["id"] | null = null;
 
   graph
     .onNodeHover((node) => {
       highlightNodes.clear();
       if (node) {
-        const id = node.id as string;
+        const id = node.id;
         highlightNodes.add(id);
         dependantMap.get(id)?.forEach((child) => highlightNodes.add(child));
         dependencyMap.get(id)?.forEach((parent) => highlightNodes.add(parent));
@@ -128,12 +144,17 @@ export function highlightNodeOnHover(graph: ForceGraphInstance, { dependantMap, 
       highlightNodes.clear();
 
       if (link) {
-        highlightNodes.add(link.source as string);
-        highlightNodes.add(link.target as string);
+        carry(getLinkObjectId(link.source), (id) => {
+          if (id) highlightNodes.add(id);
+        });
+
+        carry(getLinkObjectId(link.target), (id) => {
+          if (id) highlightNodes.add(id);
+        });
       }
     })
     .autoPauseRedraw(false) // keep redrawing after engine has stopped
-    .nodeCanvasObjectMode((node) => (highlightNodes.has(node.id as string) ? "before" : undefined))
+    .nodeCanvasObjectMode((node) => (highlightNodes.has(node.id) ? "before" : undefined))
     .nodeCanvasObject((node, ctx) => {
       // add ring just for highlighted nodes
       ctx.beginPath();
@@ -143,21 +164,23 @@ export function highlightNodeOnHover(graph: ForceGraphInstance, { dependantMap, 
     });
 }
 
-export type DAGDirections = "td" | "bu" | "lr" | "rl" | "radialout" | "radialin";
+function getLinkObjectId(object: LinkObject[keyof LinkObject]): NodeObject["id"] | undefined {
+  return typeof object === "object" ? object?.id : object;
+}
 
-export function renderAsDAG(graph: ForceGraphInstance, direction: DAGDirections | null = "lr") {
+export function renderAsDAG(graph: ForceGraphInstance, direction: DagMode | null = "lr") {
   graph.dagMode(direction);
   if (direction)
     graph.dagLevelDistance(120).d3Force("collide", forceCollide(0.12)).d3AlphaDecay(0.02).d3VelocityDecay(0.3);
 }
 
-export function selectNodeOnMouseDown(graph: ForceGraphInstance, setSelection: (id: string | null) => void) {
+export function selectNodeOnMouseDown(graph: ForceGraphInstance, setSelection: (id: NodeObject["id"] | null) => void) {
   graph
     .onNodeDrag((node) => set(node))
     .onNodeClick((node) => set(node))
     .autoPauseRedraw(false);
 
   function set(node: NodeObject) {
-    setSelection(node.id as string);
+    setSelection(node.id || null);
   }
 }
