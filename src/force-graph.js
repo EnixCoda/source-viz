@@ -2,7 +2,7 @@ import { select as d3Select } from 'd3-selection';
 import { zoom as d3Zoom, zoomTransform as d3ZoomTransform } from 'd3-zoom';
 import { drag as d3Drag } from 'd3-drag';
 import { max as d3Max, min as d3Min } from 'd3-array';
-import throttle from 'lodash.throttle';
+import { throttle } from 'lodash-es';
 import TWEEN from '@tweenjs/tween.js';
 import Kapsule from 'kapsule';
 import accessorFn from 'accessor-fn';
@@ -365,7 +365,7 @@ export default Kapsule({
     //container.appendChild(state.shadowCanvas);
 
     const ctx = state.canvas.getContext('2d');
-    const shadowCtx = state.shadowCanvas.getContext('2d');
+    const shadowCtx = state.shadowCanvas.getContext('2d', { willReadFrequently: true });
 
     const pointerPos = { x: -1e12, y: -1e12 };
     const getObjUnderPointer = () => {
@@ -517,6 +517,12 @@ export default Kapsule({
         // Move tooltip
         toolTipElem.style.top = `${pointerPos.y}px`;
         toolTipElem.style.left = `${pointerPos.x}px`;
+
+        // adjust horizontal position to not exceed canvas boundaries
+        toolTipElem.style.transform = `translate(-${pointerPos.x / state.width * 100}%, ${
+          // flip to above if near bottom
+          state.height - pointerPos.y < 100 ? 'calc(-100% - 8px)' : '21px'
+        })`;
 
         //
 
