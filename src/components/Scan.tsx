@@ -90,10 +90,10 @@ export function Filter({
           </Box>
           <VStack alignItems="stretch">
             <Heading as="h3" size="md">
-              Entry files
+              Include files
             </Heading>
             <Text fontSize="sm">
-              Files match these patterns will be read and parsed. They are
+              Text files matching any of these patterns will be read and parsed. They will be
               <Text as="span" color="orange.500">
                 {" "}
                 highlighted{" "}

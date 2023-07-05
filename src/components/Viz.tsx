@@ -80,31 +80,35 @@ export function Viz({
 
   // Graph
   const [cycleCount, setCycleCount] = React.useState<number | null>(null);
-  const [pruneCycleView, pruneCycle] = useCheckboxView(
-    cycleCount === null ? `Prune Cycle` : `Prune Cycle (${cycleCount} in total)`,
+  const [cyclesOnlyView, cyclesOnly] = useCheckboxView(
+    cycleCount === null
+      ? `Show only nodes that are in cycles`
+      : `Show only nodes that are in cycles (${cycleCount} cycles)`,
     false,
     {
-      helperText: "Prune cycle will hide the nodes NOT in a cycle",
+      helperText: "Only show nodes that are in cycles",
     }
   );
   const [enableDagModeView, $enableDagMode] = useCheckboxView("Enable DAG Mode", true, {
-    helperText: "DAG Mode will prune dependency cycles",
+    helperText: "DAG Mode will prune dependency cycles and show the graph in a tree-like structure",
     checkboxProps: {
-      isDisabled: pruneCycle,
+      isDisabled: cyclesOnly,
     },
   });
-  const enableDagMode = $enableDagMode && !pruneCycle;
+  const enableDagMode = $enableDagMode && !cyclesOnly;
   const [dagModeView, $dagMode] = useSelectView<DagMode>(
     "DAG Mode",
-    [
-      { value: "lr", label: "Leaf(source file) on the left" },
-      { value: "rl", label: "Root(dependency) on the left" },
-      // such modes are not useful
-      // { value: "td", label: "Top to Bottom" },
-      // { value: "bu", label: "Bottom to Top" },
-      { value: "radialout", label: "Radial Out" },
-      { value: "radialin", label: "Radial In" },
-    ],
+    enableDagMode
+      ? [
+          { value: "rl", label: "Leaf nodes (dependencies) on the left" },
+          { value: "lr", label: "Root nodes(source files) on the left" },
+          // such modes are not useful
+          // { value: "td", label: "Top to Bottom" },
+          // { value: "bu", label: "Bottom to Top" },
+          { value: "radialout", label: "Radial Out" },
+          { value: "radialin", label: "Radial In" },
+        ]
+      : [],
     "lr",
     { isDisabled: !enableDagMode }
   );
@@ -184,21 +188,20 @@ export function Viz({
     colorBy,
   });
 
-  const getDataOptions = React.useMemo(
-    () => ({
-      roots: restrictedRoots,
-      leave: restrictedLeaves,
-      preventCycle: enableDagMode,
-      dagPruneMode,
-      excludes: allExcludedNodes,
-    }),
-    [restrictedRoots, restrictedLeaves, enableDagMode, dagPruneMode, allExcludedNodes]
+  const graphData = React.useMemo(
+    () =>
+      getData(data, {
+        roots: restrictedRoots,
+        leave: restrictedLeaves,
+        preventCycle: enableDagMode,
+        dagPruneMode,
+        excludes: allExcludedNodes,
+      }),
+    [data, restrictedRoots, restrictedLeaves, enableDagMode, dagPruneMode, allExcludedNodes]
   );
-
-  const graphData = React.useMemo(() => getData(data, getDataOptions), [data, getDataOptions]);
   const { cycles, nodes, links } = React.useMemo(
     () =>
-      pruneCycle
+      cyclesOnly
         ? carry(
             graphData.nodes.filter((node) => graphData.cycles.some((cycle) => cycle.includes(node.id))),
             (nodes) => ({
@@ -211,7 +214,7 @@ export function Viz({
             })
           )
         : graphData,
-    [graphData, pruneCycle]
+    [graphData, cyclesOnly]
   );
   React.useEffect(() => setCycleCount(cycles.length), [cycles.length]);
 
@@ -234,11 +237,11 @@ export function Viz({
   const [inView, setInView] = React.useState(true);
   const renderedNodes = React.useMemo(() => renderData?.nodes.map((node) => node.id), [renderData.nodes]);
   const leavesInView = React.useMemo(
-    () => renderedNodes.filter((id) => renderData.links.every(({ target }) => target !== id)),
+    () => renderedNodes.filter((id) => renderData.links.every(({ source }) => source !== id)),
     [renderedNodes, renderData.links]
   );
   const rootsInView = React.useMemo(
-    () => renderedNodes.filter((id) => renderData.links.every(({ source }) => source !== id)),
+    () => renderedNodes.filter((id) => renderData.links.every(({ target }) => target !== id)),
     [renderedNodes, renderData.links]
   );
 
@@ -269,7 +272,7 @@ export function Viz({
           <Accordion defaultIndex={[0]} minW={0} allowToggle>
             <CollapsibleSection label={`General Settings`}>
               <VStack alignItems="stretch">
-                <div>{pruneCycleView}</div>
+                <div>{cyclesOnlyView}</div>
                 <div>{enableDagModeView}</div>
                 <div>{dagModeView}</div>
                 <div>{dagPruneModeView}</div>
@@ -336,15 +339,6 @@ export function Viz({
                       </option>
                     ))}
                   </Select>
-                  {/* <Button onClick={() => excludeNodeDependents(selectedNode)}>
-                      Toggle exclude its dependents
-                    </Button>
-                    <Button onClick={() => excludeNodeDependencies(selectedNode)}>
-                    Toggle exclude its dependencies
-                    </Button>
-                    <Button disabled>TODO: Add to root nodes</Button>
-                  */}
-
                   <FindPathToNode
                     nodes={renderedNodes}
                     data={data}
@@ -357,12 +351,9 @@ export function Viz({
                 <Text color="gray.500">No selection yet</Text>
               )}
             </CollapsibleSection>
-            <CollapsibleSection label={`Root Nodes (dependencies)`}>
+            <CollapsibleSection label={`Root Nodes (source files)`}>
               <VStack alignItems="flex-start">
-                <Text>
-                  These nodes have no dependencies, some of them are 3rd party dependencies, or they are in dependency
-                  cycles.
-                </Text>
+                <Text>These nodes are source files, which have no dependents, or they are in dependency cycles.</Text>
                 {restrictRootInputView}
                 <Switch
                   isDisabled={restrictRootsRegExp === null}
@@ -380,9 +371,12 @@ export function Viz({
                 />
               </VStack>
             </CollapsibleSection>
-            <CollapsibleSection label={`Leaf Nodes (source files)`}>
+            <CollapsibleSection label={`Leaf Nodes (dependencies)`}>
               <VStack alignItems="flex-start">
-                <Text>These nodes are source files, which have no dependents, or they are in dependency cycles.</Text>
+                <Text>
+                  These nodes have no dependencies, some of them are 3rd party dependencies, or they are in dependency
+                  cycles.
+                </Text>
                 {restrictLeavesInputView}
                 <Switch
                   isDisabled={restrictLeavesRegExp === null}

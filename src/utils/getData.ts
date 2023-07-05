@@ -30,7 +30,7 @@ export const getData = (
     leave,
     excludes = new Set(),
     preventCycle,
-    dagPruneMode = "less roots",
+    dagPruneMode,
   }: {
     roots?: Set<NodeId>;
     leave?: Set<NodeId>;
