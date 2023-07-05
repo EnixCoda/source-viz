@@ -14,22 +14,24 @@ import {
 } from "../utils/graphDecorators";
 
 export function useGraph({
-  dagMode,
-  renderAsText,
-  fixNodeOnDragEnd,
   data,
+  renderAsText,
+  fixedFontSize,
+  fixNodeOnDragEnd,
   width,
   height,
-  fixedFontSize,
+  enableDagMode,
+  dagMode = "lr",
   colorBy = "depth",
 }: {
   data: PreparedData;
-  dagMode: DagMode | null;
   renderAsText: boolean;
   fixNodeOnDragEnd: boolean;
+  fixedFontSize?: number;
   width: number;
   height: number;
-  fixedFontSize?: number;
+  enableDagMode: boolean;
+  dagMode?: DagMode | null;
   colorBy?: "depth" | "connection-both" | "connection-dependency" | "connection-dependant";
 }) {
   const ref = React.useRef<HTMLDivElement | null>(null);
@@ -50,7 +52,7 @@ export function useGraph({
   const render = React.useMemo(() => {
     if (!graph) return null;
 
-    renderAsDAG(graph, dagMode || null);
+    renderAsDAG(graph, enableDagMode ? dagMode : null);
     if (fixNodeOnDragEnd) freezeNodeOnDragEnd(graph);
     if (renderAsText) renderNodeAsText(graph, () => selectedNodeRef.current, fixedFontSize);
     else highlightNodeOnHover(graph, data);
@@ -88,7 +90,7 @@ export function useGraph({
     const dataMapper = (data: GraphData) => dataMappers.reduce((prev, mapper) => mapper(prev), data);
 
     return (data: GraphData) => graph.graphData(dataMapper(data));
-  }, [graph, fixNodeOnDragEnd, dagMode, renderAsText, data, setNodeSelection, fixedFontSize, colorBy]);
+  }, [graph, fixNodeOnDragEnd, enableDagMode, dagMode, renderAsText, data, setNodeSelection, fixedFontSize, colorBy]);
 
   return [ref, render, selectedNodeInState, setNodeSelection] as const;
 }

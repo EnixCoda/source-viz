@@ -117,12 +117,12 @@ export const getData = (
     // If `a` is leave, and prune for less leave, output would be `b -> c -> a`.
     cycles.forEach((cycle) => {
       cycle.forEach((node, index) => {
-        if (roots && dagPruneMode === "less roots") {
+        if (roots && (dagPruneMode === "less roots" || !dagPruneMode)) {
           if (roots.has(node)) {
             const last = cycle[(index === 0 ? cycle.length : index) - 1];
             safeMapGet(links, last, () => new Set()).delete(node);
           }
-        } else if (leave && dagPruneMode === "less leave") {
+        } else if (leave && (dagPruneMode === "less leave" || !dagPruneMode)) {
           if (leave.has(node)) {
             const next = cycle[(index === cycle.length ? 0 : index) + 1];
             safeMapGet(links, node, () => new Set()).delete(next);

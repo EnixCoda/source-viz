@@ -1,6 +1,5 @@
-import { Accordion, Box, Heading, Select, Text, VStack } from "@chakra-ui/react";
+import { Accordion, Box, Button, Heading, ModalBody, Select, Text, VStack } from "@chakra-ui/react";
 import useResizeObserver from "@react-hook/resize-observer";
-import { DagMode } from "force-graph";
 import * as React from "react";
 import { useWindowSize } from "react-use";
 import { useGraph } from "../hooks/useGraph";
@@ -18,6 +17,7 @@ import { ExportButton } from "./ExportButton";
 import { FindPathToNode } from "./FindPathToNode";
 import { ListOfNodeList } from "./ListOfNodeList";
 import { LocalPathContextProvider } from "./LocalPathContext";
+import { ModalButton } from "./ModalButton";
 import { MonoText } from "./MonoText";
 import { NodeList } from "./NodeList";
 import { NodesFilter } from "./NodesFilter";
@@ -79,52 +79,15 @@ export function Viz({
   );
 
   // Graph
-  const [cycleCount, setCycleCount] = React.useState<number | null>(null);
-  const [cyclesOnlyView, cyclesOnly] = useCheckboxView(
-    cycleCount === null
-      ? `Show only nodes that are in cycles`
-      : `Show only nodes that are in cycles (${cycleCount} cycles)`,
-    false,
-    {
-      helperText: "Only show nodes that are in cycles",
-    }
+  const [graphModeView, graphMode] = useSelectView<"dag" | "natural" | "cycles-only">(
+    "Graph Mode",
+    [
+      { value: "dag", label: "DAG (Directed Acyclic Graph, all nodes, no cycle)" },
+      { value: "natural", label: "Natural (all nodes, allow cycles)" },
+      { value: "cycles-only", label: `Cycles Only (only nodes on cycles)` },
+    ],
+    "dag"
   );
-  const [enableDagModeView, $enableDagMode] = useCheckboxView("Enable DAG Mode", true, {
-    helperText: "DAG Mode will prune dependency cycles and show the graph in a tree-like structure",
-    checkboxProps: {
-      isDisabled: cyclesOnly,
-    },
-  });
-  const enableDagMode = $enableDagMode && !cyclesOnly;
-  const [dagModeView, $dagMode] = useSelectView<DagMode>(
-    "DAG Mode",
-    enableDagMode
-      ? [
-          { value: "rl", label: "Leaf nodes (dependencies) on the left" },
-          { value: "lr", label: "Root nodes(source files) on the left" },
-          // such modes are not useful
-          // { value: "td", label: "Top to Bottom" },
-          // { value: "bu", label: "Bottom to Top" },
-          { value: "radialout", label: "Radial Out" },
-          { value: "radialin", label: "Radial In" },
-        ]
-      : [],
-    "lr",
-    { isDisabled: !enableDagMode }
-  );
-  const dagMode = enableDagMode ? $dagMode : null;
-  const [dagPruneModeView, $dagPruneMode] = useSelectView(
-    "DAG Prune Mode",
-    dagMode
-      ? [
-          { value: "less roots", label: "Less roots" },
-          { value: "less leave", label: "Less leave" },
-        ]
-      : [],
-    "less roots",
-    { isDisabled: !enableDagMode }
-  );
-  const dagPruneMode = enableDagMode ? $dagPruneMode : null;
 
   const [colorByView, colorBy] = useSelectView(
     "Color nodes by",
@@ -179,12 +142,12 @@ export function Viz({
 
   const [ref, render, selectedNode, setSelectedNode] = useGraph({
     data,
-    dagMode,
-    fixNodeOnDragEnd,
     renderAsText,
+    fixedFontSize: (fixFontSize && fixedFontSize) || undefined,
+    fixNodeOnDragEnd,
     width: actualWidth,
     height,
-    fixedFontSize: (fixFontSize && fixedFontSize) || undefined,
+    enableDagMode: graphMode === "dag",
     colorBy,
   });
 
@@ -193,15 +156,14 @@ export function Viz({
       getData(data, {
         roots: restrictedRoots,
         leave: restrictedLeaves,
-        preventCycle: enableDagMode,
-        dagPruneMode,
+        preventCycle: graphMode === "dag",
         excludes: allExcludedNodes,
       }),
-    [data, restrictedRoots, restrictedLeaves, enableDagMode, dagPruneMode, allExcludedNodes]
+    [data, restrictedRoots, restrictedLeaves, graphMode, allExcludedNodes]
   );
   const { cycles, nodes, links } = React.useMemo(
     () =>
-      cyclesOnly
+      graphMode === "cycles-only"
         ? carry(
             graphData.nodes.filter((node) => graphData.cycles.some((cycle) => cycle.includes(node.id))),
             (nodes) => ({
@@ -214,9 +176,8 @@ export function Viz({
             })
           )
         : graphData,
-    [graphData, cyclesOnly]
+    [graphData, graphMode]
   );
-  React.useEffect(() => setCycleCount(cycles.length), [cycles.length]);
 
   const renderData = React.useMemo(
     () => ({ nodes: nodes.map((_) => ({ ..._ })), links: links.map((_) => ({ ..._ })) }),
@@ -272,10 +233,28 @@ export function Viz({
           <Accordion defaultIndex={[0]} minW={0} allowToggle>
             <CollapsibleSection label={`General Settings`}>
               <VStack alignItems="stretch">
-                <div>{cyclesOnlyView}</div>
-                <div>{enableDagModeView}</div>
-                <div>{dagModeView}</div>
-                <div>{dagPruneModeView}</div>
+                <div>{graphModeView}</div>
+                <div>
+                  {graphMode === "cycles-only" && (
+                    <ModalButton
+                      title={"Cycles"}
+                      renderTrigger={({ onOpen }) => <Button onClick={onOpen}>Checkout Cycles</Button>}
+                    >
+                      {() => (
+                        <ModalBody>
+                          <Text>There are {cycles.length} in total.</Text>
+                          <ListOfNodeList
+                            containerProps={{ maxHeight: 600 }}
+                            lists={cycles}
+                            getProps={() => ({
+                              mapProps: (id) => ({ onSelect: () => setSelectedNode(id) }),
+                            })}
+                          />
+                        </ModalBody>
+                      )}
+                    </ModalButton>
+                  )}
+                </div>
                 <div>{colorByView}</div>
                 <div>{fixNodeOnDragEndView}</div>
                 <div>{renderAsTextView}</div>
@@ -426,17 +405,6 @@ export function Viz({
                   mapProps={(id) => ({
                     onExclude: () => toggleExcludeNode(id),
                     onSelect: () => setSelectedNode(id),
-                  })}
-                />
-              </VStack>
-            </CollapsibleSection>
-            <CollapsibleSection label={`Cycles`}>
-              <VStack alignItems="stretch">
-                <Text>There are {cycles.length} cycles</Text>
-                <ListOfNodeList
-                  lists={cycles}
-                  getProps={() => ({
-                    mapProps: (id) => ({ onSelect: () => setSelectedNode(id) }),
                   })}
                 />
               </VStack>

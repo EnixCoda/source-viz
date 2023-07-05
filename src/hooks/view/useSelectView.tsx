@@ -1,4 +1,4 @@
-import { FormControl, FormLabel, Select, SelectProps } from "@chakra-ui/react";
+import { FormControl, FormHelperText, FormLabel, Select, SelectProps } from "@chakra-ui/react";
 import * as React from "react";
 import { useView } from "./useView";
 
@@ -6,7 +6,7 @@ export function useSelectView<T extends string>(
   label: React.ReactNode,
   options: { label: React.ReactNode; value: T | null }[],
   defaultValue: T,
-  selectProps?: SelectProps
+  { helperText, selectProps }: { helperText?: React.ReactNode; selectProps?: SelectProps } = {}
 ) {
   return useView<T>(
     defaultValue,
@@ -20,6 +20,7 @@ export function useSelectView<T extends string>(
             </option>
           ))}
         </Select>
+        {helperText && <FormHelperText>{helperText}</FormHelperText>}
       </FormControl>
     ),
     [label, options, selectProps]
