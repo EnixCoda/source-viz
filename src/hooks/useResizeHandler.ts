@@ -15,7 +15,7 @@ export function useResizeHandler(
     onResizeStateChange: (state: ResizeState) => void;
     onClick: (e: PointerEvent) => void;
     distanceTolerance: number;
-  }> = {}
+  }> = {},
 ) {
   const pointerDown = React.useRef(false);
   const pointerMoved = React.useRef(false);
@@ -65,7 +65,7 @@ export function useResizeHandler(
       baseSize.current = latestPropSize.current;
       onResizeStateChange?.("resizing");
     },
-    [onResizeStateChange]
+    [onResizeStateChange],
   );
 
   return { onPointerDown };

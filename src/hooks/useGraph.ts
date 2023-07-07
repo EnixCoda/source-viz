@@ -80,8 +80,8 @@ export function useGraph({
                 "connection-dependency": "source",
                 "connection-dependant": "target",
               } as const
-            )[colorBy]
-          ).mapData
+            )[colorBy],
+          ).mapData,
         );
         break;
       }
@@ -104,7 +104,7 @@ function useGraphBasicStyles(graph: ForceGraphInstance | null) {
 
 function useGraphInstance(
   ref: React.MutableRefObject<HTMLDivElement | null>,
-  setGraph: React.Dispatch<React.SetStateAction<ForceGraphInstance | null>>
+  setGraph: React.Dispatch<React.SetStateAction<ForceGraphInstance | null>>,
 ) {
   React.useEffect(() => {
     const current = ref.current;

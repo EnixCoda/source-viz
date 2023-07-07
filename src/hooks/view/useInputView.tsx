@@ -24,7 +24,7 @@ export type UseInputViewConfig = {
 
 export function useInputView(
   defaultValue: string = "",
-  { label, inputProps, helperText, errorMessage }: UseInputViewConfig = {}
+  { label, inputProps, helperText, errorMessage }: UseInputViewConfig = {},
 ) {
   return useView(defaultValue, (state, setState) => (
     <FormControl>
@@ -51,7 +51,7 @@ export function useNumberInputView(
     inputProps?: NumberInputProps;
     label?: React.ReactNode;
     helperText?: React.ReactNode;
-  } = {}
+  } = {},
 ) {
   const [inputView, inputValue] = useView(defaultValue, (state, setState) => (
     <FormControl>

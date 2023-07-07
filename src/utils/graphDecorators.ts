@@ -60,7 +60,7 @@ export function colorByDepth(graph: ForceGraphInstance) {
 export function renderNodeAsText(
   graph: ForceGraphInstance,
   getSelection: () => NodeObject["id"] | null,
-  fixedFontSize?: number
+  fixedFontSize?: number,
 ) {
   type NodeObjectWithColor = NodeObject & {
     color?: string;
@@ -84,7 +84,7 @@ export function renderNodeAsText(
           node.x! - backgroundDimensions[0] / 2 - borderWidth / globalScale,
           node.y! - backgroundDimensions[1] / 2 - borderWidth / globalScale,
           backgroundDimensions[0] + (borderWidth * 2) / globalScale,
-          backgroundDimensions[1] + (borderWidth * 2) / globalScale
+          backgroundDimensions[1] + (borderWidth * 2) / globalScale,
         );
       }
 
@@ -92,7 +92,7 @@ export function renderNodeAsText(
       ctx.fillRect(
         node.x! - backgroundDimensions[0] / 2,
         node.y! - backgroundDimensions[1] / 2,
-        ...backgroundDimensions
+        ...backgroundDimensions,
       );
 
       ctx.textAlign = "center";
@@ -109,7 +109,7 @@ export function renderNodeAsText(
         ctx.fillRect(
           node.x! - backgroundDimensions[0] / 2,
           node.y! - backgroundDimensions[1] / 2,
-          ...backgroundDimensions
+          ...backgroundDimensions,
         );
       }
     });

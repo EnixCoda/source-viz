@@ -5,7 +5,7 @@ import { useView } from "./useView";
 export function useCheckboxView(
   label: React.ReactNode,
   defaultValue: boolean,
-  { checkboxProps, helperText }: { checkboxProps?: CheckboxProps; helperText?: React.ReactNode } = {}
+  { checkboxProps, helperText }: { checkboxProps?: CheckboxProps; helperText?: React.ReactNode } = {},
 ) {
   return useView(
     defaultValue,
@@ -17,6 +17,6 @@ export function useCheckboxView(
         {helperText && <FormHelperText>{helperText}</FormHelperText>}
       </FormControl>
     ),
-    [label, checkboxProps]
+    [label, checkboxProps],
   );
 }

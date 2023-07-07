@@ -28,12 +28,12 @@ export function ColumnDirectory({
 
   const isItemExcluded = React.useMemo(
     () => (isExcluded ? () => true : filter.excludes && getPatternsMatcher(filter.excludes)),
-    [isExcluded, filter.excludes]
+    [isExcluded, filter.excludes],
   );
 
   const isItemIncluded = React.useMemo(
     () => (isExcluded ? () => false : filter.includes && getPatternsMatcher(filter.includes)),
-    [isExcluded, filter.includes]
+    [isExcluded, filter.includes],
   );
 
   React.useEffect(() => {

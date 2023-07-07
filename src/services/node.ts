@@ -3,10 +3,7 @@ import path from "path";
 
 const resolveSymlink = false;
 
-export async function getFiles(
-  rootDir: string,
-  isExcluded: (path: string) => boolean
-) {
+export async function getFiles(rootDir: string, isExcluded: (path: string) => boolean) {
   const files: string[] = [];
 
   async function scan(relativePath: string) {

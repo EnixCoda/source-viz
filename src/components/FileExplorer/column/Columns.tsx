@@ -35,7 +35,7 @@ function RecursiveColumn({
   const [first, second] = stack;
   const isItemExcluded = React.useMemo(
     () => (isExcluded ? () => true : filter.excludes && getPatternsMatcher(filter.excludes)),
-    [isExcluded, filter.excludes]
+    [isExcluded, filter.excludes],
   );
   const isFirstExcluded = isItemExcluded?.(first.name);
   return (

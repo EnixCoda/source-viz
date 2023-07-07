@@ -7,7 +7,7 @@ export type MetaFilter = {
 
 export function entriesToPreparedData(map: DependencyEntry[]): string[][] {
   return map.flatMap(([key, value]) =>
-    value.map(([dependency, dynamicImport]) => [key, dependency, `${dynamicImport}`])
+    value.map(([dependency, dynamicImport]) => [key, dependency, `${dynamicImport}`]),
   );
 }
 
@@ -31,7 +31,7 @@ export async function getDependencyEntries(
     resolveAllFiles?: boolean;
     onFileParsed?: (file: string) => void;
     onFileError?: (file: string, error: unknown) => void;
-  } = {}
+  } = {},
 ) {
   const dependencyMap: DependencyMap = new Map([
     /**
@@ -64,7 +64,7 @@ export async function getDependencyEntries(
   const entries: DependencyEntry[] = [...dependencyMap.entries()].map(([file, dependencies]) => [
     file,
     dependencies.map(
-      ([dependency, dynamicImport]) => [resolveDependencyFile(file, dependency), dynamicImport] as [string, boolean]
+      ([dependency, dynamicImport]) => [resolveDependencyFile(file, dependency), dynamicImport] as [string, boolean],
     ),
   ]);
 

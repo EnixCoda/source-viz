@@ -6,7 +6,7 @@ export function useSelectView<T extends string>(
   label: React.ReactNode,
   options: { label: React.ReactNode; value: T | null }[],
   defaultValue: T,
-  { helperText, selectProps }: { helperText?: React.ReactNode; selectProps?: SelectProps } = {}
+  { helperText, selectProps }: { helperText?: React.ReactNode; selectProps?: SelectProps } = {},
 ) {
   return useView<T>(
     defaultValue,
@@ -23,6 +23,6 @@ export function useSelectView<T extends string>(
         {helperText && <FormHelperText>{helperText}</FormHelperText>}
       </FormControl>
     ),
-    [label, options, selectProps]
+    [label, options, selectProps],
   );
 }

@@ -21,7 +21,7 @@ export function useAbortableEffect<T, TReturn, TNext>(
   effect: () => {
     getAsyncGenerator: () => AsyncGenerator<T, TReturn, TNext>;
     cancel?: () => void;
-  }
+  },
 ) {
   useEffect(() => {
     const abortController = new AbortController();
@@ -37,7 +37,7 @@ export function useAbortableEffect<T, TReturn, TNext>(
 
 export async function runAbortableAsyncGenerator<T>(
   generator: AsyncGenerator<unknown, T, unknown>,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ) {
   let latestResult: IteratorResult<unknown> | undefined;
   do {

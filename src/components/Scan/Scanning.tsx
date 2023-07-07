@@ -45,7 +45,7 @@ export function Scanning({
           const traverse = async function (
             handle: FileSystemDirectoryHandle,
             onFile: (handle: FileSystemFileHandle, stack: string[]) => void | Promise<void>,
-            stack: string[] = []
+            stack: string[] = [],
           ) {
             for await (const item of handle.values()) {
               if (signal.aborted) return;
@@ -92,7 +92,7 @@ export function Scanning({
               onFileParsed(file) {
                 dispatch({ type: "parsing", file });
               },
-            }
+            },
           );
 
           setEntries(entries);
@@ -100,8 +100,8 @@ export function Scanning({
           dispatch({ type: "done" });
         }
       },
-      [fs, filter, dispatch]
-    )
+      [fs, filter, dispatch],
+    ),
   );
 
   React.useEffect(() => {
@@ -162,7 +162,7 @@ export function Scanning({
                 </>
               ),
             },
-            phase
+            phase,
           )}
           {phase !== "done" && showProgressDetailView}
         </Box>

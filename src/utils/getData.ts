@@ -37,7 +37,7 @@ export const getData = (
     excludes?: Set<NodeId>;
     preventCycle?: boolean;
     dagPruneMode?: DAGPruneMode | null;
-  } = {}
+  } = {},
 ) => {
   // Traverse through dependency map and dependent map starting from roots and leave to explore the graph
   const traverse = (startNodes: Set<NodeId>, map: Map<NodeId, Set<NodeId>>) => {
@@ -97,7 +97,7 @@ export const getData = (
     return indexOfHead === 0 ? cycle : cycle.slice(indexOfHead).concat(cycle.slice(0, indexOfHead));
   });
   const deduplicatedCycles = Array.from(new Set(orderedCycles.map((cycle) => cycle.join(separator)))).map((cycle) =>
-    cycle.split(separator)
+    cycle.split(separator),
   );
 
   const links = new Map<NodeId, Set<NodeId>>();

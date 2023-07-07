@@ -19,7 +19,7 @@ export function parseCSV<T extends any[] = string[]>(
     skipFirstLine?: boolean;
     lineSeparator?: string;
     colSeparator?: string;
-  } = {}
+  } = {},
 ): T[] {
   const lines = csv.split(lineSeparator);
 

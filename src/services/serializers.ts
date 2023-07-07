@@ -21,7 +21,7 @@ export type DependencyRecord = [file: string, dependency: string, isAsync: boole
 
 function flatEntries(entires: DependencyEntry[]): DependencyRecord[] {
   return entires.flatMap(([file, dependencies]) =>
-    dependencies.map(([dependency, isAsync]) => [file, dependency, isAsync] as DependencyRecord)
+    dependencies.map(([dependency, isAsync]) => [file, dependency, isAsync] as DependencyRecord),
   );
 }
 

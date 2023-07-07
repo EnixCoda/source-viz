@@ -13,6 +13,6 @@ export function useSwitchView(label: React.ReactNode, defaultChecked: boolean) {
         </FormControl>
       </FormControl>
     ),
-    [label]
+    [label],
   );
 }

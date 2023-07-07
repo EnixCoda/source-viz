@@ -42,16 +42,16 @@ export function Viz({
   });
   const excludedNodesFromInput = React.useMemo(
     () => (excludeNodesFilterRegExp ? allNodes.filter((dep) => dep.match(excludeNodesFilterRegExp)) : []),
-    [excludeNodesFilterRegExp, allNodes]
+    [excludeNodesFilterRegExp, allNodes],
   );
   const [excludedNodes, toggleExcludeNode] = useSet<string>();
   const allExcludedNodes = React.useMemo(
     () => new Set([...excludedNodesFromInput, ...excludedNodes]),
-    [excludedNodesFromInput, excludedNodes]
+    [excludedNodesFromInput, excludedNodes],
   );
   const nonExcludedNodes = React.useMemo(
     () => allNodes.filter((id) => !allExcludedNodes.has(id)),
-    [allNodes, allExcludedNodes]
+    [allNodes, allExcludedNodes],
   );
 
   // Restrictions
@@ -62,9 +62,9 @@ export function Viz({
   const restrictedRoots = React.useMemo(
     () =>
       new Set(
-        carry(nonExcludedNodes, (ns) => (restrictRootsRegExp ? ns.filter((id) => id.match(restrictRootsRegExp)) : ns))
+        carry(nonExcludedNodes, (ns) => (restrictRootsRegExp ? ns.filter((id) => id.match(restrictRootsRegExp)) : ns)),
       ),
-    [nonExcludedNodes, restrictRootsRegExp]
+    [nonExcludedNodes, restrictRootsRegExp],
   );
   const [restrictLeavesInputView, restrictLeavesRegExp] = useRegExpInputView("", {
     inputProps: { placeholder: "Filter nodes with RegExp" },
@@ -73,9 +73,11 @@ export function Viz({
   const restrictedLeaves = React.useMemo(
     () =>
       new Set(
-        carry(nonExcludedNodes, (ns) => (restrictLeavesRegExp ? ns.filter((id) => id.match(restrictLeavesRegExp)) : ns))
+        carry(nonExcludedNodes, (ns) =>
+          restrictLeavesRegExp ? ns.filter((id) => id.match(restrictLeavesRegExp)) : ns,
+        ),
       ),
-    [nonExcludedNodes, restrictLeavesRegExp]
+    [nonExcludedNodes, restrictLeavesRegExp],
   );
 
   // Graph
@@ -86,7 +88,7 @@ export function Viz({
       { value: "natural", label: "Natural (all nodes, allow cycles)" },
       { value: "cycles-only", label: `Cycles Only (only nodes on cycles)` },
     ],
-    "dag"
+    "dag",
   );
 
   const [colorByView, colorBy] = useSelectView(
@@ -97,7 +99,7 @@ export function Viz({
       { value: "connection-dependency", label: "Connections (dependency)" },
       { value: "connection-dependant", label: "Connections (dependant)" },
     ],
-    "connection-both"
+    "connection-both",
   );
   const [fixNodeOnDragEndView, fixNodeOnDragEnd] = useCheckboxView("Fix node on drag end", true);
   const [renderAsTextView, renderAsText] = useCheckboxView("Render as Text", true);
@@ -136,7 +138,7 @@ export function Viz({
     containerRef,
     React.useCallback((entry) => {
       setSize(([width, height]) => [width, entry.contentRect.height]);
-    }, [])
+    }, []),
   );
   const { onPointerDown } = useResizeHandler([width, height], setSize);
 
@@ -159,7 +161,7 @@ export function Viz({
         preventCycle: graphMode === "dag",
         excludes: allExcludedNodes,
       }),
-    [data, restrictedRoots, restrictedLeaves, graphMode, allExcludedNodes]
+    [data, restrictedRoots, restrictedLeaves, graphMode, allExcludedNodes],
   );
   const { cycles, nodes, links } = React.useMemo(
     () =>
@@ -171,17 +173,17 @@ export function Viz({
               nodes,
               links: graphData.links.filter(
                 ({ source, target }) =>
-                  nodes.some((node) => node.id === source) && nodes.some((node) => node.id === target)
+                  nodes.some((node) => node.id === source) && nodes.some((node) => node.id === target),
               ),
-            })
+            }),
           )
         : graphData,
-    [graphData, graphMode]
+    [graphData, graphMode],
   );
 
   const renderData = React.useMemo(
     () => ({ nodes: nodes.map((_) => ({ ..._ })), links: links.map((_) => ({ ..._ })) }),
-    [nodes, links]
+    [nodes, links],
   );
   React.useEffect(() => {
     render?.(renderData);
@@ -199,11 +201,11 @@ export function Viz({
   const renderedNodes = React.useMemo(() => renderData?.nodes.map((node) => node.id), [renderData.nodes]);
   const leavesInView = React.useMemo(
     () => renderedNodes.filter((id) => renderData.links.every(({ source }) => source !== id)),
-    [renderedNodes, renderData.links]
+    [renderedNodes, renderData.links],
   );
   const rootsInView = React.useMemo(
     () => renderedNodes.filter((id) => renderData.links.every(({ target }) => target !== id)),
-    [renderedNodes, renderData.links]
+    [renderedNodes, renderData.links],
   );
 
   return (
@@ -290,7 +292,7 @@ export function Viz({
                   </Heading>
                   <NodeList
                     nodes={carry(data.dependencyMap.get(selectedNode), (set) =>
-                      set ? renderedNodes.filter((id) => set.has(id)) : renderedNodes
+                      set ? renderedNodes.filter((id) => set.has(id)) : renderedNodes,
                     )}
                     mapProps={(id) => ({ onSelect: () => setSelectedNode(id) })}
                   />
@@ -299,7 +301,7 @@ export function Viz({
                   </Heading>
                   <NodeList
                     nodes={carry(data.dependantMap.get(selectedNode), (set) =>
-                      set ? renderedNodes.filter((id) => set.has(id)) : renderedNodes
+                      set ? renderedNodes.filter((id) => set.has(id)) : renderedNodes,
                     )}
                     mapProps={(id) => ({ onSelect: () => setSelectedNode(id) })}
                   />
