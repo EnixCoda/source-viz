@@ -1,3 +1,61 @@
+import zod from "zod";
+
+const stringLiteral = zod.object({
+  type: zod.literal("StringLiteral"),
+  value: zod.string(),
+});
+const plainTemplateLiteral = zod.object({
+  type: zod.literal("TemplateLiteral"),
+  expressions: zod.array(zod.any()).length(0),
+  quasis: zod
+    .array(
+      zod.object({
+        type: zod.literal("TemplateElement"),
+        value: zod.object({
+          raw: zod.string(),
+          cooked: zod.string(),
+        }),
+        tail: zod.boolean(),
+      }),
+    )
+    .length(1),
+});
+
+const generalStringLiteral = zod.union([stringLiteral, plainTemplateLiteral]);
+
+const requireString = zod.object({
+  type: zod.literal("CallExpression"),
+  callee: zod.object({
+    type: zod.literal("Identifier"),
+    name: zod.literal("require"),
+  }),
+  arguments: zod.array(generalStringLiteral).length(1),
+});
+
+const importStringLiteral = zod.object({
+  type: zod.literal("ImportDeclaration"),
+  importKind: zod.literal("value"),
+  source: stringLiteral,
+});
+
+const asyncImportExpression = zod.object({
+  type: zod.literal("CallExpression"),
+  callee: zod.object({
+    type: zod.literal("Import"),
+  }),
+  arguments: zod.array(generalStringLiteral).length(1),
+});
+
+const resolveStringLiteralValue = (importTargetNode: zod.infer<typeof stringLiteral | typeof plainTemplateLiteral>) => {
+  if (importTargetNode.type === "StringLiteral") {
+    return importTargetNode.value;
+  } else if (importTargetNode.type === "TemplateLiteral") {
+    for (const node of importTargetNode.quasis) {
+      return node.value.cooked || node.value.raw;
+    }
+  }
+};
+
 export async function prepare() {
   const babelParser = await import("@babel/parser");
   const { default: traverse } = await import("@babel/traverse");
@@ -46,7 +104,10 @@ export async function prepare() {
         // "v8intrinsic", // conflict with "placeholders"
 
         "decorators",
-        "estree",
+
+        // should not disable, otherwise traverse would encounter problem
+        // "estree", // reverts deviations from the ESTree spec
+
         // Deprecated
         "exportNamespaceFrom",
         // "moduleAttributes"
@@ -57,41 +118,32 @@ export async function prepare() {
       ],
     });
     const dependencies: [string, boolean][] = [];
-    for (const node of ast.program.body) {
-      if (node.type === "ImportDeclaration" && node.importKind !== "type") {
-        const { source } = node;
-        const { value: dependency } = source;
-        dependencies.push([dependency, false]);
-      }
-    }
-    // TODO: find `import()` statements
-    const shouldScanDynamicImport = source.includes("import(");
-    if (shouldScanDynamicImport) {
-      // extract `import()` statements
-      traverse(ast, {
-        Import: (nodePath) => {
-          const { parent } = nodePath;
-          if (parent.type === "CallExpression") {
-            const importTargetNode = parent.arguments[0];
-            if (importTargetNode.type === "StringLiteral") {
-              const dependency = importTargetNode.value;
-              dependencies.push([dependency, true]);
-            } else if (importTargetNode.type === "TemplateLiteral") {
-              for (const node of importTargetNode.quasis) {
-                const dependency = node.value.cooked || node.value.raw;
-                dependencies.push([dependency, true]);
-              }
-            } else {
-              throw new Error(`${importTargetNode.type} is not a string`);
-            }
-          } else {
-            throw new Error(`Unexpected parent type "${parent.type}"`);
-          }
-        },
-      });
-      // parse extracted statements
-      // extract dependencies
-    }
+
+    traverse(ast, {
+      CallExpression: ({ node }) => {
+        const parsed = requireString.safeParse(node);
+        if (!parsed.success) return;
+
+        const [importTargetNode] = parsed.data.arguments;
+        const dependency = resolveStringLiteralValue(importTargetNode);
+        if (dependency) dependencies.push([dependency, false]);
+      },
+      ImportDeclaration: ({ node }) => {
+        const parsed = importStringLiteral.safeParse(node);
+        if (!parsed.success) return;
+
+        const { value } = parsed.data.source;
+        dependencies.push([value, false]);
+      },
+      Import: ({ parent }) => {
+        const parsed = asyncImportExpression.safeParse(parent);
+        if (!parsed.success) return;
+
+        const [importTargetNode] = parsed.data.arguments;
+        const dependency = resolveStringLiteralValue(importTargetNode);
+        if (dependency) dependencies.push([dependency, true]);
+      },
+    });
     return dependencies;
   };
 }
