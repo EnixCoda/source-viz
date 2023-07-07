@@ -11,7 +11,6 @@ import { Viz } from "./Viz";
 
 export interface FS {
   handle: FileSystemDirectoryHandle;
-  pathMap: Map<FileSystemFileHandle, string>;
 }
 
 export function App() {

@@ -23,6 +23,10 @@ export function run<R>(fn: () => R) {
   return fn();
 }
 
+export function switchRender<K extends string>(map: Partial<Record<K, () => React.ReactNode>>, state: K) {
+  return map[state]?.();
+}
+
 export const resolvePath = (...ps: string[]): string =>
   new URL(ps.join("/").replace(/\/+/g, "/"), "http://localhost").pathname.replace(/^\//, "");
 

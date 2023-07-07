@@ -25,12 +25,12 @@ export async function getDependencyEntries(
   isIncluded?: (path: string) => boolean,
   {
     resolveAllFiles = false,
-    reportProgress,
-    onError,
+    onFileParsed,
+    onFileError,
   }: {
     resolveAllFiles?: boolean;
-    reportProgress?: (file: string, progress: number) => void;
-    onError?: (file: string, error: unknown) => void;
+    onFileParsed?: (file: string) => void;
+    onFileError?: (file: string, error: unknown) => void;
   } = {}
 ) {
   const dependencyMap: DependencyMap = new Map([
@@ -42,22 +42,21 @@ export async function getDependencyEntries(
      * */
   ]);
 
-  let process = 0;
   for (const file of files) {
     if (!isIncluded?.(file)) continue;
-    const content = await fs.readFile(file);
     try {
+      const content = await fs.readFile(file);
       const dependencies = parse(content);
       dependencyMap.set(file, dependencies);
     } catch (err) {
-      if (onError) {
-        onError(file, err);
+      if (onFileError) {
+        onFileError(file, err);
       } else {
         console.error(`Error parsing "${file}", throwing because no \`onError\` handler provided`);
         throw err;
       }
     }
-    reportProgress?.(file, ++process);
+    onFileParsed?.(file);
   }
 
   const resolveDependencyFile = getResolveDependencyFile(fs, files, resolveAllFiles);

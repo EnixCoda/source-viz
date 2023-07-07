@@ -22,7 +22,7 @@ export function FSLoadFilesButton({
         }
 
         const handle = await showDirectoryPicker();
-        if (handle) onLoad({ handle, pathMap: new Map() });
+        if (handle) onLoad({ handle });
       }}
     >
       {children}
