@@ -1,39 +1,39 @@
-import { Box, Heading, Table, Tbody, Td, Th, Thead, Tr, VStack } from "@chakra-ui/react";
+import { Table, Tbody, Td, Th, Thead, Tr } from "@chakra-ui/react";
 import * as React from "react";
 import { DependencyEntry } from "../../services/serializers";
+import { MonoText } from "../MonoText";
 
 export function EntriesTable({ entries }: { entries: DependencyEntry[] }) {
   return (
-    <VStack alignItems="stretch" minH={0} overflow="auto">
-      <Heading as="h3" size="lg">
-        Parsed dependency records
-      </Heading>
-      <Box maxHeight={360} overflowY="auto">
-        <Table>
-          <Thead>
-            <Tr>
-              <Th>File</Th>
-              <Th>Dependency</Th>
-              <Th width="0%" whiteSpace="nowrap">
-                is async import
-              </Th>
-            </Tr>
-          </Thead>
-          <Tbody>
-            {entries.map(([file, dependencies]) => (
-              <React.Fragment key={file}>
-                {dependencies.map(([dependency, isAsync]) => (
-                  <Tr key={dependency}>
-                    <Td>{file}</Td>
-                    <Td>{dependency}</Td>
-                    <Td>{isAsync ? "async" : null}</Td>
-                  </Tr>
-                ))}
-              </React.Fragment>
+    <Table size="sm">
+      <Thead>
+        <Tr>
+          <Th>File</Th>
+          <Th>Dependencies</Th>
+          <Th width="0%" whiteSpace="nowrap">
+            is async import
+          </Th>
+        </Tr>
+      </Thead>
+      <Tbody>
+        {entries.map(([file, dependencies]) => (
+          <React.Fragment key={file}>
+            {dependencies.map(([dependency, isAsync], index, arr) => (
+              <Tr key={dependency} verticalAlign="baseline">
+                {index === 0 ? (
+                  <Td rowSpan={arr.length}>
+                    <MonoText>{file}</MonoText>
+                  </Td>
+                ) : null}
+                <Td>
+                  <MonoText>{dependency}</MonoText>
+                </Td>
+                <Td>{isAsync ? "async" : null}</Td>
+              </Tr>
             ))}
-          </Tbody>
-        </Table>
-      </Box>
-    </VStack>
+          </React.Fragment>
+        ))}
+      </Tbody>
+    </Table>
   );
 }

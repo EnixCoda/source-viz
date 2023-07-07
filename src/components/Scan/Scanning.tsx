@@ -1,12 +1,12 @@
 import { ChevronLeftIcon, ChevronRightIcon, RepeatIcon } from "@chakra-ui/icons";
-import { Box, Button, Center, HStack, Heading, IconButton, Progress, Text, VStack } from "@chakra-ui/react";
+import { Accordion, Box, Button, Center, HStack, Heading, IconButton, Progress, Text, VStack } from "@chakra-ui/react";
 import * as React from "react";
-import { useSwitchView } from "../../hooks/view/useSwitchView";
 import { MetaFilter, getDependencyEntries } from "../../services";
 import * as babelParser from "../../services/parsers/babel";
 import { DependencyEntry } from "../../services/serializers";
 import { getFilterMatchers, resolvePath, switchRender } from "../../utils/general";
 import { FS } from "../App";
+import { CollapsibleSection } from "../CollapsibleSection";
 import { ExportButton } from "../ExportButton";
 import { MonoText } from "../MonoText";
 import { useAbortableFunction } from "../abortable";
@@ -28,8 +28,6 @@ export function Scanning({
   const [entries, setEntries] = React.useState<DependencyEntry[] | null>(null);
 
   const [{ phase, progress, hasError }, dispatch] = useScanningStateReducer();
-
-  const [showProgressDetailView, showProgressDetail] = useSwitchView("Show progress detail", false);
 
   const scan = useAbortableFunction(
     React.useCallback(
@@ -117,9 +115,26 @@ export function Scanning({
           <IconButton aria-label="Back" onClick={() => onCancel?.()} icon={<ChevronLeftIcon />} />
           {phase === "done" && <ExportButton data={entries} />}
         </HStack>
-        {(phase === "collecting" || phase === "parsing") && (
-          <Progress value={(parsedRecords.length / progress.length) * 100} />
-        )}
+        {phase === "parsing" && <Progress value={(parsedRecords.length / progress.length) * 100} />}
+        <Box>
+          {switchRender(
+            {
+              collecting: () => (
+                <>
+                  <Text>Collected {progress.length} files, the last one is</Text>
+                  <MonoText as="span">{progress.at(-1)?.[0]}</MonoText>
+                </>
+              ),
+              parsing: () => (
+                <>
+                  <Text>Parsed {parsedRecords.length} files, the last one is</Text>
+                  <MonoText as="span">{parsedRecords.at(-1)?.[0]}</MonoText>
+                </>
+              ),
+            },
+            phase,
+          )}
+        </Box>
         {phase === "done" && (
           <Center>
             <VStack alignItems="stretch" width={280}>
@@ -146,32 +161,20 @@ export function Scanning({
             </VStack>
           </Center>
         )}
-        <Box>
-          {switchRender(
-            {
-              collecting: () => (
-                <>
-                  <Text>Collected {progress.length} files, the last one is</Text>
-                  <MonoText as="span">{progress.at(-1)?.[0]}</MonoText>
-                </>
-              ),
-              parsing: () => (
-                <>
-                  <Text>Parsed {parsedRecords.length} files, the last one is</Text>
-                  <MonoText as="span">{parsedRecords.at(-1)?.[0]}</MonoText>
-                </>
-              ),
-            },
-            phase,
+        <Accordion allowToggle>
+          <CollapsibleSection label="Parsed dependency records">
+            <Box maxHeight="50vh" overflowY="auto">
+              <ProgressTable progress={progress} />
+            </Box>
+          </CollapsibleSection>
+          {phase === "done" && entries && (
+            <CollapsibleSection label="Dependency records">
+              <Box maxHeight="50vh" overflowY="auto">
+                <EntriesTable entries={entries} />
+              </Box>
+            </CollapsibleSection>
           )}
-          {phase !== "done" && showProgressDetailView}
-        </Box>
-        {(showProgressDetail || phase === "done") && (
-          <Box maxHeight="50vh" overflowY="auto">
-            <ProgressTable progress={progress} />
-          </Box>
-        )}
-        {entries && <EntriesTable entries={entries} />}
+        </Accordion>
       </VStack>
     </VStack>
   );
