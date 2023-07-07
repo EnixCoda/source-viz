@@ -10,6 +10,7 @@ import { FS } from "../App";
 import { ExportButton } from "../ExportButton";
 import { MonoText } from "../MonoText";
 import { useAbortableFunction } from "../abortable";
+import { EntriesTable } from "./EntriesTable";
 import { ProgressTable } from "./ProgressTable";
 import { useScanningStateReducer } from "./useScanningStateReducer";
 
@@ -170,6 +171,7 @@ export function Scanning({
             <ProgressTable progress={progress} />
           </Box>
         )}
+        {entries && <EntriesTable entries={entries} />}
       </VStack>
     </VStack>
   );
