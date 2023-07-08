@@ -238,9 +238,20 @@ export function Viz({
     [renderedNodes, renderData.links],
   );
 
+  const renderedEntries = React.useMemo(
+    () =>
+      entries
+        .filter(([entry]) => renderedNodes.includes(entry))
+        .map(([entry, dependencies]) => [
+          entry,
+          dependencies.filter(([dependency]) => renderedNodes.includes(dependency)),
+        ]) satisfies DependencyEntry[],
+    [entries, renderedNodes],
+  );
+
   return (
     <LocalPathContextProvider>
-      <Box display="flex">
+      <HStack display="inline-flex" alignItems="stretch" spacing={0} maxHeight="100%" height="100%">
         <VStack alignItems="stretch" height="100vh" width={width}>
           <HStack justifyContent="space-between" padding={1}>
             {backButton}
@@ -250,12 +261,12 @@ export function Viz({
           <Box ref={vizContainerRef} flex={1} overflowY="auto">
             <div ref={ref} style={{ display: vizMode === "table" ? "none" : undefined }} />
             <div style={{ display: vizMode === "graph" ? "none" : undefined }}>
-              <EntriesTable entries={entries} />
+              <EntriesTable entries={renderedEntries} />
             </div>
           </Box>
         </VStack>
         <HorizontalResizeHandler onPointerDown={onPointerDown} />
-        <VStack alignItems="stretch" flex={1} maxHeight="100%" minW={0} overflow="auto">
+        <VStack alignItems="stretch" height="100vh" flex={1} minW={0} overflow="auto">
           <Accordion defaultIndex={[0]} minW={0} allowToggle>
             <CollapsibleSection label={`General Settings`}>
               <VStack alignItems="stretch">
@@ -437,7 +448,7 @@ export function Viz({
             <Box height={360} />
           </Accordion>
         </VStack>
-      </Box>
+      </HStack>
     </LocalPathContextProvider>
   );
 }
