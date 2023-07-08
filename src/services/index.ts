@@ -5,12 +5,6 @@ export type MetaFilter = {
   excludes: string[];
 };
 
-export function entriesToPreparedData(map: DependencyEntry[]): string[][] {
-  return map.flatMap(([key, value]) =>
-    value.map(([dependency, dynamicImport]) => [key, dependency, `${dynamicImport}`]),
-  );
-}
-
 type Parse = (source: string) => [string, boolean][];
 
 export interface FSLike {

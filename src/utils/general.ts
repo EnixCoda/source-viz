@@ -1,5 +1,6 @@
 import minimatch from "minimatch";
 import { MetaFilter } from "../services";
+import { Order } from "../types";
 
 export function safeRegExp(raw: string, flags: string = "") {
   try {
@@ -62,3 +63,6 @@ export const carry = <T, R>(t: T, f: (t: T) => R): R => f(t);
 
 export const clamp = (value: number, min = Number.NEGATIVE_INFINITY, max = Number.POSITIVE_INFINITY) =>
   Math.max(min, Math.min(value, max));
+
+export const compareStrings = (a: string, b: string, order: Order = "asc") =>
+  (order === "asc" ? 1 : -1) * (a === b ? 0 : a > b ? 1 : -1);
