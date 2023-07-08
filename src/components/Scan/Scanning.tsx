@@ -162,15 +162,18 @@ export function Scanning({
           </Center>
         )}
         <Accordion allowToggle>
-          <CollapsibleSection label="Parsed dependency records">
-            <Box maxHeight="50vh" overflowY="auto">
-              <ProgressTable progress={progress} />
-            </Box>
-          </CollapsibleSection>
-          {phase === "done" && entries && (
-            <CollapsibleSection label="Dependency records">
+          {phase === "done" ? (
+            entries && (
+              <CollapsibleSection label="Dependency records">
+                <Box maxHeight="50vh" overflowY="auto">
+                  <EntriesTable entries={entries} />
+                </Box>
+              </CollapsibleSection>
+            )
+          ) : (
+            <CollapsibleSection label="Parsed dependency records">
               <Box maxHeight="50vh" overflowY="auto">
-                <EntriesTable entries={entries} />
+                <ProgressTable progress={progress} />
               </Box>
             </CollapsibleSection>
           )}
