@@ -2,10 +2,10 @@ import * as React from "react";
 import { safeRegExp } from "../../utils/general";
 import { UseInputViewConfig, useInputView } from "./useInputView";
 
-export function useRegExpInputView(defaultValue: string = "", config: UseInputViewConfig = {}) {
-  const [isInvalid, setIsInvalid] = React.useState(() => getRegExp(defaultValue) === false);
+export function useRegExpInputView(config: UseInputViewConfig = {}) {
+  const [isInvalid, setIsInvalid] = React.useState(() => getRegExp(config.defaultValue || "") === false);
 
-  const [view, inputValue] = useInputView(defaultValue, {
+  const [view, inputValue] = useInputView({
     errorMessage: isInvalid && "Invalid RegExp",
     ...config,
     inputProps: { isInvalid, placeholder: "Regular Expression", ...config.inputProps },

@@ -1,18 +1,14 @@
-import { FormControl, FormLabel, Switch } from "@chakra-ui/react";
-import * as React from "react";
+import { SwitchProps } from "@chakra-ui/react";
+import { FormSwitch } from "../../components/FormSwitch";
+import { UseFormControlConfig } from "./FormControlView";
 import { useView } from "./useView";
 
-export function useSwitchView(label: React.ReactNode, defaultChecked: boolean) {
-  return useView(
-    defaultChecked,
-    (checked, setChecked) => (
-      <FormControl>
-        <FormControl display="flex" alignItems="center" columnGap={1}>
-          <Switch isChecked={checked} onChange={(e) => setChecked(e.target.checked)} />
-          <FormLabel mb={0}>{label}</FormLabel>
-        </FormControl>
-      </FormControl>
-    ),
-    [label],
-  );
+export function useSwitchView({
+  defaultValue = false,
+  inputProps,
+  ...formControlViewProps
+}: UseFormControlConfig<boolean, SwitchProps>) {
+  return useView(defaultValue, (checked, setChecked) => (
+    <FormSwitch inputProps={inputProps} value={checked} onChange={setChecked} {...formControlViewProps} />
+  ));
 }

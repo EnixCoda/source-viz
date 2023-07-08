@@ -1,4 +1,4 @@
-import { Accordion, Box, Button, HStack, Heading, ModalBody, Select, Text, VStack } from "@chakra-ui/react";
+import { Accordion, Box, Button, Divider, HStack, Heading, ModalBody, Select, Text, VStack } from "@chakra-ui/react";
 import * as React from "react";
 import { useWindowSize } from "react-use";
 import { useGraph } from "../hooks/useGraph";
@@ -9,12 +9,14 @@ import { useNumberInputView } from "../hooks/view/useInputView";
 import { useRadioGroupView } from "../hooks/view/useRadioGroupView";
 import { useRegExpInputView } from "../hooks/view/useRegExpInputView";
 import { useSelectView } from "../hooks/view/useSelectView";
+import { useSwitchView } from "../hooks/view/useSwitchView";
 import { DependencyEntry } from "../services/serializers";
 import { carry } from "../utils/general";
 import { getData, prepareGraphData } from "../utils/getData";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { ExportButton } from "./ExportButton";
 import { FindPathToNode } from "./FindPathToNode";
+import { FormSwitch } from "./FormSwitch";
 import { HorizontalResizeHandler } from "./HorizontalResizeHandler";
 import { ListOfNodeList } from "./ListOfNodeList";
 import { LocalPathContextProvider } from "./LocalPathContext";
@@ -24,7 +26,6 @@ import { NodeList } from "./NodeList";
 import { NodesFilter } from "./NodesFilter";
 import { OpenInVSCode, SettingsOfOpenInVSCode } from "./OpenInVSCode";
 import { EntriesTable } from "./Scan/EntriesTable";
-import { Switch } from "./Switch";
 import { useClampedSize } from "./useClampedSize";
 import { useObserveElementSize } from "./useObserveElementSize";
 
@@ -41,7 +42,7 @@ export function Viz({
   const allNodes = React.useMemo(() => [...data.nodes.keys()].sort(), [data.nodes]);
 
   // Excludes
-  const [excludeNodesFilterInputView, excludeNodesFilterRegExp] = useRegExpInputView("", {
+  const [excludeNodesFilterInputView, excludeNodesFilterRegExp] = useRegExpInputView({
     helperText: "Nodes match this regex will be excluded",
   });
   const excludedNodesFromInput = React.useMemo(
@@ -59,7 +60,7 @@ export function Viz({
   );
 
   // Restrictions
-  const [restrictRootInputView, restrictRootsRegExp] = useRegExpInputView("", {
+  const [restrictRootInputView, restrictRootsRegExp] = useRegExpInputView({
     inputProps: { placeholder: "Filter nodes with RegExp" },
     helperText: "Only nodes match this regex will be regarded as roots.",
   });
@@ -70,7 +71,7 @@ export function Viz({
       ),
     [nonExcludedNodes, restrictRootsRegExp],
   );
-  const [restrictLeavesInputView, restrictLeavesRegExp] = useRegExpInputView("", {
+  const [restrictLeavesInputView, restrictLeavesRegExp] = useRegExpInputView({
     inputProps: { placeholder: "Filter nodes with RegExp" },
     helperText: "Only nodes match this regex will be regarded as leave.",
   });
@@ -86,34 +87,47 @@ export function Viz({
 
   // Graph
   const [graphModeView, graphMode] = useSelectView<"dag" | "natural" | "cycles-only">(
-    "Graph Mode",
+    {
+      label: "Graph Mode",
+      defaultValue: "dag",
+    },
     [
       { value: "dag", label: "DAG (Directed Acyclic Graph, all nodes, no cycle)" },
       { value: "natural", label: "Natural (all nodes, allow cycles)" },
       { value: "cycles-only", label: `Cycles Only (only nodes on cycles)` },
     ],
-    "dag",
   );
 
   const [colorByView, colorBy] = useSelectView(
-    "Color nodes by",
+    {
+      label: "Color nodes by",
+      defaultValue: "connection-both",
+    },
     [
       { value: "depth", label: "File depth" },
       { value: "connection-both", label: "Connections" },
       { value: "connection-dependency", label: "Connections (dependency)" },
       { value: "connection-dependant", label: "Connections (dependant)" },
     ],
-    "connection-both",
   );
-  const [fixNodeOnDragEndView, fixNodeOnDragEnd] = useCheckboxView("Fix node on drag end", true);
-  const [renderAsTextView, renderAsText] = useCheckboxView("Render as Text", true);
-  const [fixFontSizeView, fixFontSize] = useCheckboxView("Fix font size to canvas", true, {
-    checkboxProps: {
+  const [fixNodeOnDragEndView, fixNodeOnDragEnd] = useCheckboxView({
+    label: "Fix node on drag end",
+    defaultValue: true,
+  });
+  const [renderAsTextView, renderAsText] = useCheckboxView({
+    label: "Render as Text",
+    defaultValue: true,
+  });
+  const [fixFontSizeView, fixFontSize] = useCheckboxView({
+    label: "Fix font size to canvas",
+    defaultValue: true,
+    inputProps: {
       isDisabled: !renderAsText,
     },
   });
-  const [fixedFontSizeView, fixedFontSize] = useNumberInputView(4, {
+  const [fixedFontSizeView, fixedFontSize] = useNumberInputView({
     label: "Fixed Font Size",
+    defaultValue: 4,
     inputProps: {
       keepWithinRange: true,
       clampValueOnBlur: true,
@@ -121,6 +135,21 @@ export function Viz({
       isDisabled: !fixFontSize || !renderAsText,
     },
   });
+
+  const [vizModeView, vizMode] = useRadioGroupView(
+    "Viz Mode",
+    [
+      { value: "table", label: "Table" },
+      { value: "graph", label: "Graph" },
+    ],
+    {
+      defaultValue: "graph",
+      formControlProps: {
+        width: "auto",
+      },
+      row: true,
+    },
+  );
 
   // handling resize
   const [preferredSize, setSize] = React.useState<Size2D>(() => [window.innerWidth / 2, window.innerHeight]);
@@ -195,7 +224,10 @@ export function Viz({
   }, [selectedNode]);
 
   // The in-views
-  const [inView, setInView] = React.useState(true);
+  const [inViewView, inView, setInView] = useSwitchView({
+    label: "Hide nodes not rendered in viz",
+    defaultValue: true,
+  });
   const renderedNodes = React.useMemo(() => renderData?.nodes.map((node) => node.id), [renderData.nodes]);
   const leavesInView = React.useMemo(
     () => renderedNodes.filter((id) => renderData.links.every(({ source }) => source !== id)),
@@ -206,23 +238,15 @@ export function Viz({
     [renderedNodes, renderData.links],
   );
 
-  const [selectViz, vizMode] = useRadioGroupView(
-    "Select Viz Mode",
-    [
-      { value: "table", label: "Table" },
-      { value: "graph", label: "Graph" },
-    ],
-    "graph",
-  );
-
   return (
     <LocalPathContextProvider>
       <Box display="flex">
-        <VStack spacing={0} alignItems="stretch" height="100vh" width={width}>
-          <HStack justifyContent="space-between">
+        <VStack alignItems="stretch" height="100vh" width={width}>
+          <HStack justifyContent="space-between" padding={1}>
             {backButton}
-            {selectViz}
+            {vizModeView}
           </HStack>
+          <Divider />
           <Box ref={vizContainerRef} flex={1} overflowY="auto">
             <div ref={ref} style={{ display: vizMode === "table" ? "none" : undefined }} />
             <div style={{ display: vizMode === "graph" ? "none" : undefined }}>
@@ -280,12 +304,11 @@ export function Viz({
                   <div>
                     <OpenInVSCode layout="text" path={selectedNode} />
                   </div>
-                  <Switch
-                    isChecked={allExcludedNodes.has(selectedNode)}
+                  <FormSwitch
+                    label="Exclude from viz"
+                    value={allExcludedNodes.has(selectedNode)}
                     onChange={() => toggleExcludeNode(selectedNode)}
-                  >
-                    Exclude from viz
-                  </Switch>
+                  />
 
                   <Heading as="h3" size="sm">
                     Dependencies
@@ -336,13 +359,14 @@ export function Viz({
               <VStack alignItems="flex-start">
                 <Text>These nodes are source files, which have no dependents, or they are in dependency cycles.</Text>
                 {restrictRootInputView}
-                <Switch
-                  isDisabled={restrictRootsRegExp === null}
-                  isChecked={restrictRootsRegExp === null || inView}
+                <FormSwitch
+                  label="Hide nodes not rendered as root"
+                  inputProps={{
+                    isDisabled: restrictRootsRegExp === null,
+                  }}
+                  value={restrictRootsRegExp === null || inView}
                   onChange={() => setInView(!inView)}
-                >
-                  Hide nodes not rendered as root
-                </Switch>
+                />
                 <NodeList
                   nodes={restrictRootsRegExp === null || inView ? rootsInView : [...restrictedRoots]}
                   mapProps={(id) => ({
@@ -359,13 +383,14 @@ export function Viz({
                   cycles.
                 </Text>
                 {restrictLeavesInputView}
-                <Switch
-                  isDisabled={restrictLeavesRegExp === null}
-                  isChecked={restrictLeavesRegExp === null || inView}
+                <FormSwitch
+                  label="Hide nodes not rendered as leave"
+                  inputProps={{
+                    isDisabled: restrictLeavesRegExp === null,
+                  }}
+                  value={restrictLeavesRegExp === null || inView}
                   onChange={() => setInView(!inView)}
-                >
-                  Hide nodes not rendered as leave
-                </Switch>
+                />
                 <NodeList
                   nodes={restrictLeavesRegExp === null || inView ? leavesInView : [...restrictedLeaves]}
                   mapProps={(id) => ({
@@ -399,9 +424,7 @@ export function Viz({
             </CollapsibleSection>
             <CollapsibleSection label={`Look up nodes`}>
               <VStack alignItems="stretch">
-                <Switch isChecked={inView} onChange={() => setInView(!inView)}>
-                  Hide nodes not rendered in viz
-                </Switch>
+                {inViewView}
                 <NodesFilter
                   nodes={inView ? renderedNodes : allNodes}
                   mapProps={(id) => ({

@@ -78,7 +78,8 @@ export const OpenInVSCode = OpenInVSCodeOrSetup;
 function OpenInVSCodeSettingsContent({ example }: { example?: string }) {
   const ctx = useContext(LocalPathContext);
   const setValue = ctx?.setValue;
-  const [view, input] = useInputView(ctx?.value, {
+  const [view, input] = useInputView({
+    defaultValue: ctx?.value,
     inputProps: {
       placeholder: "/local/absolute/path/to/root/dir/",
     },
