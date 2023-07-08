@@ -10,11 +10,13 @@ export function EntriesTable({
   showImportType,
   tableProps,
   order,
+  onClickSelect,
 }: {
   entries: DependencyEntry[];
   showImportType?: boolean;
   tableProps?: TableProps;
   order?: Order;
+  onClickSelect?: (dependency: string) => void;
 }) {
   const ordered = React.useMemo(
     () =>
@@ -50,11 +52,31 @@ export function EntriesTable({
               <Tr key={dependency} verticalAlign="baseline">
                 {index === 0 ? (
                   <Td rowSpan={arr.length}>
-                    <MonoText>{file}</MonoText>
+                    {onClickSelect ? (
+                      <MonoText
+                        as="button"
+                        onClick={() => onClickSelect(dependency)}
+                        style={{ cursor: "pointer", textDecoration: "underline" }}
+                      >
+                        {file}
+                      </MonoText>
+                    ) : (
+                      <MonoText>{file}</MonoText>
+                    )}
                   </Td>
                 ) : null}
                 <Td>
-                  <MonoText>{dependency}</MonoText>
+                  {onClickSelect ? (
+                    <MonoText
+                      as="button"
+                      onClick={() => onClickSelect(dependency)}
+                      style={{ cursor: "pointer", textDecoration: "underline" }}
+                    >
+                      {dependency}
+                    </MonoText>
+                  ) : (
+                    <MonoText>{dependency}</MonoText>
+                  )}
                 </Td>
                 {showImportType && <Td>{isAsync ? "yes" : null}</Td>}
               </Tr>

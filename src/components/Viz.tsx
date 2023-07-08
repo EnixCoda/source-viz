@@ -261,7 +261,7 @@ export function Viz({
           <Box ref={vizContainerRef} flex={1} overflowY="auto">
             <div ref={ref} style={{ display: vizMode === "table" ? "none" : undefined }} />
             <div style={{ display: vizMode === "graph" ? "none" : undefined }}>
-              <EntriesTable entries={renderedEntries} />
+              <EntriesTable entries={renderedEntries} onClickSelect={setSelectedNode} />
             </div>
           </Box>
         </VStack>
@@ -270,33 +270,6 @@ export function Viz({
           <Accordion defaultIndex={[0]} minW={0} allowToggle>
             <CollapsibleSection label={`General Settings`}>
               <VStack alignItems="stretch">
-                <div>{graphModeView}</div>
-                <div>
-                  {graphMode === "cycles-only" && (
-                    <ModalButton
-                      title={"Cycles"}
-                      renderTrigger={({ onOpen }) => <Button onClick={onOpen}>Checkout Cycles</Button>}
-                    >
-                      {() => (
-                        <ModalBody>
-                          <Text>There are {cycles.length} in total.</Text>
-                          <ListOfNodeList
-                            containerProps={{ maxHeight: 600 }}
-                            lists={cycles}
-                            getProps={() => ({
-                              mapProps: (id) => ({ onSelect: () => setSelectedNode(id) }),
-                            })}
-                          />
-                        </ModalBody>
-                      )}
-                    </ModalButton>
-                  )}
-                </div>
-                <div>{colorByView}</div>
-                <div>{fixNodeOnDragEndView}</div>
-                <div>{renderAsTextView}</div>
-                <div>{fixFontSizeView}</div>
-                <div>{fixedFontSizeView}</div>
                 <div>
                   <SettingsOfOpenInVSCode />
                 </div>
@@ -305,6 +278,39 @@ export function Viz({
                 </div>
               </VStack>
             </CollapsibleSection>
+            {vizMode === "graph" && (
+              <CollapsibleSection label={`Graph Settings`}>
+                <VStack alignItems="stretch">
+                  <div>{graphModeView}</div>
+                  <div>
+                    {graphMode === "cycles-only" && (
+                      <ModalButton
+                        title={"Cycles"}
+                        renderTrigger={({ onOpen }) => <Button onClick={onOpen}>Checkout Cycles</Button>}
+                      >
+                        {() => (
+                          <ModalBody>
+                            <Text>There are {cycles.length} in total.</Text>
+                            <ListOfNodeList
+                              containerProps={{ maxHeight: 600 }}
+                              lists={cycles}
+                              getProps={() => ({
+                                mapProps: (id) => ({ onSelect: () => setSelectedNode(id) }),
+                              })}
+                            />
+                          </ModalBody>
+                        )}
+                      </ModalButton>
+                    )}
+                  </div>
+                  <div>{colorByView}</div>
+                  <div>{fixNodeOnDragEndView}</div>
+                  <div>{renderAsTextView}</div>
+                  <div>{fixFontSizeView}</div>
+                  <div>{fixedFontSizeView}</div>
+                </VStack>
+              </CollapsibleSection>
+            )}
             <CollapsibleSection label={`Selected Node`}>
               {selectedNode ? (
                 <VStack alignItems="flex-start">
