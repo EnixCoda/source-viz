@@ -107,6 +107,7 @@ export function Scanning({
   }, [scan]);
 
   const parsedRecords = React.useMemo(() => progress.filter(([, parsed, error]) => parsed || error), [progress]);
+  const problematicRecords = React.useMemo(() => progress.filter(([, , error]) => error), [progress]);
 
   return (
     <VStack padding={2} alignItems="stretch" gap={2} flex={1} minH={0}>
@@ -115,7 +116,6 @@ export function Scanning({
           <IconButton aria-label="Back" onClick={() => onCancel?.()} icon={<ChevronLeftIcon />} />
           {phase === "done" && <ExportButton data={entries} />}
         </HStack>
-        {phase === "parsing" && <Progress value={(parsedRecords.length / progress.length) * 100} />}
         <Box>
           {switchRender(
             {
@@ -135,6 +135,7 @@ export function Scanning({
             phase,
           )}
         </Box>
+        {phase === "parsing" && <Progress value={(parsedRecords.length / progress.length) * 100} />}
         {phase === "done" && (
           <Center>
             <VStack alignItems="stretch" width={280}>
@@ -162,18 +163,17 @@ export function Scanning({
           </Center>
         )}
         <Accordion allowToggle>
-          {phase === "done" ? (
-            entries && (
-              <CollapsibleSection label="Dependency records">
-                <Box maxHeight="50vh" overflowY="auto">
-                  <EntriesTable entries={entries} />
-                </Box>
-              </CollapsibleSection>
-            )
-          ) : (
-            <CollapsibleSection label="Parsed dependency records">
+          {phase === "done" && entries && (
+            <CollapsibleSection label="Dependency records">
               <Box maxHeight="50vh" overflowY="auto">
-                <ProgressTable progress={progress} />
+                <EntriesTable entries={entries} showImportType />
+              </Box>
+            </CollapsibleSection>
+          )}
+          {(phase !== "done" || problematicRecords.length > 0) && (
+            <CollapsibleSection label={phase !== "done" ? "Progress details" : "Progress details (errors)"}>
+              <Box maxHeight="50vh" overflowY="auto">
+                <ProgressTable progress={problematicRecords} />
               </Box>
             </CollapsibleSection>
           )}

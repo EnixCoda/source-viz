@@ -1,12 +1,12 @@
-import { Accordion, Box, Button, Heading, ModalBody, Select, Text, VStack } from "@chakra-ui/react";
-import useResizeObserver from "@react-hook/resize-observer";
+import { Accordion, Box, Button, HStack, Heading, ModalBody, Select, Text, VStack } from "@chakra-ui/react";
 import * as React from "react";
 import { useWindowSize } from "react-use";
 import { useGraph } from "../hooks/useGraph";
-import { useResizeHandler } from "../hooks/useResizeHandler";
+import { Size2D, useResizeHandler } from "../hooks/useResizeHandler";
 import { useSet } from "../hooks/useSet";
 import { useCheckboxView } from "../hooks/view/useCheckboxView";
 import { useNumberInputView } from "../hooks/view/useInputView";
+import { useRadioGroupView } from "../hooks/view/useRadioGroupView";
 import { useRegExpInputView } from "../hooks/view/useRegExpInputView";
 import { useSelectView } from "../hooks/view/useSelectView";
 import { DependencyEntry } from "../services/serializers";
@@ -15,6 +15,7 @@ import { getData, prepareGraphData } from "../utils/getData";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { ExportButton } from "./ExportButton";
 import { FindPathToNode } from "./FindPathToNode";
+import { HorizontalResizeHandler } from "./HorizontalResizeHandler";
 import { ListOfNodeList } from "./ListOfNodeList";
 import { LocalPathContextProvider } from "./LocalPathContext";
 import { ModalButton } from "./ModalButton";
@@ -22,7 +23,10 @@ import { MonoText } from "./MonoText";
 import { NodeList } from "./NodeList";
 import { NodesFilter } from "./NodesFilter";
 import { OpenInVSCode, SettingsOfOpenInVSCode } from "./OpenInVSCode";
+import { EntriesTable } from "./Scan/EntriesTable";
 import { Switch } from "./Switch";
+import { useClampedSize } from "./useClampedSize";
+import { useObserveElementSize } from "./useObserveElementSize";
 
 export function Viz({
   entries,
@@ -37,7 +41,7 @@ export function Viz({
   const allNodes = React.useMemo(() => [...data.nodes.keys()].sort(), [data.nodes]);
 
   // Excludes
-  const [excludeNodesFilterInputView, excludeNodesFilterRegExp] = useRegExpInputView("test", {
+  const [excludeNodesFilterInputView, excludeNodesFilterRegExp] = useRegExpInputView("", {
     helperText: "Nodes match this regex will be excluded",
   });
   const excludedNodesFromInput = React.useMemo(
@@ -118,37 +122,31 @@ export function Viz({
     },
   });
 
-  // handling panel sizes
-  const [[width, height], setSize] = React.useState(() => [window.innerWidth / 2, window.innerHeight]);
-  const windowSize = useWindowSize(width, height);
-  const vizWidthLimit = React.useMemo(() => {
-    const widthForOthers = 300;
+  // handling resize
+  const [preferredSize, setSize] = React.useState<Size2D>(() => [window.innerWidth / 2, window.innerHeight]);
+  const { onPointerDown } = useResizeHandler(preferredSize, setSize);
+  const windowSize = useWindowSize();
+  const sizeLimit = React.useMemo(() => {
+    const minimumWidth = 200;
+    const minimumRemainWidth = 300;
     return {
-      maxWidth: windowSize.width - widthForOthers,
-      minWidth: 200,
+      width: {
+        min: minimumWidth,
+        max: windowSize.width - minimumRemainWidth,
+      },
     };
-  }, [windowSize]);
-  const actualWidth = React.useMemo(() => {
-    if (width < vizWidthLimit.minWidth) return vizWidthLimit.minWidth;
-    if (width > vizWidthLimit.maxWidth) return vizWidthLimit.maxWidth;
-    return width;
-  }, [vizWidthLimit, width]);
-  const containerRef = React.useRef<HTMLDivElement | null>(null);
-  useResizeObserver(
-    containerRef,
-    React.useCallback((entry) => {
-      setSize(([width, height]) => [width, entry.contentRect.height]);
-    }, []),
-  );
-  const { onPointerDown } = useResizeHandler([width, height], setSize);
+  }, [windowSize.width]);
+  const [width] = useClampedSize(preferredSize, sizeLimit);
+
+  const [vizContainerRef, vizContainerSize] = useObserveElementSize();
 
   const [ref, render, selectedNode, setSelectedNode] = useGraph({
     data,
     renderAsText,
     fixedFontSize: (fixFontSize && fixedFontSize) || undefined,
     fixNodeOnDragEnd,
-    width: actualWidth,
-    height,
+    width: vizContainerSize?.width || 0,
+    height: vizContainerSize?.height || 0,
     enableDagMode: graphMode === "dag",
     colorBy,
   });
@@ -208,29 +206,31 @@ export function Viz({
     [renderedNodes, renderData.links],
   );
 
+  const [selectViz, vizMode] = useRadioGroupView(
+    "Select Viz Mode",
+    [
+      { value: "table", label: "Table" },
+      { value: "graph", label: "Graph" },
+    ],
+    "graph",
+  );
+
   return (
     <LocalPathContextProvider>
-      <Box display="flex" ref={containerRef} overflow="auto">
-        <div>
-          {backButton}
-          <div ref={ref} />
-        </div>
-        <Box
-          display="inline-block"
-          width="2px"
-          flexShrink={0}
-          background={"ButtonFace"}
-          _hover={{
-            background: "ButtonHighlight",
-            outline: "1px solid ButtonHighlight",
-          }}
-          _active={{
-            background: "ActiveBorder",
-            outline: "1px solid ActiveBorder",
-          }}
-          cursor="ew-resize"
-          onPointerDown={onPointerDown}
-        />
+      <Box display="flex">
+        <VStack spacing={0} alignItems="stretch" height="100vh" width={width}>
+          <HStack justifyContent="space-between">
+            {backButton}
+            {selectViz}
+          </HStack>
+          <Box ref={vizContainerRef} flex={1} overflowY="auto">
+            <div ref={ref} style={{ display: vizMode === "table" ? "none" : undefined }} />
+            <div style={{ display: vizMode === "graph" ? "none" : undefined }}>
+              <EntriesTable entries={entries} />
+            </div>
+          </Box>
+        </VStack>
+        <HorizontalResizeHandler onPointerDown={onPointerDown} />
         <VStack alignItems="stretch" flex={1} maxHeight="100%" minW={0} overflow="auto">
           <Accordion defaultIndex={[0]} minW={0} allowToggle>
             <CollapsibleSection label={`General Settings`}>

@@ -1,18 +1,28 @@
-import { Table, Tbody, Td, Th, Thead, Tr } from "@chakra-ui/react";
+import { Table, TableProps, Tbody, Td, Th, Thead, Tr } from "@chakra-ui/react";
 import * as React from "react";
 import { DependencyEntry } from "../../services/serializers";
 import { MonoText } from "../MonoText";
 
-export function EntriesTable({ entries }: { entries: DependencyEntry[] }) {
+export function EntriesTable({
+  entries,
+  showImportType,
+  tableProps,
+}: {
+  entries: DependencyEntry[];
+  showImportType?: boolean;
+  tableProps?: TableProps;
+}) {
   return (
-    <Table size="sm">
+    <Table size="sm" {...tableProps}>
       <Thead>
         <Tr>
           <Th>File</Th>
           <Th>Dependencies</Th>
-          <Th width="0%" whiteSpace="nowrap">
-            is async import
-          </Th>
+          {showImportType && (
+            <Th width="0%" whiteSpace="nowrap">
+              is async import
+            </Th>
+          )}
         </Tr>
       </Thead>
       <Tbody>
@@ -28,7 +38,7 @@ export function EntriesTable({ entries }: { entries: DependencyEntry[] }) {
                 <Td>
                   <MonoText>{dependency}</MonoText>
                 </Td>
-                <Td>{isAsync ? "async" : null}</Td>
+                {showImportType && <Td>{isAsync ? "yes" : null}</Td>}
               </Tr>
             ))}
           </React.Fragment>

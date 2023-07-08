@@ -1,6 +1,6 @@
 import * as React from "react";
 
-type Size2D = [number, number];
+export type Size2D = [number, number];
 
 export type ResizeState = "idle" | "resizing";
 

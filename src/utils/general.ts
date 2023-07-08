@@ -59,3 +59,6 @@ export function download(data: BlobPart, filename: string, type?: string) {
 }
 
 export const carry = <T, R>(t: T, f: (t: T) => R): R => f(t);
+
+export const clamp = (value: number, min = Number.NEGATIVE_INFINITY, max = Number.POSITIVE_INFINITY) =>
+  Math.max(min, Math.min(value, max));
