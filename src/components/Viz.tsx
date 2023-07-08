@@ -326,7 +326,7 @@ export function Viz({
                   </Heading>
                   <NodeList
                     nodes={carry(data.dependencyMap.get(selectedNode), (set) =>
-                      set ? renderedNodes.filter((id) => set.has(id)) : renderedNodes,
+                      set ? renderedNodes.filter((id) => set.has(id)) : [],
                     )}
                     mapProps={(id) => ({ onSelect: () => setSelectedNode(id) })}
                   />
@@ -335,7 +335,7 @@ export function Viz({
                   </Heading>
                   <NodeList
                     nodes={carry(data.dependantMap.get(selectedNode), (set) =>
-                      set ? renderedNodes.filter((id) => set.has(id)) : renderedNodes,
+                      set ? renderedNodes.filter((id) => set.has(id)) : [],
                     )}
                     mapProps={(id) => ({ onSelect: () => setSelectedNode(id) })}
                   />
