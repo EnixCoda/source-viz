@@ -23,7 +23,7 @@ export type PreparedData = ReturnType<typeof prepareGraphData>;
 
 type DAGPruneMode = "less leave" | "less roots";
 
-export const getData = (
+export const filterGraphData = (
   { dependantMap, dependencyMap }: PreparedData,
   {
     roots,

@@ -1,10 +1,10 @@
 import { createContext, useMemo, useState } from "react";
-import { ReactState } from "./type";
+import { ReactState } from "../types";
 
-export const LocalPathContext = createContext<ReactState<string> | undefined>(undefined);
+export const LocalPathContext = createContext<ReactState<string | null> | null>(null);
 
 export function LocalPathContextProvider({ children }: { children: React.ReactNode }) {
-  const [value, setValue] = useState<string | undefined>(undefined);
+  const [value, setValue] = useState<string | null>(null);
   return (
     <LocalPathContext.Provider value={useMemo(() => ({ value, setValue }), [value, setValue])}>
       {children}

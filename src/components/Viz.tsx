@@ -1,7 +1,7 @@
 import { Accordion, Box, Button, Divider, HStack, Heading, ModalBody, Select, Text, VStack } from "@chakra-ui/react";
 import * as React from "react";
 import { useWindowSize } from "react-use";
-import { useGraph } from "../hooks/useGraph";
+import { useGraph } from "../hooks/graph/useGraph";
 import { Size2D, useResizeHandler } from "../hooks/useResizeHandler";
 import { useSet } from "../hooks/useSet";
 import { useCheckboxView } from "../hooks/view/useCheckboxView";
@@ -12,7 +12,7 @@ import { useSelectView } from "../hooks/view/useSelectView";
 import { useSwitchView } from "../hooks/view/useSwitchView";
 import { DependencyEntry } from "../services/serializers";
 import { carry } from "../utils/general";
-import { getData, prepareGraphData } from "../utils/getData";
+import { filterGraphData, prepareGraphData } from "../utils/graphData";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { ExportButton } from "./ExportButton";
 import { FindPathToNode } from "./FindPathToNode";
@@ -169,20 +169,27 @@ export function Viz({
 
   const [vizContainerRef, vizContainerSize] = useObserveElementSize();
 
-  const [ref, render, selectedNode, setSelectedNode] = useGraph({
-    data,
-    renderAsText,
-    fixedFontSize: (fixFontSize && fixedFontSize) || undefined,
-    fixNodeOnDragEnd,
-    width: vizContainerSize?.width || 0,
-    height: vizContainerSize?.height || 0,
-    enableDagMode: graphMode === "dag",
-    colorBy,
-  });
+  const [selectedNode, setSelectedNode] = React.useState<string | null>(null);
+  const [ref, render] = useGraph(
+    {
+      value: selectedNode,
+      setValue: setSelectedNode,
+    },
+    {
+      data,
+      renderAsText,
+      fixedFontSize: (fixFontSize && fixedFontSize) || undefined,
+      fixNodeOnDragEnd,
+      width: vizContainerSize?.width || 0,
+      height: vizContainerSize?.height || 0,
+      enableDagMode: graphMode === "dag",
+      colorBy,
+    },
+  );
 
   const graphData = React.useMemo(
     () =>
-      getData(data, {
+      filterGraphData(data, {
         roots: restrictedRoots,
         leave: restrictedLeaves,
         preventCycle: graphMode === "dag",

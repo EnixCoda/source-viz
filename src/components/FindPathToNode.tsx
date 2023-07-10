@@ -1,6 +1,6 @@
 import { Button, Heading, ModalBody, ModalFooter, Select, Text, VStack } from "@chakra-ui/react";
 import * as React from "react";
-import { PreparedData } from "../utils/getData";
+import { PreparedData } from "../utils/graphData";
 import { ListOfNodeList } from "./ListOfNodeList";
 import { ModalButton } from "./ModalButton";
 import { MonoText } from "./MonoText";

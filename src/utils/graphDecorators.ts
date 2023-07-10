@@ -1,87 +1,9 @@
 import { forceCollide } from "d3";
-import { DagMode, ForceGraphInstance, GraphData, LinkObject, NodeObject } from "force-graph";
+import { DagMode, ForceGraphInstance, LinkObject, NodeObject } from "force-graph";
 import { carry } from "./general";
-import { PreparedData } from "./getData";
+import { PreparedData } from "./graphData";
 
 export type GraphDecorator<Options> = (graph: ForceGraphInstance, options: Options) => void | (() => void);
-
-export function colorByHeat(graph: ForceGraphInstance, mode: "source" | "target" | "both") {
-  type NodeObjectWithHeat = NodeObject & {
-    heat?: number;
-  };
-
-  const mapData = (graphData: GraphData) => {
-    graph.nodeAutoColorBy("heat");
-
-    const getId = (node: LinkObject["source"] | LinkObject["target"]) => (typeof node === "string" ? node : node?.id);
-
-    const countMap = new Map<NodeObject["id"], number>();
-    graphData.links.forEach((link) => {
-      if (mode !== "target") {
-        const source = getId(link.source);
-        if (source !== undefined) countMap.set(source, (countMap.get(source) || 0) + 1);
-      }
-      if (mode !== "source") {
-        const target = getId(link.target);
-        if (target !== undefined) countMap.set(target, (countMap.get(target) || 0) + 1);
-      }
-    });
-
-    graphData.nodes.forEach((node) => ((node as NodeObjectWithHeat).heat = (node.id && countMap.get(node.id)) || 0));
-
-    return graphData;
-  };
-
-  return {
-    mapData,
-  };
-}
-
-export function colorByDepth(graph: ForceGraphInstance) {
-  type NodeObjectWithDepth = NodeObject & {
-    depth: number;
-  };
-
-  const getDepth = (node: NodeObject) => [...(node.id?.matchAll(/\//g) || [])].length;
-  graph.nodeAutoColorBy("depth");
-
-  const mapData = ({ nodes, links }: GraphData) => {
-    nodes.forEach((node) => ((node as NodeObjectWithDepth).depth ||= getDepth(node)));
-
-    return {
-      nodes,
-      links,
-    };
-  };
-
-  return {
-    mapData,
-  };
-}
-
-export function getColorByDataMapper(graph: ForceGraphInstance, colorBy: string) {
-  switch (colorBy) {
-    case "depth": {
-      return [colorByDepth(graph).mapData];
-    }
-    case "connection-both":
-    case "connection-dependency":
-    case "connection-dependant": {
-      return [
-        colorByHeat(
-          graph,
-          (
-            {
-              "connection-both": "both",
-              "connection-dependency": "source",
-              "connection-dependant": "target",
-            } as const
-          )[colorBy],
-        ).mapData,
-      ];
-    }
-  }
-}
 
 export const renderNodeAsText: GraphDecorator<{
   getSelection: () => NodeObject["id"] | null;
@@ -168,10 +90,7 @@ export const freezeNodeOnDragEnd: GraphDecorator<{}> = (graph) => {
   };
 };
 
-export const highlightNodeOnHover: GraphDecorator<PreparedData> = (
-  graph: ForceGraphInstance,
-  { dependantMap, dependencyMap },
-) => {
+export const highlightNodeOnHover: GraphDecorator<PreparedData> = (graph: ForceGraphInstance, data) => {
   const highlightNodes = new Set<NodeObject["id"]>();
   let hoverNode: NodeObject["id"] | null = null;
 
@@ -181,8 +100,8 @@ export const highlightNodeOnHover: GraphDecorator<PreparedData> = (
       if (node) {
         const id = node.id;
         highlightNodes.add(id);
-        dependantMap.get(id)?.forEach((child) => highlightNodes.add(child));
-        dependencyMap.get(id)?.forEach((parent) => highlightNodes.add(parent));
+        data.dependantMap.get(id)?.forEach((child) => highlightNodes.add(child));
+        data.dependencyMap.get(id)?.forEach((parent) => highlightNodes.add(parent));
         hoverNode = id;
       } else {
         hoverNode = null;
@@ -240,13 +159,13 @@ export const selectNodeOnMouseDown: GraphDecorator<{
   onSelectNode: (id: NodeObject["id"] | null) => void;
 }> = (graph, { onSelectNode }) => {
   graph
-    .onNodeDrag((node) => set(node))
-    .onNodeClick((node) => set(node))
+    .onNodeDrag((node) => {
+      onSelectNode(node.id || null);
+    })
+    .onNodeClick((node) => {
+      onSelectNode(node.id || null);
+    })
     .autoPauseRedraw(false);
-
-  function set(node: NodeObject) {
-    onSelectNode(node.id || null);
-  }
 
   return () => {
     graph.onNodeDrag(undefined as any);
