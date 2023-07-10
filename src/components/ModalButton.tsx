@@ -1,6 +1,7 @@
 import { Modal, ModalCloseButton, ModalContent, ModalHeader, ModalOverlay, useDisclosure } from "@chakra-ui/react";
 import { ReactNode } from "react";
-import { DisClosure } from "./type";
+
+export type DisClosure = ReturnType<typeof useDisclosure>;
 
 export function ModalButton({
   children,
