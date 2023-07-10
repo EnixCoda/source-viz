@@ -3,6 +3,8 @@ import { DagMode, ForceGraphInstance, GraphData, LinkObject, NodeObject } from "
 import { carry } from "./general";
 import { PreparedData } from "./getData";
 
+export type GraphDecorator<Options> = (graph: ForceGraphInstance, options: Options) => void | (() => void);
+
 export function colorByHeat(graph: ForceGraphInstance, mode: "source" | "target" | "both") {
   type NodeObjectWithHeat = NodeObject & {
     heat?: number;
@@ -57,11 +59,34 @@ export function colorByDepth(graph: ForceGraphInstance) {
   };
 }
 
-export function renderNodeAsText(
-  graph: ForceGraphInstance,
-  getSelection: () => NodeObject["id"] | null,
-  fixedFontSize?: number,
-) {
+export function getColorByDataMapper(graph: ForceGraphInstance, colorBy: string) {
+  switch (colorBy) {
+    case "depth": {
+      return [colorByDepth(graph).mapData];
+    }
+    case "connection-both":
+    case "connection-dependency":
+    case "connection-dependant": {
+      return [
+        colorByHeat(
+          graph,
+          (
+            {
+              "connection-both": "both",
+              "connection-dependency": "source",
+              "connection-dependant": "target",
+            } as const
+          )[colorBy],
+        ).mapData,
+      ];
+    }
+  }
+}
+
+export const renderNodeAsText: GraphDecorator<{
+  getSelection: () => NodeObject["id"] | null;
+  fixedFontSize?: number;
+}> = (graph, { getSelection, fixedFontSize }) => {
   type NodeObjectWithColor = NodeObject & {
     color?: string;
   };
@@ -113,17 +138,40 @@ export function renderNodeAsText(
         );
       }
     });
-}
 
-export function freezeNodeOnDragEnd(graph: ForceGraphInstance) {
+  return () => {
+    graph.nodeCanvasObject(undefined as any);
+    graph.nodePointerAreaPaint(undefined as any);
+  };
+};
+
+export const freezeNodeOnDragEnd: GraphDecorator<{}> = (graph) => {
   // Fix on drag end
+  const fixedNodes = new Map<NodeObject["id"], Pick<NodeObject, "fx" | "fy">>();
   graph.onNodeDragEnd((node) => {
+    fixedNodes.set(node.id, {
+      fx: node.fx,
+      fy: node.fy,
+    });
     node.fx = node.x;
     node.fy = node.y;
   });
-}
 
-export function highlightNodeOnHover(graph: ForceGraphInstance, { dependantMap, dependencyMap }: PreparedData) {
+  return () => {
+    graph.onNodeDragEnd(undefined as any);
+    for (const [fixedNode, originalPosition] of fixedNodes) {
+      const node = graph.graphData().nodes.find((node) => node.id === fixedNode);
+      if (!node) continue;
+      node.fx = originalPosition.fx;
+      node.fy = originalPosition.fy;
+    }
+  };
+};
+
+export const highlightNodeOnHover: GraphDecorator<PreparedData> = (
+  graph: ForceGraphInstance,
+  { dependantMap, dependencyMap },
+) => {
   const highlightNodes = new Set<NodeObject["id"]>();
   let hoverNode: NodeObject["id"] | null = null;
 
@@ -162,25 +210,46 @@ export function highlightNodeOnHover(graph: ForceGraphInstance, { dependantMap, 
       ctx.fillStyle = node.id === hoverNode ? "red" : "orange";
       ctx.fill();
     });
-}
 
-function getLinkObjectId(object: LinkObject[keyof LinkObject]): NodeObject["id"] | undefined {
-  return typeof object === "object" ? object?.id : object;
-}
+  return () => {
+    graph.nodeCanvasObjectMode(undefined as any);
+    graph.nodeCanvasObject(undefined as any);
+  };
+};
 
-export function renderAsDAG(graph: ForceGraphInstance, direction: DagMode | null = "lr") {
-  graph.dagMode(direction);
-  if (direction)
+const getLinkObjectId = (object: LinkObject[keyof LinkObject]): NodeObject["id"] | undefined =>
+  typeof object === "object" ? object?.id : object;
+
+export const renderAsDAG: GraphDecorator<{
+  dagMode: DagMode | null;
+}> = (graph, { dagMode }) => {
+  graph.dagMode(dagMode);
+  if (dagMode) {
     graph.dagLevelDistance(120).d3Force("collide", forceCollide(0.12)).d3AlphaDecay(0.02).d3VelocityDecay(0.3);
-}
+    return () => {
+      graph.dagLevelDistance(undefined as any);
+      // below are not functions in cancel
+      // .d3Force("collide", undefined as any)
+      // .d3AlphaDecay(undefined as any)
+      // .d3VelocityDecay(undefined as any);
+    };
+  }
+};
 
-export function selectNodeOnMouseDown(graph: ForceGraphInstance, setSelection: (id: NodeObject["id"] | null) => void) {
+export const selectNodeOnMouseDown: GraphDecorator<{
+  onSelectNode: (id: NodeObject["id"] | null) => void;
+}> = (graph, { onSelectNode }) => {
   graph
     .onNodeDrag((node) => set(node))
     .onNodeClick((node) => set(node))
     .autoPauseRedraw(false);
 
   function set(node: NodeObject) {
-    setSelection(node.id || null);
+    onSelectNode(node.id || null);
   }
-}
+
+  return () => {
+    graph.onNodeDrag(undefined as any);
+    graph.onNodeClick(undefined as any);
+  };
+};

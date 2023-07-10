@@ -208,10 +208,7 @@ export function Viz({
     [graphData, graphMode],
   );
 
-  const renderData = React.useMemo(
-    () => ({ nodes: nodes.map((_) => ({ ..._ })), links: links.map((_) => ({ ..._ })) }),
-    [nodes, links],
-  );
+  const renderData = React.useMemo(() => ({ nodes, links }), [nodes, links]);
   React.useEffect(() => {
     render?.(renderData);
   }, [render, renderData]);
