@@ -2,7 +2,9 @@ import { NodeObject } from "force-graph";
 import { DependencyEntry } from "../services/serializers";
 import { safeMapGet } from "./general";
 
-type NodeId = string;
+type NodeId = NodeObject["id"];
+
+export type GraphMode = "dag" | "natural" | "cycles-only";
 
 export function prepareGraphData(data: DependencyEntry[]) {
   const nodes = new Set<NodeId>(data.flatMap(([file, deps]) => [file, ...deps.map(([dep]) => dep)]));
@@ -29,16 +31,18 @@ export const filterGraphData = (
     roots,
     leave,
     excludes = new Set(),
-    preventCycle,
+    graphMode,
     dagPruneMode,
   }: {
     roots?: Set<NodeId>;
     leave?: Set<NodeId>;
     excludes?: Set<NodeId>;
-    preventCycle?: boolean;
+    graphMode?: GraphMode;
     dagPruneMode?: DAGPruneMode | null;
   } = {},
 ) => {
+  const preventCycle = graphMode === "dag";
+
   // Traverse through dependency map and dependent map starting from roots and leave to explore the graph
   const traverse = (startNodes: Set<NodeId>, map: Map<NodeId, Set<NodeId>>) => {
     const traversedNodes = new Set<NodeObject["id"]>();
@@ -86,17 +90,19 @@ export const filterGraphData = (
   // remove cycles, either
   // 1. duplicated
   // 2. cycle not accessible from both roots and leave
-  const cycles: NodeId[][] = [];
-  for (const cycle of traversedFromRoots?.cycles || []) if (cycle.every((node) => nodes.has(node))) cycles.push(cycle);
-  for (const cycle of traversedFromLeave?.cycles || []) if (cycle.every((node) => nodes.has(node))) cycles.push(cycle);
+  const allCycles: NodeId[][] = [];
+  for (const cycle of traversedFromRoots?.cycles || [])
+    if (cycle.every((node) => nodes.has(node))) allCycles.push(cycle);
+  for (const cycle of traversedFromLeave?.cycles || [])
+    if (cycle.every((node) => nodes.has(node))) allCycles.push(cycle);
   // remove duplicated cycles
   const separator = "|";
-  const orderedCycles = cycles.map((cycle) => {
+  const orderedCycles = allCycles.map((cycle) => {
     const headOfCycle = cycle.reduce((earliest, item) => (earliest < item ? earliest : item));
     const indexOfHead = cycle.indexOf(headOfCycle);
     return indexOfHead === 0 ? cycle : cycle.slice(indexOfHead).concat(cycle.slice(0, indexOfHead));
   });
-  const deduplicatedCycles = Array.from(new Set(orderedCycles.map((cycle) => cycle.join(separator)))).map((cycle) =>
+  const cycles = Array.from(new Set(orderedCycles.map((cycle) => cycle.join(separator)))).map((cycle) =>
     cycle.split(separator),
   );
 
@@ -115,7 +121,7 @@ export const filterGraphData = (
     // For example, if there was a cycle of `a -> b -> c -> a`.
     // If `a` is root, and prune for less roots, output would be `a -> b -> c`.
     // If `a` is leave, and prune for less leave, output would be `b -> c -> a`.
-    cycles.forEach((cycle) => {
+    allCycles.forEach((cycle) => {
       cycle.forEach((node, index) => {
         if (roots && (dagPruneMode === "less roots" || !dagPruneMode)) {
           if (roots.has(node)) {
@@ -132,8 +138,30 @@ export const filterGraphData = (
     });
   }
 
+  if (graphMode === "cycles-only") {
+    for (const node of nodes) {
+      if (cycles.every((cycle) => !cycle.includes(node))) {
+        nodes.delete(node);
+      }
+    }
+
+    // links
+    // graphData.links.filter(({ source, target }) => nodes.some((node) => node.id === source) && nodes.some((node) => node.id === target))
+    for (const [source, targets] of links.entries()) {
+      if (nodes.has(source)) {
+        for (const target of targets) {
+          if (!nodes.has(target)) {
+            targets.delete(target);
+          }
+        }
+      } else {
+        links.delete(source);
+      }
+    }
+  }
+
   return {
-    cycles: deduplicatedCycles,
+    cycles,
     nodes: [...nodes.values()].map((id) => ({ id })),
     links: [...links.entries()]
       .map(([source, targets]) => [...targets.values()].map((target) => ({ source, target })))

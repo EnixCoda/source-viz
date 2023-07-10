@@ -2,6 +2,7 @@ import { forceCollide } from "d3";
 import { DagMode, ForceGraphInstance, LinkObject, NodeObject } from "force-graph";
 import { carry } from "./general";
 import { PreparedData } from "./graphData";
+import { ColorByMode } from "./graphDataMappers";
 
 export type GraphDecorator<Options> = (graph: ForceGraphInstance, options: Options) => void | (() => void);
 
@@ -170,5 +171,13 @@ export const selectNodeOnMouseDown: GraphDecorator<{
   return () => {
     graph.onNodeDrag(undefined as any);
     graph.onNodeClick(undefined as any);
+  };
+};
+
+export const decorateForColorBy: GraphDecorator<ColorByMode> = (graph, key) => {
+  graph.nodeAutoColorBy(key);
+
+  return () => {
+    graph.nodeAutoColorBy(undefined as any);
   };
 };

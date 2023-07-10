@@ -1,4 +1,4 @@
-import { ForceGraphInstance, GraphData, LinkObject, NodeObject } from "force-graph";
+import { GraphData, LinkObject, NodeObject } from "force-graph";
 
 // MUTATION IS ALLOWED IN THIS FILE
 
@@ -8,20 +8,14 @@ export const cloneData = // clone data to prevent pollution
     links: links.map((link) => ({ ...link })),
   });
 
-enum colorByKeys {
-  heat = "heat",
-  depth = "depth",
-}
+type ColorByHeatMode = "color-by-heat-source" | "color-by-heat-target" | "color-by-heat-both";
+type ColorByDepthMode = "color-by-depth";
 
-// ts check that NodeObject has not keys of colorByKeys
+export type ColorByMode = ColorByHeatMode | ColorByDepthMode;
 
-export const decorateForColorBy = (graph: ForceGraphInstance, key: (typeof colorByKeys)[keyof typeof colorByKeys]) =>
-  graph.nodeAutoColorBy(key);
-
-export function colorByHeat(mode: "source" | "target" | "both") {
-  const key = colorByKeys.heat;
+export function colorByHeat(mode: ColorByHeatMode) {
   type NodeObjectWithHeat = NodeObject & {
-    [key in colorByKeys.heat]?: number;
+    [key in ColorByHeatMode]?: number;
   };
 
   return (data: GraphData) => {
@@ -29,48 +23,44 @@ export function colorByHeat(mode: "source" | "target" | "both") {
 
     const countMap = new Map<NodeObject["id"], number>();
     data.links.forEach((link) => {
-      if (mode !== "target") {
+      if (mode !== "color-by-heat-target") {
         const source = getId(link.source);
         if (source !== undefined) countMap.set(source, (countMap.get(source) || 0) + 1);
       }
-      if (mode !== "source") {
+      if (mode !== "color-by-heat-source") {
         const target = getId(link.target);
         if (target !== undefined) countMap.set(target, (countMap.get(target) || 0) + 1);
       }
     });
 
-    data.nodes.forEach((node) => ((node as NodeObjectWithHeat)[key] = (node.id && countMap.get(node.id)) || 0));
+    data.nodes.forEach((node) => ((node as NodeObjectWithHeat)[mode] = (node.id && countMap.get(node.id)) || 0));
 
     return data;
   };
 }
 
 export function colorByDepth() {
-  const key = colorByKeys.depth;
-
   type NodeObjectWithDepth = NodeObject & {
-    [key in colorByKeys.depth]?: number;
+    [key in ColorByDepthMode]?: number;
   };
 
   const getDepth = (node: NodeObject) => [...(node.id?.matchAll(/\//g) || [])].length;
 
   return (data: GraphData) => {
-    data.nodes.forEach((node) => ((node as NodeObjectWithDepth)[key] ||= getDepth(node)));
+    data.nodes.forEach((node) => ((node as NodeObjectWithDepth)["color-by-depth"] ||= getDepth(node)));
 
     return data;
   };
 }
 
-export function getColorByDataMapper(colorBy: string) {
+export function getColorByDataMapper(colorBy: ColorByMode) {
   switch (colorBy) {
-    case colorByKeys.depth:
+    case "color-by-depth":
       return colorByDepth();
-    case "connection-both":
-      return colorByHeat("both");
-    case "connection-dependency":
-      return colorByHeat("source");
-    case "connection-dependant":
-      return colorByHeat("target");
+    case "color-by-heat-both":
+    case "color-by-heat-source":
+    case "color-by-heat-target":
+      return colorByHeat(colorBy);
     default:
       throw new Error(`Unknown colorBy: ${colorBy}`);
   }

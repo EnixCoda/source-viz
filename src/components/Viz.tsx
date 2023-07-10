@@ -12,7 +12,8 @@ import { useSelectView } from "../hooks/view/useSelectView";
 import { useSwitchView } from "../hooks/view/useSwitchView";
 import { DependencyEntry } from "../services/serializers";
 import { carry } from "../utils/general";
-import { filterGraphData, prepareGraphData } from "../utils/graphData";
+import { GraphMode, filterGraphData, prepareGraphData } from "../utils/graphData";
+import { ColorByMode } from "../utils/graphDataMappers";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { ExportButton } from "./ExportButton";
 import { FindPathToNode } from "./FindPathToNode";
@@ -86,7 +87,7 @@ export function Viz({
   );
 
   // Graph
-  const [graphModeView, graphMode] = useSelectView<"dag" | "natural" | "cycles-only">(
+  const [graphModeView, graphMode] = useSelectView<GraphMode>(
     {
       label: "Graph Mode",
       defaultValue: "dag",
@@ -98,16 +99,16 @@ export function Viz({
     ],
   );
 
-  const [colorByView, colorBy] = useSelectView(
+  const [colorByView, colorBy] = useSelectView<ColorByMode>(
     {
       label: "Color nodes by",
-      defaultValue: "connection-both",
+      defaultValue: "color-by-heat-both",
     },
     [
-      { value: "depth", label: "File depth" },
-      { value: "connection-both", label: "Connections" },
-      { value: "connection-dependency", label: "Connections (dependency)" },
-      { value: "connection-dependant", label: "Connections (dependant)" },
+      { value: "color-by-depth", label: "File depth" },
+      { value: "color-by-heat-both", label: "Connections" },
+      { value: "color-by-heat-target", label: "Connections (dependency)" },
+      { value: "color-by-heat-source", label: "Connections (dependant)" },
     ],
   );
   const [fixNodeOnDragEndView, fixNodeOnDragEnd] = useCheckboxView({
@@ -192,33 +193,15 @@ export function Viz({
       filterGraphData(data, {
         roots: restrictedRoots,
         leave: restrictedLeaves,
-        preventCycle: graphMode === "dag",
         excludes: allExcludedNodes,
+        graphMode,
       }),
     [data, restrictedRoots, restrictedLeaves, graphMode, allExcludedNodes],
   );
-  const { cycles, nodes, links } = React.useMemo(
-    () =>
-      graphMode === "cycles-only"
-        ? carry(
-            graphData.nodes.filter((node) => graphData.cycles.some((cycle) => cycle.includes(node.id))),
-            (nodes) => ({
-              cycles: graphData.cycles,
-              nodes,
-              links: graphData.links.filter(
-                ({ source, target }) =>
-                  nodes.some((node) => node.id === source) && nodes.some((node) => node.id === target),
-              ),
-            }),
-          )
-        : graphData,
-    [graphData, graphMode],
-  );
 
-  const renderData = React.useMemo(() => ({ nodes, links }), [nodes, links]);
   React.useEffect(() => {
-    render?.(renderData);
-  }, [render, renderData]);
+    render?.(graphData);
+  }, [render, graphData]);
 
   const [nodeSelectionHistory, setNodeSelectionHistory] = React.useState<string[]>([]);
   React.useEffect(() => {
@@ -232,14 +215,14 @@ export function Viz({
     label: "Hide nodes not rendered in viz",
     defaultValue: true,
   });
-  const renderedNodes = React.useMemo(() => renderData?.nodes.map((node) => node.id), [renderData.nodes]);
+  const renderedNodes = React.useMemo(() => graphData?.nodes.map((node) => node.id), [graphData.nodes]);
   const leavesInView = React.useMemo(
-    () => renderedNodes.filter((id) => renderData.links.every(({ source }) => source !== id)),
-    [renderedNodes, renderData.links],
+    () => renderedNodes.filter((id) => graphData.links.every(({ source }) => source !== id)),
+    [renderedNodes, graphData.links],
   );
   const rootsInView = React.useMemo(
-    () => renderedNodes.filter((id) => renderData.links.every(({ target }) => target !== id)),
-    [renderedNodes, renderData.links],
+    () => renderedNodes.filter((id) => graphData.links.every(({ target }) => target !== id)),
+    [renderedNodes, graphData.links],
   );
 
   const renderedEntries = React.useMemo(
@@ -294,10 +277,10 @@ export function Viz({
                       >
                         {() => (
                           <ModalBody>
-                            <Text>There are {cycles.length} in total.</Text>
+                            <Text>There are {graphData.cycles.length} in total.</Text>
                             <ListOfNodeList
                               containerProps={{ maxHeight: 600 }}
-                              lists={cycles}
+                              lists={graphData.cycles}
                               getProps={() => ({
                                 mapProps: (id) => ({ onSelect: () => setSelectedNode(id) }),
                               })}

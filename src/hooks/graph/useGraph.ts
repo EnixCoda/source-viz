@@ -3,8 +3,9 @@ import * as React from "react";
 import { useMemo } from "react";
 import { ReactState } from "../../types";
 import { PreparedData } from "../../utils/graphData";
-import { cloneData, getColorByDataMapper } from "../../utils/graphDataMappers";
+import { ColorByMode, cloneData, getColorByDataMapper } from "../../utils/graphDataMappers";
 import {
+  decorateForColorBy,
   freezeNodeOnDragEnd,
   highlightNodeOnHover,
   renderAsDAG,
@@ -27,7 +28,7 @@ export function useGraph(
     height,
     enableDagMode,
     dagMode = "lr",
-    colorBy = "depth",
+    colorBy = "color-by-depth",
   }: {
     data: PreparedData;
     renderAsText: boolean;
@@ -37,7 +38,7 @@ export function useGraph(
     height: number;
     enableDagMode: boolean;
     dagMode?: DagMode | null;
-    colorBy?: "depth" | "connection-both" | "connection-dependency" | "connection-dependant";
+    colorBy?: ColorByMode;
   },
 ) {
   const ref = React.useRef<HTMLDivElement | null>(null);
@@ -74,6 +75,7 @@ export function useGraph(
     selectNodeOnMouseDown,
     useMemo(() => ({ onSelectNode: nodeSelection.setValue }), [nodeSelection.setValue]),
   );
+  useGraphDecorator(graph, decorateForColorBy, colorBy);
 
   // data mappers
   const render = React.useMemo(() => {
