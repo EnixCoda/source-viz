@@ -82,7 +82,15 @@ export function ColumnDirectory({
               variant="ghost"
               textAlign="left"
               justifyContent="flex-start"
-              color={isItemExcluded?.(file.name) ? "gray.400" : isItemIncluded(file.name) ? "orange.500" : undefined}
+              color={
+                isItemExcluded(file.name)
+                  ? "gray.400"
+                  : isItemIncluded(file.name)
+                  ? "orange.500"
+                  : file.kind === "file"
+                  ? "gray.400"
+                  : undefined
+              }
             >
               <Text title={file.name} overflow="hidden" textOverflow="ellipsis">
                 {file.kind === "directory" ? "📁" : "📄"} {file.name}
