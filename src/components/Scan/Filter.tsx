@@ -49,8 +49,7 @@ export function Filter({
           <Box>
             <InfoIcon />{" "}
             <Text fontSize="sm" as="span">
-              Note: filters below accept glob patterns. Use <code>**</code> to match any amount of folders, use{" "}
-              <code>*</code> to match filename of any length.
+              Filter inputs below accept regular expressions.
             </Text>
           </Box>
           <VStack alignItems="stretch">
@@ -83,7 +82,7 @@ export function Filter({
           </VStack>
         </VStack>
       </VStack>
-      <Flex flex={1} overflow="auto" minH={0} maxH="100%">
+      <Flex flex={1} overflow="auto" height="100%">
         <FileExplorer files={files} filter={value} />
       </Flex>
     </HStack>

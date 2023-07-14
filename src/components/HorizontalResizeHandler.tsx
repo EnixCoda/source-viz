@@ -5,6 +5,7 @@ export function HorizontalResizeHandler(props: BoxProps) {
     <Box
       display="inline-block"
       width="2px"
+      height="100%"
       flexShrink={0}
       background={"ButtonFace"}
       _hover={{

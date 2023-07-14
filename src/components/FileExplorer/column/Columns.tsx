@@ -1,7 +1,7 @@
-import { Box, HStack } from "@chakra-ui/react";
+import { HStack } from "@chakra-ui/react";
 import * as React from "react";
 import { MetaFilter } from "../../../services";
-import { getPatternsMatcher, run } from "../../../utils/general";
+import { getPatternsMatcher, switchRender } from "../../../utils/general";
 import { ColumnDirectory } from "./Directory";
 import { ColumnFile } from "./File";
 
@@ -15,7 +15,7 @@ export function RecursiveColumns({
   filter: MetaFilter;
 }) {
   return (
-    <HStack alignItems="start" flex={1} overflow="auto" minH={0} maxH="100%" minW={0}>
+    <HStack alignItems="stretch" flex={1} overflow="auto" minH={0} maxH="100%" minW={0}>
       <RecursiveColumn stack={stack} setStack={setStack} filter={filter} />
     </HStack>
   );
@@ -40,27 +40,29 @@ function RecursiveColumn({
   const isFirstExcluded = isItemExcluded?.(first.name);
   return (
     <>
-      <Box flexShrink={0} maxHeight="100%" overflow="auto">
-        {run(() => {
-          switch (first.kind) {
-            case "directory":
-              return (
-                <ColumnDirectory
-                  fs={first}
-                  selected={second}
-                  onSelect={(f) => setStack([first].concat(f))}
-                  isExcluded={isFirstExcluded}
-                  filter={filter}
-                  scrollIntoView
-                />
-              );
-            case "file":
-              return <ColumnFile item={first} />;
-            default:
-              return null;
-          }
-        })}
-      </Box>
+      <HStack
+        spacing={0}
+        flexShrink={0}
+        // height="100%"
+        overflow="auto"
+      >
+        {switchRender(
+          {
+            directory: () => (
+              <ColumnDirectory
+                fs={first}
+                selected={second}
+                onSelect={(f) => setStack([first].concat(f))}
+                isExcluded={isFirstExcluded}
+                filter={filter}
+                scrollIntoView
+              />
+            ),
+            file: () => <ColumnFile item={first} />,
+          },
+          first.kind,
+        )}
+      </HStack>
       {second && (
         <RecursiveColumn
           stack={stack.slice(1)}

@@ -1,7 +1,9 @@
 import { Button, HStack, List, ListItem, Spinner, Text } from "@chakra-ui/react";
 import * as React from "react";
+import { Size2D, useResizeHandler } from "../../../hooks/useResizeHandler";
 import { MetaFilter } from "../../../services";
 import { getPatternsMatcher, run } from "../../../utils/general";
+import { HorizontalResizeHandler } from "../../HorizontalResizeHandler";
 
 export function ColumnDirectory({
   fs,
@@ -18,7 +20,9 @@ export function ColumnDirectory({
   filter: MetaFilter;
   scrollIntoView?: boolean;
 }) {
-  const [width] = React.useState(200);
+  const [size, setSize] = React.useState<Size2D>([200, 0]);
+  const [width] = size;
+  const { onPointerDown } = useResizeHandler(size, setSize);
   const [files, setFiles] = React.useState<FileSystemHandle[] | null>(null);
   const ref = React.useRef<HTMLOListElement | null>(null);
 
@@ -62,29 +66,32 @@ export function ColumnDirectory({
     );
 
   return (
-    <List ref={ref} width={width} height="100%" overflowY="auto">
-      {files.map((file) => (
-        <ListItem key={file.name} onClick={() => onSelect?.(file)} whiteSpace="nowrap">
-          <Button
-            width="100%"
-            textOverflow="ellipsis"
-            fontFamily="monospace"
-            fontWeight="normal"
-            fontSize={14}
-            lineHeight={1.5}
-            height={6}
-            background={selected === file ? "Highlight" : undefined}
-            variant="ghost"
-            textAlign="left"
-            justifyContent="flex-start"
-            color={isItemExcluded?.(file.name) ? "gray.400" : isItemIncluded(file.name) ? "orange.500" : undefined}
-          >
-            <Text title={file.name} overflow="hidden" textOverflow="ellipsis">
-              {file.kind === "directory" ? "📁" : "📄"} {file.name}
-            </Text>
-          </Button>
-        </ListItem>
-      ))}
-    </List>
+    <>
+      <List ref={ref} width={width} height="100%" overflowY="auto">
+        {files.map((file) => (
+          <ListItem key={file.name} onClick={() => onSelect?.(file)} whiteSpace="nowrap">
+            <Button
+              width="100%"
+              textOverflow="ellipsis"
+              fontFamily="monospace"
+              fontWeight="normal"
+              fontSize={14}
+              lineHeight={1.5}
+              height={6}
+              background={selected === file ? "Highlight" : undefined}
+              variant="ghost"
+              textAlign="left"
+              justifyContent="flex-start"
+              color={isItemExcluded?.(file.name) ? "gray.400" : isItemIncluded(file.name) ? "orange.500" : undefined}
+            >
+              <Text title={file.name} overflow="hidden" textOverflow="ellipsis">
+                {file.kind === "directory" ? "📁" : "📄"} {file.name}
+              </Text>
+            </Button>
+          </ListItem>
+        ))}
+      </List>
+      <HorizontalResizeHandler onPointerDown={onPointerDown} />
+    </>
   );
 }
