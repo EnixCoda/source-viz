@@ -26,13 +26,16 @@ function RecursiveColumn({
   setStack,
   isExcluded,
   filter,
+  depth = 0,
 }: {
   stack: FileSystemHandle[];
   setStack: React.Dispatch<React.SetStateAction<FileSystemHandle[]>>;
   isExcluded?: boolean;
   filter: MetaFilter;
+  depth?: number;
 }) {
-  const [first, second] = stack;
+  const subStack = stack.slice(depth);
+  const [first, second] = subStack;
   const isItemExcluded = React.useMemo(
     () => (isExcluded ? () => true : filter.excludes && getPatternsMatcher(filter.excludes)),
     [isExcluded, filter.excludes],
@@ -56,19 +59,21 @@ function RecursiveColumn({
                 isExcluded={isFirstExcluded}
                 filter={filter}
                 scrollIntoView
+                stack={stack}
               />
             ),
-            file: () => <ColumnFile item={first} />,
+            file: () => <ColumnFile item={first} stack={stack} />,
           },
           first.kind,
         )}
       </HStack>
       {second && (
         <RecursiveColumn
-          stack={stack.slice(1)}
+          depth={depth + 1}
+          stack={stack}
           setStack={(subStack) =>
             typeof subStack === "function"
-              ? setStack((stack) => [first].concat(subStack(stack.slice(1))))
+              ? setStack((stack) => [first].concat(subStack(stack.slice(depth))))
               : setStack([first].concat(subStack))
           }
           isExcluded={isExcluded}

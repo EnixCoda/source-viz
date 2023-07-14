@@ -13,6 +13,7 @@ export function ColumnDirectory({
   isExcluded,
   filter,
   scrollIntoView,
+  stack,
 }: {
   fs: FileSystemHandle;
   selected?: FileSystemHandle;
@@ -20,6 +21,7 @@ export function ColumnDirectory({
   isExcluded?: boolean;
   filter: MetaFilter;
   scrollIntoView?: boolean;
+  stack: FileSystemHandle[];
 }) {
   const [size, setSize] = React.useState<Size2D>([200, 0]);
   const [width] = size;
