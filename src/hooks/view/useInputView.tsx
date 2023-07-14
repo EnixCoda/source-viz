@@ -18,10 +18,10 @@ export function useInputView({ defaultValue = "", inputProps, ...formControlView
     return (
       <FormControlView {...formControlViewProps}>
         <Input
-          {...inputProps}
-          isInvalid={inputProps?.isInvalid || !!formControlViewProps?.errorMessage}
           value={state}
           onChange={(e) => setState(e.target.value)}
+          {...inputProps}
+          isInvalid={inputProps?.isInvalid || !!formControlViewProps?.errorMessage}
         />
       </FormControlView>
     );

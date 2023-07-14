@@ -1,4 +1,3 @@
-import minimatch from "minimatch";
 import { MetaFilter } from "../services";
 import { Order } from "../types";
 
@@ -33,11 +32,16 @@ export const resolvePath = (...ps: string[]): string =>
 
 export const wrapNewStateForDispatching = <S>(s: S) => (typeof s === "function" ? () => s : s);
 
-export const getPatternsMatcher = (patterns: string[]) => (str: string) =>
-  patterns.some((pattern) => minimatch(str, pattern));
+export const transformFilterPatterns = (patterns: (string | RegExp)[]): RegExp[] =>
+  patterns.map((pattern) => (typeof pattern === "string" ? safeRegExp(pattern, "i") : pattern)).filter(isNotFalsy);
 
-export const getPatternsFileNameMatcher = (patterns: string[]) =>
-  getPatternsMatcher(patterns.map((pattern) => pattern.replace(/^\*\*\/|\/\*\*$/g, "")));
+export const getPatternsMatcher = (patterns: (string | RegExp)[]) => (str: string) =>
+  transformFilterPatterns(patterns).some((pattern) => str.match(pattern));
+
+export const getPatternsFileNameMatcher = (patterns: (string | RegExp)[]) => getPatternsMatcher(patterns);
+
+export const isNotFalse = <T>(t: false | T): t is T => t !== false;
+export const isNotFalsy = <T>(t: false | undefined | null | T): t is T => t !== false && t !== undefined && t !== null;
 
 export const getFilterMatchers = (filter: MetaFilter) =>
   [filter.excludes, filter.includes].map((patterns) => [

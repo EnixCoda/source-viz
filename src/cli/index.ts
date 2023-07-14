@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 
 import fs from "fs/promises";
-import minimatch from "minimatch";
 import path from "path";
 import yargs from "yargs";
 import { FSLike, getDependencyEntries } from "../services";
 import { getFiles } from "../services/node";
 import * as babelParser from "../services/parsers/babel";
 import { getEntrySerializerByFileName } from "../services/serializers";
+import { getPatternsMatcher } from "../utils/general";
 
 const defaultIncludes = ["*.jsx?", "*.tsx?"];
 const defaultExcludes = [".git", ".cache", "node_modules", "**/node_modules/**", "**/build/**", "**/dist/**"];
@@ -45,9 +45,8 @@ async function main() {
     })
     .help().argv;
 
-  const createMatcher = (patterns: string[]) => (item: string) => patterns.some((pattern) => minimatch(item, pattern));
-  const isIncluded = createMatcher(includes);
-  const isExcluded = createMatcher(excludes);
+  const isIncluded = getPatternsMatcher(includes);
+  const isExcluded = getPatternsMatcher(excludes);
   const files = await getFiles(path.resolve(project), isExcluded);
 
   const fsLike: FSLike = {

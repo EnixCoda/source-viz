@@ -4,21 +4,20 @@ import * as React from "react";
 import { MetaFilter } from "../../services";
 import { FS } from "../App";
 import { FileExplorer } from "../FileExplorer";
-import { InputList } from "../InputList";
+import { FilterInputList } from "./FilterInputList";
 
-export const defaultIncludes = ["**/*.js", "**/*.jsx", "**/*.ts", "**/*.tsx"];
-
-export const defaultExcludes = ["**/*.d.ts", "**/.git", "**/.cache", "**/node_modules", "**/build", "**/dist"];
+export const defaultIncludes = [".*\\.jsx?$", ".*\\.tsx?$"];
+export const defaultExcludes = [".*\\.d\\.ts$", "\\.git", "\\.cache", "node_modules", "build", "dist"];
 
 export function Filter({
   files,
-  onCancel,
   initialValue,
+  onCancel,
   onChange,
 }: {
   files: FS;
-  onCancel(): void;
   initialValue: MetaFilter;
+  onCancel(): void;
   onChange: React.Dispatch<MetaFilter>;
 }) {
   const [includes, setIncludes] = React.useState(initialValue.includes);
@@ -66,7 +65,7 @@ export function Filter({
               </Text>
               in the list.
             </Text>
-            <InputList values={includes} onChange={setIncludes} />
+            <FilterInputList values={includes} onChange={setIncludes} />
           </VStack>
           <VStack alignItems="stretch">
             <Heading as="h3" size="md">
@@ -80,7 +79,7 @@ export function Filter({
               </Text>
               in the list.
             </Text>
-            <InputList values={excludes} onChange={setExcludes} />
+            <FilterInputList values={excludes} onChange={setExcludes} />
           </VStack>
         </VStack>
       </VStack>
