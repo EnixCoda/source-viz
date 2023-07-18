@@ -27,6 +27,14 @@ export function FileExplorer({ files, filter }: { files: FS; filter: MetaFilter 
 
   switch (mode) {
     case "columns":
-      return <RecursiveColumns stack={stack} setStack={setStack} filter={filter} />;
+      return (
+        <RecursiveColumns
+          $stack={{
+            value: stack,
+            setValue: setStack,
+          }}
+          filter={filter}
+        />
+      );
   }
 }

@@ -3,7 +3,7 @@ import * as React from "react";
 import { IIFC } from "react-iifc";
 import { Size2D, useResizeHandler } from "../../../hooks/useResizeHandler";
 import { MetaFilter } from "../../../services";
-import { getPatternsMatcher, run } from "../../../utils/general";
+import { carry, getPatternsMatcher, run } from "../../../utils/general";
 import { HorizontalResizeHandler } from "../../HorizontalResizeHandler";
 
 export function ColumnDirectory({
@@ -97,15 +97,20 @@ export function ColumnDirectory({
               variant="ghost"
               textAlign="left"
               justifyContent="flex-start"
-              color={
-                isItemExcluded(file.name)
-                  ? "gray.500"
-                  : isItemIncluded(file.name)
-                  ? "green.500"
-                  : file.kind === "file"
-                  ? "gray.500"
-                  : undefined
-              }
+              color={carry(
+                stack
+                  .concat(file)
+                  .map(({ name }) => name)
+                  .join("/"),
+                (path) =>
+                  isItemExcluded(path)
+                    ? "gray.500"
+                    : isItemIncluded(path)
+                    ? "green.500"
+                    : file.kind === "file"
+                    ? "gray.500"
+                    : undefined,
+              )}
             >
               <IIFC>
                 {() => {

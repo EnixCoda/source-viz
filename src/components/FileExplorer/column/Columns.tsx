@@ -1,46 +1,45 @@
 import { HStack } from "@chakra-ui/react";
 import * as React from "react";
 import { MetaFilter } from "../../../services";
+import { ReactState } from "../../../types";
 import { getPatternsMatcher, switchRender } from "../../../utils/general";
 import { ColumnDirectory } from "./Directory";
 import { ColumnFile } from "./File";
 
-export function RecursiveColumns({
-  stack,
-  setStack,
-  filter,
-}: {
-  stack: FileSystemHandle[];
-  setStack: React.Dispatch<React.SetStateAction<FileSystemHandle[]>>;
-  filter: MetaFilter;
-}) {
+export function RecursiveColumns({ $stack, filter }: { $stack: ReactState<FileSystemHandle[]>; filter: MetaFilter }) {
   return (
     <HStack alignItems="stretch" flex={1} overflow="auto" minH={0} maxH="100%" minW={0}>
-      <RecursiveColumn stack={stack} setStack={setStack} filter={filter} />
+      <RecursiveColumn $stack={$stack} filter={filter} />
     </HStack>
   );
 }
 
 function RecursiveColumn({
-  stack,
-  setStack,
+  $stack,
   isExcluded,
   filter,
   depth = 0,
 }: {
-  stack: FileSystemHandle[];
-  setStack: React.Dispatch<React.SetStateAction<FileSystemHandle[]>>;
+  $stack: ReactState<FileSystemHandle[]>;
   isExcluded?: boolean;
   filter: MetaFilter;
   depth?: number;
 }) {
+  const { value: stack } = $stack;
   const subStack = stack.slice(depth);
-  const [first, second] = subStack;
+  const [cur, next] = subStack;
   const isItemExcluded = React.useMemo(
     () => (isExcluded ? () => true : filter.excludes && getPatternsMatcher(filter.excludes)),
     [isExcluded, filter.excludes],
   );
-  const isFirstExcluded = isItemExcluded?.(first.name);
+  const path = React.useMemo(
+    () =>
+      subStack
+        .concat(cur)
+        .map(({ name }) => name)
+        .join("/"),
+    [subStack, cur],
+  );
   return (
     <>
       <HStack
@@ -53,33 +52,21 @@ function RecursiveColumn({
           {
             directory: () => (
               <ColumnDirectory
-                fs={first}
-                selected={second}
-                onSelect={(f) => setStack([first].concat(f))}
-                isExcluded={isFirstExcluded}
+                fs={cur}
+                selected={next}
+                onSelect={(f) => $stack.setValue(stack.slice(0, depth + 1).concat(f))}
+                isExcluded={isItemExcluded?.(path)}
                 filter={filter}
                 scrollIntoView
                 stack={stack}
               />
             ),
-            file: () => <ColumnFile item={first} stack={stack} />,
+            file: () => <ColumnFile item={cur} stack={stack} />,
           },
-          first.kind,
+          cur.kind,
         )}
       </HStack>
-      {second && (
-        <RecursiveColumn
-          depth={depth + 1}
-          stack={stack}
-          setStack={(subStack) =>
-            typeof subStack === "function"
-              ? setStack((stack) => [first].concat(subStack(stack.slice(depth))))
-              : setStack([first].concat(subStack))
-          }
-          isExcluded={isExcluded}
-          filter={filter}
-        />
-      )}
+      {next && <RecursiveColumn depth={depth + 1} $stack={$stack} isExcluded={isExcluded} filter={filter} />}
     </>
   );
 }
