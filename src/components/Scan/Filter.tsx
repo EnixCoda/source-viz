@@ -7,7 +7,7 @@ import { FileExplorer } from "../FileExplorer";
 import { FilterInputList } from "./FilterInputList";
 
 export const defaultIncludes = [".*\\.jsx?$", ".*\\.tsx?$"];
-export const defaultExcludes = [".*\\.d\\.ts$", "\\.git", "\\.cache", "node_modules", "build", "dist"];
+export const defaultExcludes = [".*\\.d\\.ts$", "\\.git", "\\.cache", "node_modules", "build", "dist", "/\\."];
 
 export function Filter({
   files,
