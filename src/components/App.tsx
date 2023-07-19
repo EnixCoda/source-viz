@@ -80,7 +80,7 @@ export function App() {
       content = (
         <VStack w="100vw" h="100vh" alignItems="stretch" spacing={0}>
           <HStack paddingY={2} paddingX={2} background="ButtonFace" justifyContent="space-between" alignItems="center">
-            <Heading>Source Viz</Heading>
+            <Heading as="h1">Source Viz</Heading>
             <HStack alignItems="center" gap={1}>
               <Text>Made by EnixCoda</Text>
               <Link href="https://github.com/EnixCoda" target="_blank">

@@ -49,12 +49,13 @@ export function Filter({
           <Box>
             <InfoIcon />{" "}
             <Text fontSize="sm" as="span">
-              Filter inputs below accept regular expressions.
+              Inputs below accept regular expressions. The regular expressions will match against path instead of
+              filename.
             </Text>
           </Box>
           <VStack alignItems="stretch">
             <Heading as="h3" size="md">
-              Include files
+              Include
             </Heading>
             <Text fontSize="sm">
               Text files matching any of these patterns will be read and parsed. They will be
@@ -68,7 +69,7 @@ export function Filter({
           </VStack>
           <VStack alignItems="stretch">
             <Heading as="h3" size="md">
-              Exclude files
+              Exclude
             </Heading>
             <Text fontSize="sm">
               Files, folders, and content inside matched folders will not be scanned. They are

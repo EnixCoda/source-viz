@@ -172,8 +172,8 @@ export function Scanning({
               </Box>
             </CollapsibleSection>
           )}
-          {(phase !== "done" || problematicRecords.length > 0) && (
-            <CollapsibleSection label={phase !== "done" ? "Progress details" : "Progress details (errors)"}>
+          {problematicRecords.length > 0 && (
+            <CollapsibleSection label="Progress details (errors)">
               <Box maxHeight="50vh" overflowY="auto">
                 <ProgressTable progress={problematicRecords} />
               </Box>
