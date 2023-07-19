@@ -22,7 +22,6 @@ import { FindPathToNode } from "./FindPathToNode";
 import { FormSwitch } from "./FormSwitch";
 import { HorizontalResizeHandler } from "./HorizontalResizeHandler";
 import { ListOfNodeList } from "./ListOfNodeList";
-import { LocalPathContextProvider } from "./LocalPathContext";
 import { ModalButton } from "./ModalButton";
 import { MonoText } from "./MonoText";
 import { NodeList } from "./NodeList";
@@ -237,211 +236,209 @@ export function Viz({
   );
 
   return (
-    <LocalPathContextProvider>
-      <HStack display="inline-flex" alignItems="stretch" spacing={0} maxHeight="100%" height="100%">
-        <VStack alignItems="stretch" height="100vh" width={width}>
-          <HStack justifyContent="space-between" padding={1}>
-            {backButton}
-            {vizModeView}
-          </HStack>
-          <Divider />
-          <Box ref={vizContainerRef} flex={1} overflowY="auto">
-            <div ref={ref} style={{ display: vizMode === "table" ? "none" : undefined }} />
-            <div style={{ display: vizMode === "graph" ? "none" : undefined }}>
-              <EntriesTable entries={renderedEntries} onClickSelect={setSelectedNode} />
-            </div>
-          </Box>
-        </VStack>
-        <HorizontalResizeHandler onPointerDown={onPointerDown} />
-        <VStack alignItems="stretch" height="100vh" flex={1} minW={0} overflow="auto">
-          <Accordion defaultIndex={[0]} minW={0} allowToggle>
-            <CollapsibleSection label={`General Settings`}>
+    <HStack display="inline-flex" alignItems="stretch" spacing={0} maxHeight="100%" height="100%">
+      <VStack alignItems="stretch" height="100vh" width={width}>
+        <HStack justifyContent="space-between" padding={1}>
+          {backButton}
+          {vizModeView}
+        </HStack>
+        <Divider />
+        <Box ref={vizContainerRef} flex={1} overflowY="auto">
+          <div ref={ref} style={{ display: vizMode === "table" ? "none" : undefined }} />
+          <div style={{ display: vizMode === "graph" ? "none" : undefined }}>
+            <EntriesTable entries={renderedEntries} onClickSelect={setSelectedNode} />
+          </div>
+        </Box>
+      </VStack>
+      <HorizontalResizeHandler onPointerDown={onPointerDown} />
+      <VStack alignItems="stretch" height="100vh" flex={1} minW={0} overflow="auto">
+        <Accordion defaultIndex={[0]} minW={0} allowToggle>
+          <CollapsibleSection label={`General Settings`}>
+            <VStack alignItems="stretch">
+              <div>
+                <SettingsOfOpenInVSCode />
+              </div>
+              <div>
+                <ExportButton data={entries} />
+              </div>
+            </VStack>
+          </CollapsibleSection>
+          {vizMode === "graph" && (
+            <CollapsibleSection label={`Graph Settings`}>
               <VStack alignItems="stretch">
+                <div>{graphModeView}</div>
                 <div>
-                  <SettingsOfOpenInVSCode />
+                  {graphMode === "cycles-only" && (
+                    <ModalButton
+                      title={"Cycles"}
+                      renderTrigger={({ onOpen }) => <Button onClick={onOpen}>Checkout Cycles</Button>}
+                    >
+                      {() => (
+                        <ModalBody>
+                          <Text>There are {graphData.cycles.length} in total.</Text>
+                          <ListOfNodeList
+                            containerProps={{ maxHeight: 600 }}
+                            lists={graphData.cycles}
+                            getProps={() => ({
+                              mapProps: (id) => ({ onSelect: () => setSelectedNode(id) }),
+                            })}
+                          />
+                        </ModalBody>
+                      )}
+                    </ModalButton>
+                  )}
                 </div>
-                <div>
-                  <ExportButton data={entries} />
-                </div>
+                <div>{colorByView}</div>
+                <div>{fixNodeOnDragEndView}</div>
+                <div>{renderAsTextView}</div>
+                <div>{fixFontSizeView}</div>
+                <div>{fixedFontSizeView}</div>
               </VStack>
             </CollapsibleSection>
-            {vizMode === "graph" && (
-              <CollapsibleSection label={`Graph Settings`}>
-                <VStack alignItems="stretch">
-                  <div>{graphModeView}</div>
-                  <div>
-                    {graphMode === "cycles-only" && (
-                      <ModalButton
-                        title={"Cycles"}
-                        renderTrigger={({ onOpen }) => <Button onClick={onOpen}>Checkout Cycles</Button>}
-                      >
-                        {() => (
-                          <ModalBody>
-                            <Text>There are {graphData.cycles.length} in total.</Text>
-                            <ListOfNodeList
-                              containerProps={{ maxHeight: 600 }}
-                              lists={graphData.cycles}
-                              getProps={() => ({
-                                mapProps: (id) => ({ onSelect: () => setSelectedNode(id) }),
-                              })}
-                            />
-                          </ModalBody>
-                        )}
-                      </ModalButton>
-                    )}
-                  </div>
-                  <div>{colorByView}</div>
-                  <div>{fixNodeOnDragEndView}</div>
-                  <div>{renderAsTextView}</div>
-                  <div>{fixFontSizeView}</div>
-                  <div>{fixedFontSizeView}</div>
-                </VStack>
-              </CollapsibleSection>
-            )}
-            <CollapsibleSection label={`Selected Node`}>
-              {selectedNode ? (
-                <VStack alignItems="flex-start">
-                  <Heading as="h3" size="sm">
-                    Path
-                  </Heading>
-                  <MonoText wordBreak="break-word">{selectedNode}</MonoText>
-                  <div>
-                    <OpenInVSCode layout="text" path={selectedNode} />
-                  </div>
-                  <FormSwitch
-                    label="Exclude from viz"
-                    value={allExcludedNodes.has(selectedNode)}
-                    onChange={() => toggleExcludeNode(selectedNode)}
-                  />
+          )}
+          <CollapsibleSection label={`Selected Node`}>
+            {selectedNode ? (
+              <VStack alignItems="flex-start">
+                <Heading as="h3" size="sm">
+                  Path
+                </Heading>
+                <MonoText wordBreak="break-word">{selectedNode}</MonoText>
+                <div>
+                  <OpenInVSCode layout="text" path={selectedNode} />
+                </div>
+                <FormSwitch
+                  label="Exclude from viz"
+                  value={allExcludedNodes.has(selectedNode)}
+                  onChange={() => toggleExcludeNode(selectedNode)}
+                />
 
-                  <Heading as="h3" size="sm">
-                    Dependencies
-                  </Heading>
-                  <NodeList
-                    nodes={carry(data.dependencyMap.get(selectedNode), (set) =>
-                      set ? renderedNodes.filter((id) => set.has(id)) : [],
-                    )}
-                    mapProps={(id) => ({ onSelect: () => setSelectedNode(id) })}
-                  />
-                  <Heading as="h3" size="sm">
-                    Dependents
-                  </Heading>
-                  <NodeList
-                    nodes={carry(data.dependantMap.get(selectedNode), (set) =>
-                      set ? renderedNodes.filter((id) => set.has(id)) : [],
-                    )}
-                    mapProps={(id) => ({ onSelect: () => setSelectedNode(id) })}
-                  />
-                  <Heading as="h3" size="sm">
-                    Recently selected nodes
-                  </Heading>
-                  <Select
-                    value=""
-                    placeholder="Choosing a node will switch selection"
-                    onChange={(e) => setSelectedNode(e.target.value)}
-                  >
-                    {/* slice 1 to exclude current selection */}
-                    {nodeSelectionHistory.slice(1).map((node) => (
-                      <option key={node} value={node}>
-                        {node}
-                      </option>
-                    ))}
-                  </Select>
-                  <FindPathToNode
-                    nodes={renderedNodes}
-                    data={data}
-                    selectedNode={selectedNode}
-                    setSelectedNode={setSelectedNode}
-                    nodeSelectionHistory={nodeSelectionHistory}
-                  />
-                </VStack>
-              ) : (
-                <Text color="gray.500">No selection yet</Text>
-              )}
-            </CollapsibleSection>
-            <CollapsibleSection label={`Root Nodes (source files)`}>
-              <VStack alignItems="flex-start">
-                <Text>These nodes are source files, which have no dependents, or they are in dependency cycles.</Text>
-                {restrictRootInputView}
-                <FormSwitch
-                  label="Hide nodes not rendered as root"
-                  inputProps={{
-                    isDisabled: restrictRootsRegExp === null,
-                  }}
-                  value={restrictRootsRegExp === null || inView}
-                  onChange={() => setInView(!inView)}
-                />
+                <Heading as="h3" size="sm">
+                  Dependencies
+                </Heading>
                 <NodeList
-                  nodes={restrictRootsRegExp === null || inView ? rootsInView : [...restrictedRoots]}
-                  mapProps={(id) => ({
-                    onExclude: () => toggleExcludeNode(id),
-                    onSelect: () => setSelectedNode(id),
-                  })}
+                  nodes={carry(data.dependencyMap.get(selectedNode), (set) =>
+                    set ? renderedNodes.filter((id) => set.has(id)) : [],
+                  )}
+                  mapProps={(id) => ({ onSelect: () => setSelectedNode(id) })}
                 />
-              </VStack>
-            </CollapsibleSection>
-            <CollapsibleSection label={`Leaf Nodes (dependencies)`}>
-              <VStack alignItems="flex-start">
-                <Text>
-                  These nodes have no dependencies, some of them are 3rd party dependencies, or they are in dependency
-                  cycles.
-                </Text>
-                {restrictLeavesInputView}
-                <FormSwitch
-                  label="Hide nodes not rendered as leave"
-                  inputProps={{
-                    isDisabled: restrictLeavesRegExp === null,
-                  }}
-                  value={restrictLeavesRegExp === null || inView}
-                  onChange={() => setInView(!inView)}
-                />
+                <Heading as="h3" size="sm">
+                  Dependents
+                </Heading>
                 <NodeList
-                  nodes={restrictLeavesRegExp === null || inView ? leavesInView : [...restrictedLeaves]}
+                  nodes={carry(data.dependantMap.get(selectedNode), (set) =>
+                    set ? renderedNodes.filter((id) => set.has(id)) : [],
+                  )}
+                  mapProps={(id) => ({ onSelect: () => setSelectedNode(id) })}
+                />
+                <Heading as="h3" size="sm">
+                  Recently selected nodes
+                </Heading>
+                <Select
+                  value=""
+                  placeholder="Choosing a node will switch selection"
+                  onChange={(e) => setSelectedNode(e.target.value)}
+                >
+                  {/* slice 1 to exclude current selection */}
+                  {nodeSelectionHistory.slice(1).map((node) => (
+                    <option key={node} value={node}>
+                      {node}
+                    </option>
+                  ))}
+                </Select>
+                <FindPathToNode
+                  nodes={renderedNodes}
+                  data={data}
+                  selectedNode={selectedNode}
+                  setSelectedNode={setSelectedNode}
+                  nodeSelectionHistory={nodeSelectionHistory}
+                />
+              </VStack>
+            ) : (
+              <Text color="gray.500">No selection yet</Text>
+            )}
+          </CollapsibleSection>
+          <CollapsibleSection label={`Root Nodes (source files)`}>
+            <VStack alignItems="flex-start">
+              <Text>These nodes are source files, which have no dependents, or they are in dependency cycles.</Text>
+              {restrictRootInputView}
+              <FormSwitch
+                label="Hide nodes not rendered as root"
+                inputProps={{
+                  isDisabled: restrictRootsRegExp === null,
+                }}
+                value={restrictRootsRegExp === null || inView}
+                onChange={() => setInView(!inView)}
+              />
+              <NodeList
+                nodes={restrictRootsRegExp === null || inView ? rootsInView : [...restrictedRoots]}
+                mapProps={(id) => ({
+                  onExclude: () => toggleExcludeNode(id),
+                  onSelect: () => setSelectedNode(id),
+                })}
+              />
+            </VStack>
+          </CollapsibleSection>
+          <CollapsibleSection label={`Leaf Nodes (dependencies)`}>
+            <VStack alignItems="flex-start">
+              <Text>
+                These nodes have no dependencies, some of them are 3rd party dependencies, or they are in dependency
+                cycles.
+              </Text>
+              {restrictLeavesInputView}
+              <FormSwitch
+                label="Hide nodes not rendered as leave"
+                inputProps={{
+                  isDisabled: restrictLeavesRegExp === null,
+                }}
+                value={restrictLeavesRegExp === null || inView}
+                onChange={() => setInView(!inView)}
+              />
+              <NodeList
+                nodes={restrictLeavesRegExp === null || inView ? leavesInView : [...restrictedLeaves]}
+                mapProps={(id) => ({
+                  onExclude: () => toggleExcludeNode(id),
+                  onSelect: () => setSelectedNode(id),
+                })}
+              />
+            </VStack>
+          </CollapsibleSection>
+          <CollapsibleSection label={`Extra Filters`}>
+            <VStack alignItems="stretch">
+              <VStack alignItems="flex-start" as="section">
+                <Heading as="h3" size="sm">
+                  These nodes have been excluded
+                </Heading>
+                <NodeList
+                  nodes={excludedNodes}
                   mapProps={(id) => ({
-                    onExclude: () => toggleExcludeNode(id),
-                    onSelect: () => setSelectedNode(id),
+                    onCancel: () => toggleExcludeNode(id),
                   })}
                 />
               </VStack>
-            </CollapsibleSection>
-            <CollapsibleSection label={`Extra Filters`}>
-              <VStack alignItems="stretch">
-                <VStack alignItems="flex-start" as="section">
-                  <Heading as="h3" size="sm">
-                    These nodes have been excluded
-                  </Heading>
-                  <NodeList
-                    nodes={excludedNodes}
-                    mapProps={(id) => ({
-                      onCancel: () => toggleExcludeNode(id),
-                    })}
-                  />
-                </VStack>
-                <VStack alignItems="flex-start" as="section">
-                  <Heading as="h3" size="sm">
-                    Exclude with regex
-                  </Heading>
-                  {excludeNodesFilterInputView}
-                  <NodeList nodes={excludedNodesFromInput} />
-                </VStack>
+              <VStack alignItems="flex-start" as="section">
+                <Heading as="h3" size="sm">
+                  Exclude with regex
+                </Heading>
+                {excludeNodesFilterInputView}
+                <NodeList nodes={excludedNodesFromInput} />
               </VStack>
-            </CollapsibleSection>
-            <CollapsibleSection label={`Look up nodes`}>
-              <VStack alignItems="stretch">
-                {inViewView}
-                <NodesFilter
-                  nodes={inView ? renderedNodes : allNodes}
-                  mapProps={(id) => ({
-                    onExclude: () => toggleExcludeNode(id),
-                    onSelect: () => setSelectedNode(id),
-                  })}
-                />
-              </VStack>
-            </CollapsibleSection>
-            <Box height={360} />
-          </Accordion>
-        </VStack>
-      </HStack>
-    </LocalPathContextProvider>
+            </VStack>
+          </CollapsibleSection>
+          <CollapsibleSection label={`Look up nodes`}>
+            <VStack alignItems="stretch">
+              {inViewView}
+              <NodesFilter
+                nodes={inView ? renderedNodes : allNodes}
+                mapProps={(id) => ({
+                  onExclude: () => toggleExcludeNode(id),
+                  onSelect: () => setSelectedNode(id),
+                })}
+              />
+            </VStack>
+          </CollapsibleSection>
+          <Box height={360} />
+        </Accordion>
+      </VStack>
+    </HStack>
   );
 }

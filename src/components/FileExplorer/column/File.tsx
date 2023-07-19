@@ -1,6 +1,7 @@
-import { Divider, Spinner, VStack } from "@chakra-ui/react";
-import React, { useCallback } from "react";
+import { Divider, HStack, Spinner, VStack } from "@chakra-ui/react";
+import React, { useCallback, useMemo } from "react";
 import { MonoText } from "../../MonoText";
+import { OpenInVSCode } from "../../OpenInVSCode";
 import { useAbortableEffect } from "../../abortable";
 
 export function ColumnFile({ item, stack }: { item: FileSystemHandle; stack: FileSystemHandle[] }) {
@@ -59,11 +60,16 @@ export function ColumnFile({ item, stack }: { item: FileSystemHandle; stack: Fil
     ),
   );
 
+  const filePath = useMemo(() => stack.map((f) => f.name).join("/"), [stack]);
+
   return (
     <VStack alignItems="flex-start" minWidth={400} height="100%">
+      <HStack>
+        <OpenInVSCode layout="icon" path={filePath} />
       <MonoText as="h3" fontSize="md">
-        {stack.map((f) => f.name).join("/")}
+          {filePath}
       </MonoText>
+      </HStack>
 
       <Divider />
 

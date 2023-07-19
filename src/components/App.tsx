@@ -6,6 +6,7 @@ import { DependencyEntry } from "../services/serializers";
 import { run } from "../utils/general";
 import { FSLoadFilesButton } from "./FSLoadFilesButton";
 import { LoadDataButton } from "./LoadDataButton";
+import { LocalPathContextProvider } from "./LocalPathContext";
 import { Scan } from "./Scan";
 import { Viz } from "./Viz";
 
@@ -94,5 +95,9 @@ export function App() {
       break;
   }
 
-  return <ChakraProvider>{content}</ChakraProvider>;
+  return (
+    <ChakraProvider>
+      <LocalPathContextProvider>{content}</LocalPathContextProvider>
+    </ChakraProvider>
+  );
 }

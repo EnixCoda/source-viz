@@ -11,6 +11,7 @@ import {
   ModalHeader,
   ModalOverlay,
   Text,
+  Tooltip,
   VStack,
   useDisclosure,
 } from "@chakra-ui/react";
@@ -122,7 +123,11 @@ function OpenInVSCodeButton({
 }) {
   switch (layout) {
     case "icon":
-      return <IconButton aria-label="Open in VSCode" icon={<ExternalLinkIcon />} onClick={onTrigger} />;
+      return (
+        <Tooltip label="Open in VSCode">
+          <IconButton aria-label="Open in VSCode" icon={<ExternalLinkIcon />} onClick={onTrigger} />
+        </Tooltip>
+      );
     case "text":
       return <Button onClick={onTrigger}>Open in VS Code</Button>;
   }

@@ -43,12 +43,7 @@ function RecursiveColumn({
   );
   return (
     <>
-      <HStack
-        spacing={0}
-        flexShrink={0}
-        // height="100%"
-        overflow="auto"
-      >
+      <HStack flexShrink={0} overflow="auto">
         {switchRender(
           {
             directory: () => (
