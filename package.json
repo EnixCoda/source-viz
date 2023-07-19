@@ -8,9 +8,6 @@
     "build": "node scripts/build.js",
     "test": "node scripts/test.js"
   },
-  "bin": {
-    "source-viz": "./npm/cli/index.js"
-  },
   "prettier": {
     "printWidth": 120
   },
