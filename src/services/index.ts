@@ -1,3 +1,4 @@
+import { run } from "../utils/general";
 import { isRelativePath } from "../utils/path";
 import { DependencyEntry, DependencyMap } from "./serializers";
 
@@ -47,20 +48,28 @@ export async function getDependencyEntries(
       if (onFileError) {
         onFileError(file, err);
       } else {
-        console.error(`Error parsing "${file}", throwing because no \`onError\` handler provided`);
         throw err;
       }
     }
     onFileParsed?.(file);
   }
 
-  const entries: DependencyEntry[] = [...dependencyMap.entries()].map(([file, dependencies]) => [
-    file,
-    dependencies.map(
-      ([dependency, dynamicImport]) =>
-        [resolveDependencyFile(fs, files, file, dependency, resolveAllFiles), dynamicImport] as [string, boolean],
-    ),
-  ]);
+  const entries: DependencyEntry[] = [];
+  for (const [file, dependencies] of dependencyMap.entries()) {
+    const resolvedDependencies: DependencyEntry[1] = [];
+    for (const [dependency, dynamicImport] of dependencies) {
+      try {
+        resolvedDependencies.push([resolveDependencyFile(fs, files, file, dependency, resolveAllFiles), dynamicImport]);
+      } catch (err) {
+        if (onFileError) {
+          onFileError(file, err);
+        } else {
+          throw err;
+        }
+      }
+    }
+    entries.push([file, resolvedDependencies]);
+  }
 
   return entries;
 }
@@ -76,7 +85,15 @@ function resolveDependencyFile(
 
   if (!isRelativePath(dependencyRef)) return dependencyRef;
 
-  const baseResolved = fs.resolvePath(file, "..", dependencyRef);
+  const baseResolved = run(() => {
+    try {
+      return fs.resolvePath(file, "..", dependencyRef);
+    } catch (err) {
+      throw new Error(`Dependency "${dependencyRef}" cannot be resolved from "${file}": ${err}`, {
+        cause: err,
+      });
+    }
+  });
   // NodeJS-like resolve strategy:
   // "original" -->
   // 1. "original"
