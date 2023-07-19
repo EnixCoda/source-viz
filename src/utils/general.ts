@@ -27,9 +27,6 @@ export function switchRender<K extends string>(map: Partial<Record<K, () => Reac
   return map[state]?.();
 }
 
-export const resolvePath = (...ps: string[]): string =>
-  new URL(ps.join("/").replace(/\/+/g, "/"), "http://localhost").pathname.replace(/^\//, "");
-
 export const wrapNewStateForDispatching = <S>(s: S) => (typeof s === "function" ? () => s : s);
 
 export const transformFilterPatterns = (patterns: (string | RegExp)[]): RegExp[] =>

@@ -1,10 +1,11 @@
 import { ChevronLeftIcon, ChevronRightIcon, RepeatIcon } from "@chakra-ui/icons";
 import { Accordion, Box, Button, Center, HStack, Heading, IconButton, Progress, Text, VStack } from "@chakra-ui/react";
+import path from "path-browserify";
 import * as React from "react";
-import { MetaFilter, getDependencyEntries } from "../../services";
+import { FSLike, MetaFilter, getDependencyEntries } from "../../services";
 import * as babelParser from "../../services/parsers/babel";
 import { DependencyEntry } from "../../services/serializers";
-import { getFilterMatchers, resolvePath, switchRender } from "../../utils/general";
+import { getFilterMatchers, switchRender } from "../../utils/general";
 import { FS } from "../App";
 import { CollapsibleSection } from "../CollapsibleSection";
 import { ExportButton } from "../ExportButton";
@@ -72,17 +73,18 @@ export function Scanning({
 
           // phase: read & parse files
           const [, [isIncluded] = []] = filter ? getFilterMatchers(filter) : [];
-          const entries = await getDependencyEntries(
-            Array.from(pathMap.values()),
-            await babelParser.prepare(),
-            {
-              resolvePath,
-              readFile: async (path) => {
-                const handle = reversePathMap.get(path);
-                if (!handle) throw new Error(`No file found for "${path}"`);
-                return (await handle.getFile()).text();
-              },
+          const fsLike: FSLike = {
+            resolvePath: path.join,
+            readFile: async (path) => {
+              const handle = reversePathMap.get(path);
+              if (!handle) throw new Error(`No file found for "${path}"`);
+              return (await handle.getFile()).text();
             },
+          };
+          const entries = await getDependencyEntries(
+            new Set(pathMap.values()),
+            await babelParser.prepare(),
+            fsLike,
             isIncluded,
             {
               onFileError: (file, error) =>

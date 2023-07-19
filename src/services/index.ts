@@ -13,7 +13,7 @@ export interface FSLike {
 }
 
 export async function getDependencyEntries(
-  files: string[],
+  files: Set<string>,
   parse: Parse,
   fs: FSLike,
   isIncluded?: (path: string) => boolean,
@@ -65,7 +65,7 @@ export async function getDependencyEntries(
   return entries;
 }
 
-function getResolveDependencyFile(fs: FSLike, files: string[], resolveAllFiles: boolean) {
+function getResolveDependencyFile(fs: FSLike, files: Set<string>, resolveAllFiles: boolean) {
   return function resolveDependencyFile(file: string, importPath: string) {
     // Relative:
     //    ./
@@ -74,7 +74,7 @@ function getResolveDependencyFile(fs: FSLike, files: string[], resolveAllFiles: 
     //    path
     //    path/to/file
     //    /path/to/file
-    const isRelative = importPath.startsWith(".");
+    const isRelative = importPath.startsWith("."); // do not use `path.isAbsolute` here, because of usages like `lib/path`
     // TODO: handle path alias
     if (!isRelative) return importPath;
 
@@ -85,15 +85,15 @@ function getResolveDependencyFile(fs: FSLike, files: string[], resolveAllFiles: 
     // 2. "original.js", here also resolve ".tsx?" files
     // 3. "original/index.js"
     // 1.
-    if (files.includes(baseResolved)) return baseResolved;
+    if (files.has(baseResolved)) return baseResolved;
     // 2.
     const exts = ["js", "jsx", "mjs", "ts", "tsx", "mts"];
-    const withExt = exts.map((ext) => baseResolved + "." + ext).find((withExt) => files.includes(withExt));
+    const withExt = exts.map((ext) => baseResolved + "." + ext).find((withExt) => files.has(withExt));
     if (withExt) return withExt;
     // 3.
     const indexFile = exts
       .map((ext) => fs.resolvePath(baseResolved, "index." + ext))
-      .find((indexFile) => files.includes(indexFile));
+      .find((indexFile) => files.has(indexFile));
     if (indexFile) return indexFile;
 
     if (resolveAllFiles) throw new Error(`Dependency "${importPath}" cannot be resolved from "${file}"`);
