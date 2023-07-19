@@ -17,7 +17,7 @@ import { useGraphDecorator } from "./useGraphDecorator";
 import { useGraphInstance } from "./useGraphInstance";
 import { useGraphSize } from "./useGraphSize";
 
-export function useGraph(
+export function useGraph<E extends HTMLElement>(
   nodeSelection: ReactState<string | null>,
   {
     data,
@@ -41,13 +41,12 @@ export function useGraph(
     colorBy?: ColorByMode;
   },
 ) {
-  const ref = React.useRef<HTMLDivElement | null>(null);
   const selectedNodeRef = React.useRef<string | null>(null);
   React.useEffect(() => {
     selectedNodeRef.current = nodeSelection.value;
   }, [nodeSelection.value]);
 
-  const graph = useGraphInstance(ref);
+  const { ref, graph } = useGraphInstance<E>();
   useGraphBasicStyles(graph);
   useGraphSize(graph, width, height);
 

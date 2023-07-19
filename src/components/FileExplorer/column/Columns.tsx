@@ -2,7 +2,8 @@ import { HStack } from "@chakra-ui/react";
 import * as React from "react";
 import { MetaFilter } from "../../../services";
 import { ReactState } from "../../../types";
-import { getPatternsMatcher, switchRender } from "../../../utils/general";
+import { switchRender } from "../../../utils/general";
+import { getPatternsMatcher } from "../../../utils/pattern";
 import { ColumnDirectory } from "./Directory";
 import { ColumnFile } from "./File";
 

@@ -3,7 +3,8 @@ import * as React from "react";
 import { IIFC } from "react-iifc";
 import { Size2D, useResizeHandler } from "../../../hooks/useResizeHandler";
 import { MetaFilter } from "../../../services";
-import { carry, getPatternsMatcher, run } from "../../../utils/general";
+import { carry, run } from "../../../utils/general";
+import { getPatternsMatcher } from "../../../utils/pattern";
 import { HorizontalResizeHandler } from "../../HorizontalResizeHandler";
 
 export function ColumnDirectory({

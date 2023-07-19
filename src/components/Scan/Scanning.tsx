@@ -1,11 +1,12 @@
 import { ChevronLeftIcon, ChevronRightIcon, RepeatIcon } from "@chakra-ui/icons";
 import { Accordion, Box, Button, Center, HStack, Heading, IconButton, Progress, Text, VStack } from "@chakra-ui/react";
-import path from "path-browserify";
 import * as React from "react";
 import { FSLike, MetaFilter, getDependencyEntries } from "../../services";
 import * as babelParser from "../../services/parsers/babel";
 import { DependencyEntry } from "../../services/serializers";
-import { getFilterMatchers, switchRender } from "../../utils/general";
+import { switchRender } from "../../utils/general";
+import { resolvePath } from "../../utils/path";
+import { getFilterMatchers } from "../../utils/pattern";
 import { FS } from "../App";
 import { CollapsibleSection } from "../CollapsibleSection";
 import { ExportButton } from "../ExportButton";
@@ -74,7 +75,7 @@ export function Scanning({
           // phase: read & parse files
           const [, [isIncluded] = []] = filter ? getFilterMatchers(filter) : [];
           const fsLike: FSLike = {
-            resolvePath: path.join,
+            resolvePath,
             readFile: async (path) => {
               const handle = reversePathMap.get(path);
               if (!handle) throw new Error(`No file found for "${path}"`);

@@ -1,3 +1,4 @@
+import { isRelativePath } from "../utils/path";
 import { DependencyEntry, DependencyMap } from "./serializers";
 
 export type MetaFilter = {
@@ -53,51 +54,48 @@ export async function getDependencyEntries(
     onFileParsed?.(file);
   }
 
-  const resolveDependencyFile = getResolveDependencyFile(fs, files, resolveAllFiles);
-
   const entries: DependencyEntry[] = [...dependencyMap.entries()].map(([file, dependencies]) => [
     file,
     dependencies.map(
-      ([dependency, dynamicImport]) => [resolveDependencyFile(file, dependency), dynamicImport] as [string, boolean],
+      ([dependency, dynamicImport]) =>
+        [resolveDependencyFile(fs, files, file, dependency, resolveAllFiles), dynamicImport] as [string, boolean],
     ),
   ]);
 
   return entries;
 }
 
-function getResolveDependencyFile(fs: FSLike, files: Set<string>, resolveAllFiles: boolean) {
-  return function resolveDependencyFile(file: string, importPath: string) {
-    // Relative:
-    //    ./
-    //    ../
-    // Absolute:
-    //    path
-    //    path/to/file
-    //    /path/to/file
-    const isRelative = importPath.startsWith("."); // do not use `path.isAbsolute` here, because of usages like `lib/path`
-    // TODO: handle path alias
-    if (!isRelative) return importPath;
+function resolveDependencyFile(
+  fs: FSLike,
+  files: Set<string>,
+  file: string,
+  dependencyRef: string,
+  resolveAllFiles: boolean,
+) {
+  // TODO: handle path alias
 
-    const baseResolved = fs.resolvePath(file, "..", importPath);
-    // NodeJS-like resolve strategy:
-    // "original" -->
-    // 1. "original"
-    // 2. "original.js", here also resolve ".tsx?" files
-    // 3. "original/index.js"
-    // 1.
-    if (files.has(baseResolved)) return baseResolved;
-    // 2.
-    const exts = ["js", "jsx", "mjs", "ts", "tsx", "mts"];
-    const withExt = exts.map((ext) => baseResolved + "." + ext).find((withExt) => files.has(withExt));
-    if (withExt) return withExt;
-    // 3.
-    const indexFile = exts
-      .map((ext) => fs.resolvePath(baseResolved, "index." + ext))
-      .find((indexFile) => files.has(indexFile));
-    if (indexFile) return indexFile;
+  if (!isRelativePath(dependencyRef)) return dependencyRef;
 
-    if (resolveAllFiles) throw new Error(`Dependency "${importPath}" cannot be resolved from "${file}"`);
+  const baseResolved = fs.resolvePath(file, "..", dependencyRef);
+  // NodeJS-like resolve strategy:
+  // "original" -->
+  // 1. "original"
+  // 2. "original.js", here also resolve ".tsx?" files
+  // 3. "original/index.js"
 
-    return baseResolved;
-  };
+  // 1.
+  if (files.has(baseResolved)) return baseResolved;
+  // 2.
+  const exts = ["js", "jsx", "mjs", "ts", "tsx", "mts"];
+  const withExt = exts.map((ext) => baseResolved + "." + ext).find((withExt) => files.has(withExt));
+  if (withExt) return withExt;
+  // 3.
+  const indexFile = exts
+    .map((ext) => fs.resolvePath(baseResolved, "index." + ext))
+    .find((indexFile) => files.has(indexFile));
+  if (indexFile) return indexFile;
+
+  if (resolveAllFiles) throw new Error(`Dependency "${dependencyRef}" cannot be resolved from "${file}"`);
+
+  return baseResolved;
 }

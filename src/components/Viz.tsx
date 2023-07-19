@@ -2,6 +2,8 @@ import { Accordion, Box, Button, Divider, HStack, Heading, ModalBody, Select, Te
 import * as React from "react";
 import { useWindowSize } from "react-use";
 import { useGraph } from "../hooks/graph/useGraph";
+import { useClampedSize } from "../hooks/useClampedSize";
+import { useObserveElementSize } from "../hooks/useObserveElementSize";
 import { Size2D, useResizeHandler } from "../hooks/useResizeHandler";
 import { useSet } from "../hooks/useSet";
 import { useCheckboxView } from "../hooks/view/useCheckboxView";
@@ -27,8 +29,6 @@ import { NodeList } from "./NodeList";
 import { NodesFilter } from "./NodesFilter";
 import { OpenInVSCode, SettingsOfOpenInVSCode } from "./OpenInVSCode";
 import { EntriesTable } from "./Scan/EntriesTable";
-import { useClampedSize } from "./useClampedSize";
-import { useObserveElementSize } from "./useObserveElementSize";
 
 export function Viz({
   entries,
@@ -171,7 +171,7 @@ export function Viz({
   const [vizContainerRef, vizContainerSize] = useObserveElementSize();
 
   const [selectedNode, setSelectedNode] = React.useState<string | null>(null);
-  const [ref, render] = useGraph(
+  const [ref, render] = useGraph<HTMLDivElement>(
     {
       value: selectedNode,
       setValue: setSelectedNode,
