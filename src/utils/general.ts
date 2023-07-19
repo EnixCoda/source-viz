@@ -43,3 +43,30 @@ export const clamp = (value: number, min = Number.NEGATIVE_INFINITY, max = Numbe
 
 export const compareStrings = (a: string, b: string, order: Order = "asc") =>
   (order === "asc" ? 1 : -1) * (a === b ? 0 : a > b ? 1 : -1);
+
+export async function checkIsTextFile(file: File) {
+  const txtStream = new TextDecoderStream();
+  // Thank you for this `any`, declaration merging!
+  const stream = file.stream() as any as ReadableStream<Uint8Array>;
+  stream.pipeTo(txtStream.writable);
+  const reader = txtStream.readable.getReader();
+
+  let threshold = 2 ** 10; // 1KB
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    if (value) {
+      // not recognizable bytes will be turn into below symbol
+      // write the symbol in unicode format to prevent this file itself
+      // from being recognized as non-text file
+      if (value.includes("\ufffd")) {
+        return false;
+      }
+      threshold -= value.length;
+      if (threshold <= 0) break;
+    }
+  }
+
+  return true;
+}

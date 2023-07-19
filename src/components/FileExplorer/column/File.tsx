@@ -1,8 +1,9 @@
 import { Divider, HStack, Spinner, VStack } from "@chakra-ui/react";
 import React, { useCallback, useMemo } from "react";
+import { checkIsTextFile } from "../../../utils/general";
+import { useAbortableEffect } from "../../abortable";
 import { MonoText } from "../../MonoText";
 import { OpenInVSCode } from "../../OpenInVSCode";
-import { useAbortableEffect } from "../../abortable";
 
 export function ColumnFile({ item, stack }: { item: FileSystemHandle; stack: FileSystemHandle[] }) {
   type State =
@@ -40,19 +41,24 @@ export function ColumnFile({ item, stack }: { item: FileSystemHandle; stack: Fil
   useAbortableEffect(
     useCallback(
       () => ({
-        getAsyncGenerator: async function* () {
+        async *getAsyncGenerator() {
           try {
             dispatch({ type: "loading" });
             if (item instanceof FileSystemFileHandle) {
-              const file = (yield await item.getFile()) as File;
-              const text = (yield await file.text()) as string;
+              const file: File = yield await item.getFile();
+              const sizeLimit = 2 ** 24; // 16MB
+              if (file.size > sizeLimit) throw new Error(`This file is too large to load`);
+
+              const isTextFile = await checkIsTextFile(file);
+              if (!isTextFile) throw new Error("Not a text file");
+
+              const text = await file.text();
               dispatch({ type: "loaded", payload: text });
             } else {
-              dispatch({ type: "loaded", payload: "Not a file" });
+              throw new Error("Not a file");
             }
           } catch (e) {
             dispatch({ type: "loaded", payload: `${e}` });
-          } finally {
           }
         },
       }),
@@ -66,9 +72,9 @@ export function ColumnFile({ item, stack }: { item: FileSystemHandle; stack: Fil
     <VStack alignItems="flex-start" minWidth={400} height="100%">
       <HStack>
         <OpenInVSCode layout="icon" path={filePath} />
-      <MonoText as="h3" fontSize="md">
+        <MonoText as="h3" fontSize="md">
           {filePath}
-      </MonoText>
+        </MonoText>
       </HStack>
 
       <Divider />
