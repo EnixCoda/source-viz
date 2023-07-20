@@ -82,7 +82,7 @@ export function ColumnDirectory({
     );
 
   return (
-    <>
+    <HStack flexShrink={0} overflow="auto">
       <List ref={ref} width={width} height="100%" overflowY="auto">
         {files.map((file) => (
           <ListItem key={file.name} onClick={() => onSelect?.(file)} whiteSpace="nowrap">
@@ -143,6 +143,6 @@ export function ColumnDirectory({
         ))}
       </List>
       <HorizontalResizeHandler onPointerDown={onPointerDown} onDoubleClick={makeAllItemsVisible} />
-    </>
+    </HStack>
   );
 }

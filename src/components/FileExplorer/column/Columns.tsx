@@ -43,25 +43,23 @@ function RecursiveColumn({
   );
   return (
     <>
-      <HStack flexShrink={0} overflow="auto">
-        {switchRender(
-          {
-            directory: () => (
-              <ColumnDirectory
-                fs={cur}
-                selected={next}
-                onSelect={(f) => $stack.setValue(stack.slice(0, depth + 1).concat(f))}
-                isExcluded={isItemExcluded?.(path)}
-                filter={filter}
-                scrollIntoView
-                stack={stack}
-              />
-            ),
-            file: () => <ColumnFile item={cur} stack={stack} />,
-          },
-          cur.kind,
-        )}
-      </HStack>
+      {switchRender(
+        {
+          directory: () => (
+            <ColumnDirectory
+              fs={cur}
+              selected={next}
+              onSelect={(f) => $stack.setValue(stack.slice(0, depth + 1).concat(f))}
+              isExcluded={isItemExcluded?.(path)}
+              filter={filter}
+              scrollIntoView
+              stack={stack}
+            />
+          ),
+          file: () => <ColumnFile item={cur} stack={stack} />,
+        },
+        cur.kind,
+      )}
       {next && <RecursiveColumn depth={depth + 1} $stack={$stack} isExcluded={isExcluded} filter={filter} />}
     </>
   );

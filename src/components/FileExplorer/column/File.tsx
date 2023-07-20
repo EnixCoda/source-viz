@@ -1,4 +1,4 @@
-import { Divider, HStack, Spinner, VStack } from "@chakra-ui/react";
+import { Box, Divider, HStack, Spinner, VStack } from "@chakra-ui/react";
 import React, { useCallback, useMemo } from "react";
 import { checkIsTextFile } from "../../../utils/general";
 import { useAbortableEffect } from "../../abortable";
@@ -69,7 +69,7 @@ export function ColumnFile({ item, stack }: { item: FileSystemHandle; stack: Fil
   const filePath = useMemo(() => stack.map((f) => f.name).join("/"), [stack]);
 
   return (
-    <VStack alignItems="flex-start" minWidth={400} height="100%">
+    <VStack alignItems="stretch" minWidth={400} maxWidth="100%" height="100%">
       <HStack>
         <OpenInVSCode layout="icon" path={filePath} />
         <MonoText as="h3" fontSize="md">
@@ -82,9 +82,11 @@ export function ColumnFile({ item, stack }: { item: FileSystemHandle; stack: Fil
       {loading ? (
         <Spinner />
       ) : (
-        <MonoText as="pre" fontSize="xs">
-          {content}
-        </MonoText>
+        <Box overflow="auto">
+          <MonoText as="pre" fontSize="xs">
+            {content}
+          </MonoText>
+        </Box>
       )}
     </VStack>
   );

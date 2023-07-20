@@ -1,5 +1,5 @@
 import { ChevronLeftIcon, InfoIcon } from "@chakra-ui/icons";
-import { Box, Button, Divider, Flex, HStack, Heading, IconButton, Text, VStack } from "@chakra-ui/react";
+import { Box, Button, Divider, Flex, Heading, HStack, IconButton, Text, VStack } from "@chakra-ui/react";
 import * as React from "react";
 import { MetaFilter } from "../../services";
 import { FS } from "../App";
@@ -83,6 +83,7 @@ export function Filter({
           </VStack>
         </VStack>
       </VStack>
+      <Divider orientation="vertical" />
       <Flex flex={1} overflow="auto" height="100%">
         <FileExplorer files={files} filter={value} />
       </Flex>
