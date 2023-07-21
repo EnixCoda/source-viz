@@ -15,7 +15,7 @@ function FilterInput({ value, onChange }: { value: string; onChange(value: strin
 export function FilterInputList({ values, onChange }: { values: string[]; onChange(values: string[]): void }) {
   return (
     <VStack direction="column">
-      <List display="inline-flex" flexDirection="column" maxHeight={600} gap={1}>
+      <List display="inline-flex" flexDirection="column" maxHeight={600} gap={1} paddingLeft={1}>
         {values.map((value, index) => (
           <ListItem key={index} display="inline-flex" gap={1}>
             <IIFC>

@@ -237,12 +237,12 @@ export function Viz({
 
   return (
     <HStack display="inline-flex" alignItems="stretch" spacing={0} maxHeight="100%" height="100%">
-      <VStack alignItems="stretch" height="100vh" width={width}>
-        <HStack justifyContent="space-between" padding={1}>
+      <VStack alignItems="stretch" height="100vh" width={width} spacing={0}>
+        <HStack justifyContent="space-between" padding={2}>
           {backButton}
           {vizModeView}
         </HStack>
-        <Divider />
+        <Divider height="auto" />
         <Box ref={vizContainerRef} flex={1} overflowY="auto">
           <div ref={ref} style={{ display: vizMode === "table" ? "none" : undefined }} />
           <div style={{ display: vizMode === "graph" ? "none" : undefined }}>
@@ -267,8 +267,8 @@ export function Viz({
             <CollapsibleSection label={`Graph Settings`}>
               <VStack alignItems="stretch">
                 <div>{graphModeView}</div>
-                <div>
-                  {graphMode === "cycles-only" && (
+                {graphMode === "cycles-only" && (
+                  <div>
                     <ModalButton
                       title={"Cycles"}
                       renderTrigger={({ onOpen }) => <Button onClick={onOpen}>Checkout Cycles</Button>}
@@ -286,8 +286,8 @@ export function Viz({
                         </ModalBody>
                       )}
                     </ModalButton>
-                  )}
-                </div>
+                  </div>
+                )}
                 <div>{colorByView}</div>
                 <div>{fixNodeOnDragEndView}</div>
                 <div>{renderAsTextView}</div>

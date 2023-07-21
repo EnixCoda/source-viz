@@ -14,6 +14,7 @@ import { useView } from "./useView";
 export type UseInputViewConfig = UseFormControlConfig<string, InputProps>;
 
 export function useInputView({ defaultValue = "", inputProps, ...formControlViewProps }: UseInputViewConfig = {}) {
+  const isInvalid = inputProps?.isInvalid || !!formControlViewProps?.errorMessage;
   return useView(defaultValue, (state, setState) => {
     return (
       <FormControlView {...formControlViewProps}>
@@ -21,7 +22,8 @@ export function useInputView({ defaultValue = "", inputProps, ...formControlView
           value={state}
           onChange={(e) => setState(e.target.value)}
           {...inputProps}
-          isInvalid={inputProps?.isInvalid || !!formControlViewProps?.errorMessage}
+          isInvalid={isInvalid}
+          focusBorderColor={isInvalid ? "red.500" : undefined}
         />
       </FormControlView>
     );
