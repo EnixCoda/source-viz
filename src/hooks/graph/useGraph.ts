@@ -3,7 +3,7 @@ import * as React from "react";
 import { useMemo } from "react";
 import { ReactState } from "../../types";
 import { PreparedData } from "../../utils/graphData";
-import { ColorByMode, cloneData, getColorByDataMapper } from "../../utils/graphDataMappers";
+import { ColorByMode, cloneData, getColorByDataMapper, getNodeId } from "../../utils/graphDataMappers";
 import {
   decorateForColorBy,
   freezeNodeOnDragEnd,
@@ -49,6 +49,16 @@ export function useGraph<E extends HTMLElement>(
   const { ref, graph } = useGraphInstance<E>();
   useGraphBasicStyles(graph);
   useGraphSize(graph, width, height);
+
+  graph?.linkLineDash((link) => {
+    const source = getNodeId(link.source);
+    const target = getNodeId(link.target);
+    const dashLength = 5;
+    const gapLength = 5;
+    return source !== undefined && target !== undefined && data.asyncRefMap.get(source)?.has(target)
+      ? [dashLength, gapLength]
+      : [];
+  });
 
   // decorators
   useGraphDecorator(

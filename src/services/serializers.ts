@@ -3,21 +3,15 @@ import { safeMapGet } from "../utils/general";
 import { parseCSV, stringifyToCSV } from "./serialize.csv";
 import { parseJSON, stringifyToJSON } from "./serialize.json";
 
-export type DependencyMap = Map<string, [dependency: string, isAsync: boolean][]>;
-type KeyOfMap<M> = M extends Map<infer K, unknown> ? K : never;
-type ValueOfMap<M> = M extends Map<unknown, infer V> ? V : never;
+type Dependency = [dependency: string, isAsync: boolean];
+export type DependencyMap = Map<string, Dependency[]>;
 
-export type ValueOf<X> = X[keyof X];
-
-export type DependencyEntry = [KeyOfMap<DependencyMap>, ValueOfMap<DependencyMap>];
-const jsonSchema = z.array(z.tuple([z.string(), z.array(z.tuple([z.string(), z.boolean()]))]));
-
-type Expect<T extends true> = T;
-type Equal<X, Y> = (<T>() => T extends X ? 1 : 2) extends <T>() => T extends Y ? 1 : 2 ? true : false;
+export type DependencyEntry = [KeyOfMap<DependencyMap>, Dependency[]];
+const zDependencyRecord = z.tuple([z.string(), z.string(), z.boolean()]);
+export type DependencyRecord = [file: KeyOfMap<DependencyMap>, dependency: string, isAsync: boolean];
+const zDependencyEntry = z.array(z.tuple([z.string(), z.array(z.tuple([z.string(), z.boolean()]))]));
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-type __check_type_of_json_schema = Expect<Equal<DependencyEntry[], z.infer<typeof jsonSchema>>>;
-
-export type DependencyRecord = [file: string, dependency: string, isAsync: boolean];
+type __check_type_of_json_schema = Expect<Equal<DependencyEntry[], z.infer<typeof zDependencyEntry>>>;
 
 function flatEntries(entires: DependencyEntry[]): DependencyRecord[] {
   return entires.flatMap(([file, dependencies]) =>
@@ -33,20 +27,24 @@ export const entrySerializers: Record<SupportExts, (entires: DependencyEntry[]) 
 
 export const entryParsers: Record<SupportExts, (source: string) => DependencyEntry[]> = {
   csv: (source: string) => {
-    const records = parseCSV<DependencyRecord>(source);
+    try {
+      const records = parseCSV(source, zDependencyRecord.parse);
 
-    const map: DependencyMap = new Map();
-    for (const [file, dep, isAsync] of records) {
-      const d = safeMapGet(map, file, () => []);
-      d.push([dep, isAsync]);
+      const map: DependencyMap = new Map();
+      for (const [file, dep, isAsync] of records) {
+        const d = safeMapGet(map, file, () => []);
+        d.push([dep, isAsync]);
+      }
+
+      const entries: DependencyEntry[] = Array.from(map.entries());
+      return entries;
+    } catch (err) {
+      throw new Error("Invalid JSON content for entries", { cause: err });
     }
-
-    const entries: DependencyEntry[] = Array.from(map.entries());
-    return entries;
   },
   json: (source: string) => {
     try {
-      const result = jsonSchema.safeParse(parseJSON(source));
+      const result = zDependencyEntry.safeParse(parseJSON(source));
       if (!result.success) throw new Error();
       return result.data;
     } catch (err) {
@@ -55,5 +53,5 @@ export const entryParsers: Record<SupportExts, (source: string) => DependencyEnt
   },
 };
 
-export const getEntrySerializerByFileName = (output: string): ValueOf<typeof entrySerializers> | null =>
-  entrySerializers[(output.split(".").pop() || "") as SupportExts];
+export const getEntrySerializerByFileName = (fileName: string): ValueOf<typeof entrySerializers> | null =>
+  entrySerializers[(fileName.split(".").pop() || "") as SupportExts] ?? null;

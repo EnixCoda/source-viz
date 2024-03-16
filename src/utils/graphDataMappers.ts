@@ -13,22 +13,23 @@ type ColorByDepthMode = "color-by-depth";
 
 export type ColorByMode = ColorByHeatMode | ColorByDepthMode;
 
+export const getNodeId = (node: LinkObject["source"] | LinkObject["target"]) =>
+  typeof node === "string" ? node : node?.id;
+
 export function colorByHeat(mode: ColorByHeatMode) {
   type NodeObjectWithHeat = NodeObject & {
     [key in ColorByHeatMode]?: number;
   };
 
   return (data: GraphData) => {
-    const getId = (node: LinkObject["source"] | LinkObject["target"]) => (typeof node === "string" ? node : node?.id);
-
     const countMap = new Map<NodeObject["id"], number>();
     data.links.forEach((link) => {
       if (mode !== "color-by-heat-target") {
-        const source = getId(link.source);
+        const source = getNodeId(link.source);
         if (source !== undefined) countMap.set(source, (countMap.get(source) || 0) + 1);
       }
       if (mode !== "color-by-heat-source") {
-        const target = getId(link.target);
+        const target = getNodeId(link.target);
         if (target !== undefined) countMap.set(target, (countMap.get(target) || 0) + 1);
       }
     });

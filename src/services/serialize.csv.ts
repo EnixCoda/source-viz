@@ -1,5 +1,6 @@
 type SerializablePrimitives = string | number | boolean;
 
+// TODO: use a more serious CSV parser, that handles escaping
 export const stringifyToCSV = (data: SerializablePrimitives[][], title?: string[]) =>
   ([] as SerializablePrimitives[][])
     .concat(title ? [title] : [])
@@ -7,22 +8,21 @@ export const stringifyToCSV = (data: SerializablePrimitives[][], title?: string[
     .map((cols) => cols.join(","))
     .join("\n");
 
-export function parseCSV<T extends any[] = string[]>(
+export function parseCSV<T extends any[]>(
   csv: string,
+  parseRecord: (record: string[]) => T,
   {
-    parseRecord = (record) => record as T,
     skipFirstLine = false,
     lineSeparator = "\n",
     colSeparator = ",",
   }: {
-    parseRecord?: (record: string[]) => T;
     skipFirstLine?: boolean;
     lineSeparator?: string;
     colSeparator?: string;
   } = {},
 ): T[] {
   const lines = csv.split(lineSeparator);
-
   if (skipFirstLine) lines.shift();
+
   return lines.map((line) => parseRecord(line.split(colSeparator)));
 }

@@ -12,13 +12,21 @@ export function prepareGraphData(data: DependencyEntry[]) {
   const dependents = new Set<NodeId>(data.map(([file]) => file).filter((file) => !dependencies.has(file)));
   const dependencyMap = new Map<NodeId, Set<NodeId>>(); // file -> deps
   const dependantMap = new Map<NodeId, Set<NodeId>>(); // dep -> files
+  const syncRefMap = new Map<NodeId, Set<NodeId>>();
+  const asyncRefMap = new Map<NodeId, Set<NodeId>>();
   for (const [file, deps] of data) {
-    for (const [dep] of deps) {
+    for (const [dep, isAsync] of deps) {
       safeMapGet(dependencyMap, file, () => new Set<NodeId>()).add(dep);
       safeMapGet(dependantMap, dep, () => new Set<NodeId>()).add(file);
+      if (!isAsync) {
+        safeMapGet(syncRefMap, file, () => new Set<NodeId>()).add(dep);
+        asyncRefMap.get(file)?.delete(dep);
+      } else if (!syncRefMap.get(file)?.has(dep)) {
+        safeMapGet(asyncRefMap, file, () => new Set<NodeId>()).add(dep);
+      }
     }
   }
-  return { nodes, dependantMap, dependencyMap, dependencies, dependents };
+  return { nodes, dependantMap, dependencyMap, dependencies, dependents, asyncRefMap };
 }
 
 export type PreparedData = ReturnType<typeof prepareGraphData>;
