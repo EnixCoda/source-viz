@@ -114,6 +114,10 @@ export function Viz({
     label: "Fix node on drag end",
     defaultValue: true,
   });
+  const [separateAsyncImportsView, separateAsyncImports] = useCheckboxView({
+    label: "Separate async import",
+    defaultValue: false,
+  });
   const [renderAsTextView, renderAsText] = useCheckboxView({
     label: "Render as Text",
     defaultValue: true,
@@ -194,8 +198,9 @@ export function Viz({
         leave: restrictedLeaves,
         excludes: allExcludedNodes,
         graphMode,
+        separateAsyncImports,
       }),
-    [data, restrictedRoots, restrictedLeaves, graphMode, allExcludedNodes],
+    [data, restrictedRoots, restrictedLeaves, graphMode, allExcludedNodes, separateAsyncImports],
   );
 
   React.useEffect(() => {
@@ -293,6 +298,7 @@ export function Viz({
                 <div>{renderAsTextView}</div>
                 <div>{fixFontSizeView}</div>
                 <div>{fixedFontSizeView}</div>
+                <div>{separateAsyncImportsView}</div>
               </VStack>
             </CollapsibleSection>
           )}

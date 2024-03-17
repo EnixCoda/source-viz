@@ -1,6 +1,7 @@
 import { NodeObject } from "force-graph";
 import { DependencyEntry } from "../services/serializers";
 import { safeMapGet } from "./general";
+import { w } from "./w";
 
 type NodeId = NodeObject["id"];
 
@@ -34,19 +35,21 @@ export type PreparedData = ReturnType<typeof prepareGraphData>;
 type DAGPruneMode = "less leave" | "less roots";
 
 export const filterGraphData = (
-  { dependantMap, dependencyMap }: PreparedData,
+  { dependantMap, dependencyMap, asyncRefMap }: PreparedData,
   {
     roots,
     leave,
     excludes = new Set(),
     graphMode,
     dagPruneMode,
+    separateAsyncImports,
   }: {
     roots?: Set<NodeId>;
     leave?: Set<NodeId>;
     excludes?: Set<NodeId>;
     graphMode?: GraphMode;
     dagPruneMode?: DAGPruneMode | null;
+    separateAsyncImports?: boolean;
   } = {},
 ) => {
   const preventCycle = graphMode === "dag";
@@ -171,8 +174,12 @@ export const filterGraphData = (
   return {
     cycles,
     nodes: [...nodes.values()].map((id) => ({ id })),
-    links: [...links.entries()]
-      .map(([source, targets]) => [...targets.values()].map((target) => ({ source, target })))
-      .flat(),
+    links: w(
+      [...links.entries()]
+        .map(([source, targets]) => [...targets.values()].map((target) => ({ source, target })))
+        .flat(),
+    )((links) =>
+      separateAsyncImports ? links.filter(({ source, target }) => !asyncRefMap.get(source)?.has(target)) : links,
+    ),
   };
 };
