@@ -2,7 +2,6 @@ import { Table, TableProps, Tbody, Td, Th, Thead, Tr } from "@chakra-ui/react";
 import * as React from "react";
 import { DependencyEntry } from "../../services/serializers";
 import { Order } from "../../types";
-import { compareStrings } from "../../utils/general";
 import { MonoText } from "../MonoText";
 
 export function EntriesTable({
@@ -18,20 +17,6 @@ export function EntriesTable({
   order?: Order;
   onClickSelect?: (dependency: string) => void;
 }) {
-  const ordered = React.useMemo(
-    () =>
-      entries
-        .map(
-          ([file, dependencies]) =>
-            [
-              file,
-              dependencies.map((_) => [..._] as typeof _).sort(([a], [b]) => compareStrings(a, b, order)),
-            ] satisfies (typeof entries)[number],
-        )
-        .sort(([a], [b]) => compareStrings(a, b, order)),
-    [entries, order],
-  );
-
   return (
     <Table size="sm" {...tableProps}>
       <Thead>
@@ -46,10 +31,10 @@ export function EntriesTable({
         </Tr>
       </Thead>
       <Tbody>
-        {ordered.map(([file, dependencies]) => (
+        {entries.map(([file, dependencies]) => (
           <React.Fragment key={file}>
             {dependencies.map(([dependency, isAsync], index, arr) => (
-              <Tr key={dependency} verticalAlign="baseline">
+              <Tr key={`${dependency}-${isAsync}`} verticalAlign="baseline">
                 {index === 0 ? (
                   <Td rowSpan={arr.length}>
                     {onClickSelect ? (

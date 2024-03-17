@@ -3,7 +3,7 @@ import { safeMapGet } from "../utils/general";
 import { parseCSV, stringifyToCSV } from "./serialize.csv";
 import { parseJSON, stringifyToJSON } from "./serialize.json";
 
-type Dependency = [dependency: string, isAsync: boolean];
+export type Dependency = [dependency: string, isAsync: boolean];
 export type DependencyMap = Map<string, Dependency[]>;
 
 export type DependencyEntry = [KeyOfMap<DependencyMap>, Dependency[]];

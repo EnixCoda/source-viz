@@ -5,6 +5,7 @@ import { FSLike, MetaFilter, getDependencyEntries } from "../../services";
 import * as babelParser from "../../services/parsers/babel";
 import { DependencyEntry } from "../../services/serializers";
 import { switchRender } from "../../utils/general";
+import { getOrganizedEntries } from "../../utils/getOrganizedEntries";
 import { resolvePath } from "../../utils/path";
 import { getFilterMatchers } from "../../utils/pattern";
 import { FS } from "../App";
@@ -96,7 +97,7 @@ export function Scanning({
             },
           );
 
-          setEntries(entries);
+          setEntries(getOrganizedEntries(entries));
         } finally {
           dispatch({ type: "done" });
         }

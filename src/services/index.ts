@@ -1,6 +1,6 @@
 import { run } from "../utils/general";
 import { isRelativePath } from "../utils/path";
-import { DependencyEntry, DependencyMap } from "./serializers";
+import { Dependency, DependencyEntry, DependencyMap } from "./serializers";
 
 export type MetaFilter = {
   includes: string[];
@@ -56,7 +56,7 @@ export async function getDependencyEntries(
 
   const entries: DependencyEntry[] = [];
   for (const [file, dependencies] of dependencyMap.entries()) {
-    const resolvedDependencies: DependencyEntry[1] = [];
+    const resolvedDependencies: Dependency[] = [];
     for (const [dependency, dynamicImport] of dependencies) {
       try {
         resolvedDependencies.push([resolveDependencyFile(fs, files, file, dependency, resolveAllFiles), dynamicImport]);

@@ -1,5 +1,6 @@
 import { ButtonProps } from "@chakra-ui/react";
 import { DependencyEntry, entryParsers } from "../services/serializers";
+import { getOrganizedEntries } from "../utils/getOrganizedEntries";
 import { LoadFilesButton } from "./LoadFilesButton";
 
 export function LoadDataButton({
@@ -25,7 +26,7 @@ export function LoadDataButton({
           const parser = entryParsers[ext as keyof typeof entryParsers];
           if (parser) {
             // TODO: handle error
-            onLoad(parser(await file.text()));
+            onLoad(getOrganizedEntries(parser(await file.text())));
           }
         }
       }}
