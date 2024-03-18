@@ -1,5 +1,4 @@
 import { Dependency, DependencyEntry } from "../services/serializers";
-import { Order } from "../types";
 import { compareStrings } from "./general";
 import { w } from "./w";
 

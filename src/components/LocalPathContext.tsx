@@ -1,5 +1,4 @@
 import { createContext, useMemo, useState } from "react";
-import { ReactState } from "../types";
 
 export const LocalPathContext = createContext<ReactState<string | null> | null>(null);
 

@@ -1,7 +1,6 @@
 import { Table, TableProps, Tbody, Td, Th, Thead, Tr } from "@chakra-ui/react";
 import * as React from "react";
 import { DependencyEntry } from "../../services/serializers";
-import { Order } from "../../types";
 import { MonoText } from "../MonoText";
 
 export function EntriesTable({

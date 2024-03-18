@@ -1,6 +1,5 @@
 import { List, ListItem, ListProps, Text } from "@chakra-ui/react";
 import { useMemo } from "react";
-import { Order } from "../types";
 import { compareStrings } from "../utils/general";
 import { NodeItem, NodeItemProps } from "./NodeItem";
 

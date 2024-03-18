@@ -1,5 +1,3 @@
-import { Order } from "../types";
-
 export function safeRegExp(raw: string, flags: string = "") {
   try {
     return raw ? new RegExp(raw, flags) : null;

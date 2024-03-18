@@ -1,9 +1,8 @@
 import { DagMode, GraphData } from "force-graph";
 import * as React from "react";
 import { useMemo } from "react";
-import { ReactState } from "../../types";
 import { PreparedData } from "../../utils/graphData";
-import { ColorByMode, cloneData, getColorByDataMapper, getNodeId } from "../../utils/graphDataMappers";
+import { cloneData, ColorByMode, getColorByDataMapper, getNodeId } from "../../utils/graphDataMappers";
 import {
   decorateForColorBy,
   freezeNodeOnDragEnd,
