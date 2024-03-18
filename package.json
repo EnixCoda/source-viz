@@ -79,6 +79,7 @@
     "postcss-normalize": "^10.0.1",
     "postcss-preset-env": "^7.0.1",
     "prettier": "^3.0.0",
+    "prettier-2": "npm:prettier@^2",
     "prompts": "^2.4.2",
     "resolve": "^1.20.0",
     "resolve-url-loader": "^4.0.0",
@@ -106,6 +107,7 @@
       "react-app-polyfill/jsdom"
     ],
     "setupFilesAfterEnv": [],
+    "prettierPath": "prettier-2",
     "testMatch": [
       "<rootDir>/src/**/__tests__/**/*.{js,jsx,ts,tsx}",
       "<rootDir>/src/**/*.{spec,test}.{js,jsx,ts,tsx}"

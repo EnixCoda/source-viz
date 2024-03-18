@@ -36,7 +36,7 @@ export function getOrganizedEntries(entries: DependencyEntry[], order?: Order): 
         w(
           dependencies.sort(
             ([a, isAsyncA], [b, isAsyncB]) =>
-              compareStrings(a, b, order) && (isAsyncA === isAsyncB ? 0 : isAsyncA ? 1 : -1),
+              compareStrings(a, b, order) || (isAsyncA === isAsyncB ? 0 : isAsyncA ? 1 : -1),
           ),
         )(deduplicateDependencies),
       ] satisfies (typeof entries)[number],
