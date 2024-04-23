@@ -10,8 +10,7 @@ type ViewProps<T, InputProps> = {
 export type UseFormControlConfig<T, InputProps> = ViewProps<T, InputProps> & FormControlViewProps;
 
 // ts check no common keys between `ViewProps` and `FormControlViewProps`
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-type __guard__ = Expect<Equal<keyof FormControlViewProps & keyof ViewProps<unknown, unknown>, never>>;
+export type __test__ = Expect<Equal<keyof FormControlViewProps & keyof ViewProps<unknown, unknown>, never>>;
 
 export type FormControlViewProps = {
   label?: React.ReactNode;

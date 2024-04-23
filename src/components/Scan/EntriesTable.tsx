@@ -7,7 +7,6 @@ export function EntriesTable({
   entries,
   showImportType,
   tableProps,
-  order,
   onClickSelect,
 }: {
   entries: DependencyEntry[];

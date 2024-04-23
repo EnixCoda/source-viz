@@ -39,7 +39,7 @@ export function useNumberInputView({
 }: UseNumberInputViewConfig = {}) {
   const [inputView, inputValue] = useView(defaultValue, (state, setState) => (
     <FormControlView {...formControlViewProps}>
-      <NumberInput {...inputProps} value={state} onChange={(valueString, valueNumber) => setState(valueNumber)}>
+      <NumberInput {...inputProps} value={state} onChange={(_, valueNumber) => setState(valueNumber)}>
         <NumberInputField />
         <NumberInputStepper>
           <NumberIncrementStepper />

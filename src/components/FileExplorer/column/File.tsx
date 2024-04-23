@@ -1,9 +1,9 @@
 import { Box, Divider, HStack, Spinner, VStack } from "@chakra-ui/react";
 import React, { useCallback, useMemo } from "react";
 import { checkIsTextFile } from "../../../utils/general";
-import { useAbortableEffect } from "../../abortable";
 import { MonoText } from "../../MonoText";
 import { OpenInVSCode } from "../../OpenInVSCode";
+import { useAbortableEffect } from "../../abortable";
 
 export function ColumnFile({ item, stack }: { item: FileSystemHandle; stack: FileSystemHandle[] }) {
   type State =
@@ -25,7 +25,7 @@ export function ColumnFile({ item, stack }: { item: FileSystemHandle; stack: Fil
       };
 
   const [{ loading, content }, dispatch] = React.useReducer(
-    (state: State, action: Action): State => {
+    (_: State, action: Action): State => {
       switch (action.type) {
         case "loading":
           return { loading: true, content: null };
@@ -35,7 +35,7 @@ export function ColumnFile({ item, stack }: { item: FileSystemHandle; stack: Fil
           throw new Error();
       }
     },
-    { loading: true, content: null },
+    { loading: true, content: null }
   );
 
   useAbortableEffect(

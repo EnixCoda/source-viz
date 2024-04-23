@@ -31,7 +31,6 @@ import { EntriesTable } from "./Scan/EntriesTable";
 
 export function Viz({
   entries,
-  setData,
   backButton,
 }: {
   entries: DependencyEntry[];
@@ -47,16 +46,16 @@ export function Viz({
   });
   const excludedNodesFromInput = React.useMemo(
     () => (excludeNodesFilterRegExp ? allNodes.filter((dep) => dep.match(excludeNodesFilterRegExp)) : []),
-    [excludeNodesFilterRegExp, allNodes],
+    [excludeNodesFilterRegExp, allNodes]
   );
   const [excludedNodes, toggleExcludeNode] = useSet<string>();
   const allExcludedNodes = React.useMemo(
     () => new Set([...excludedNodesFromInput, ...excludedNodes]),
-    [excludedNodesFromInput, excludedNodes],
+    [excludedNodesFromInput, excludedNodes]
   );
   const nonExcludedNodes = React.useMemo(
     () => allNodes.filter((id) => !allExcludedNodes.has(id)),
-    [allNodes, allExcludedNodes],
+    [allNodes, allExcludedNodes]
   );
 
   // Restrictions
@@ -67,9 +66,9 @@ export function Viz({
   const restrictedRoots = React.useMemo(
     () =>
       new Set(
-        carry(nonExcludedNodes, (ns) => (restrictRootsRegExp ? ns.filter((id) => id.match(restrictRootsRegExp)) : ns)),
+        carry(nonExcludedNodes, (ns) => (restrictRootsRegExp ? ns.filter((id) => id.match(restrictRootsRegExp)) : ns))
       ),
-    [nonExcludedNodes, restrictRootsRegExp],
+    [nonExcludedNodes, restrictRootsRegExp]
   );
   const [restrictLeavesInputView, restrictLeavesRegExp] = useRegExpInputView({
     inputProps: { placeholder: "Filter nodes with RegExp" },
@@ -78,11 +77,9 @@ export function Viz({
   const restrictedLeaves = React.useMemo(
     () =>
       new Set(
-        carry(nonExcludedNodes, (ns) =>
-          restrictLeavesRegExp ? ns.filter((id) => id.match(restrictLeavesRegExp)) : ns,
-        ),
+        carry(nonExcludedNodes, (ns) => (restrictLeavesRegExp ? ns.filter((id) => id.match(restrictLeavesRegExp)) : ns))
       ),
-    [nonExcludedNodes, restrictLeavesRegExp],
+    [nonExcludedNodes, restrictLeavesRegExp]
   );
 
   // Graph
@@ -95,7 +92,7 @@ export function Viz({
       { value: "dag", label: "DAG (Directed Acyclic Graph, all nodes, no cycle)" },
       { value: "natural", label: "Natural (all nodes, allow cycles)" },
       { value: "cycles-only", label: `Cycles Only (only nodes on cycles)` },
-    ],
+    ]
   );
 
   const [colorByView, colorBy] = useSelectView<ColorByMode>(
@@ -108,7 +105,7 @@ export function Viz({
       { value: "color-by-heat-both", label: "Connections" },
       { value: "color-by-heat-target", label: "Connections (dependency)" },
       { value: "color-by-heat-source", label: "Connections (dependant)" },
-    ],
+    ]
   );
   const [fixNodeOnDragEndView, fixNodeOnDragEnd] = useCheckboxView({
     label: "Fix node on drag end",
@@ -152,7 +149,7 @@ export function Viz({
         width: "auto",
       },
       row: true,
-    },
+    }
   );
 
   // handling resize
@@ -188,7 +185,7 @@ export function Viz({
       height: vizContainerSize?.height || 0,
       enableDagMode: graphMode === "dag",
       colorBy,
-    },
+    }
   );
 
   const graphData = React.useMemo(
@@ -200,7 +197,7 @@ export function Viz({
         graphMode,
         separateAsyncImports,
       }),
-    [data, restrictedRoots, restrictedLeaves, graphMode, allExcludedNodes, separateAsyncImports],
+    [data, restrictedRoots, restrictedLeaves, graphMode, allExcludedNodes, separateAsyncImports]
   );
 
   React.useEffect(() => {
@@ -222,11 +219,11 @@ export function Viz({
   const renderedNodes = React.useMemo(() => graphData?.nodes.map((node) => node.id), [graphData.nodes]);
   const leavesInView = React.useMemo(
     () => renderedNodes.filter((id) => graphData.links.every(({ source }) => source !== id)),
-    [renderedNodes, graphData.links],
+    [renderedNodes, graphData.links]
   );
   const rootsInView = React.useMemo(
     () => renderedNodes.filter((id) => graphData.links.every(({ target }) => target !== id)),
-    [renderedNodes, graphData.links],
+    [renderedNodes, graphData.links]
   );
 
   const renderedEntries = React.useMemo(
@@ -237,7 +234,7 @@ export function Viz({
           entry,
           dependencies.filter(([dependency]) => renderedNodes.includes(dependency)),
         ]) satisfies DependencyEntry[],
-    [entries, renderedNodes],
+    [entries, renderedNodes]
   );
 
   return (
@@ -323,7 +320,7 @@ export function Viz({
                 </Heading>
                 <NodeList
                   nodes={carry(data.dependencyMap.get(selectedNode), (set) =>
-                    set ? renderedNodes.filter((id) => set.has(id)) : [],
+                    set ? renderedNodes.filter((id) => set.has(id)) : []
                   )}
                   mapProps={(id) => ({ onSelect: () => setSelectedNode(id) })}
                 />
@@ -332,7 +329,7 @@ export function Viz({
                 </Heading>
                 <NodeList
                   nodes={carry(data.dependantMap.get(selectedNode), (set) =>
-                    set ? renderedNodes.filter((id) => set.has(id)) : [],
+                    set ? renderedNodes.filter((id) => set.has(id)) : []
                   )}
                   mapProps={(id) => ({ onSelect: () => setSelectedNode(id) })}
                 />

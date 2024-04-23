@@ -1,4 +1,5 @@
 import z from "zod";
+import { Equal, Expect } from "../check";
 import { safeMapGet } from "../utils/general";
 import { parseCSV, stringifyToCSV } from "./serialize.csv";
 import { parseJSON, stringifyToJSON } from "./serialize.json";
@@ -10,8 +11,7 @@ export type DependencyEntry = [KeyOfMap<DependencyMap>, Dependency[]];
 const zDependencyRecord = z.tuple([z.string(), z.string(), z.boolean()]);
 export type DependencyRecord = [file: KeyOfMap<DependencyMap>, dependency: string, isAsync: boolean];
 const zDependencyEntry = z.array(z.tuple([z.string(), z.array(z.tuple([z.string(), z.boolean()]))]));
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-type __check_type_of_json_schema = Expect<Equal<DependencyEntry[], z.infer<typeof zDependencyEntry>>>;
+export type __test__ = Expect<Equal<DependencyEntry[], z.infer<typeof zDependencyEntry>>>;
 
 function flatEntries(entires: DependencyEntry[]): DependencyRecord[] {
   return entires.flatMap(([file, dependencies]) =>

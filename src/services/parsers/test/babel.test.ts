@@ -1,6 +1,6 @@
 // test parsing './import-and-requires' with babel
-import fs from "fs/promises";
-import path from "path";
+import { promises as fs } from "node:fs";
+import * as path from "node:path";
 import * as babelParser from "../babel";
 
 describe("babel", () => {

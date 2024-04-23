@@ -1,40 +1,40 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
 exports[`babel should parse import and require statements 1`] = `
-Array [
-  Array [
+[
+  [
     "b0.js",
     false,
   ],
-  Array [
+  [
     "b1.js",
     false,
   ],
-  Array [
+  [
     "b2.js",
     false,
   ],
-  Array [
+  [
     "b3.js",
     true,
   ],
-  Array [
+  [
     "b4.js",
     true,
   ],
-  Array [
+  [
     "b9.js",
     false,
   ],
-  Array [
+  [
     "b10.js",
     false,
   ],
-  Array [
+  [
     "b14.js",
     false,
   ],
-  Array [
+  [
     "b15.js",
     true,
   ],
