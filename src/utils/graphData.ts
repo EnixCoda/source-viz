@@ -59,29 +59,97 @@ export const filterGraphData = (
     const traversedNodes = new Set<NodeId>();
     const cycles: NodeId[][] = []; // TODO: or save edges of cycles?
     const mergedNodesMap = new Map<NodeId, Set<NodeId>>();
-    const traverseData = (node: NodeId, stack: NodeId[] = []) => {
-      if (excludes.has(node)) return;
 
+    const traverseNode = (node: NodeId, stack: NodeId[] = []) => {
       if (stack.includes(node)) {
-        cycles.push(stack.slice(stack.indexOf(node)));
+        // save nodes in stack as a cycle
+        const nodesOnCycle = stack.slice(stack.indexOf(node));
+        saveCycle(nodesOnCycle);
         if (preventCycle) return;
       }
 
-      if (traversedNodes.has(node)) return;
+      if (traversedNodes.has(node)) {
+        // see if node is on any existing cycle
+        const mergedNodes = mergedNodesMap.get(node);
+        if (mergedNodes) {
+          for (const item of stack) {
+            // TODO: checking from top would be faster
+            if (mergedNodes === mergedNodesMap.get(item)) {
+              const nodesOnCycle = stack.slice(stack.indexOf(item));
+              saveCycle(nodesOnCycle);
+              return;
+            }
+          }
+        }
+        return;
+      }
       traversedNodes.add(node);
 
       for (const next of togoMap.get(node)?.values() || []) {
-        if (excludes.has(next)) continue; // duplicate of above check but improves performance by calling less functions
-        traverseData(next, stack.concat(node));
+        traverseNode(next, stack.concat(node));
       }
     };
 
-    for (const r of startNodes) traverseData(r);
+    function saveCycle(nodesOnCycle: string[]) {
+      cycles.push(nodesOnCycle);
+      // save nodes on cycle as merged nodes
+      const nodesToMerge = new Set(nodesOnCycle);
+      const mapsToUpdate = new Set<Set<NodeId>>();
+      mapsToUpdate.add(nodesToMerge);
+
+      for (const node of nodesOnCycle) {
+        const mergedNodes = mergedNodesMap.get(node);
+        if (mergedNodes) {
+          mapsToUpdate.add(mergedNodes);
+        }
+      }
+      if (mapsToUpdate.size > 1) {
+        const mergedNodes = new Set<NodeId>([...mapsToUpdate].flatMap((set) => [...set]));
+        for (const map of mapsToUpdate) {
+          for (const node of map) {
+            mergedNodesMap.set(node, mergedNodes);
+          }
+        }
+      } else {
+        for (const node of nodesOnCycle) {
+          mergedNodesMap.set(node, nodesToMerge);
+        }
+      }
+    }
+
+    for (const r of startNodes) traverseNode(r);
     return {
       nodes: traversedNodes,
       cycles,
     };
   };
+
+  // clean up roots, leave, dependantMap, dependencyMap with exclude
+  if (excludes.size) {
+    for (const group of [roots, leave]) {
+      if (group) {
+        for (const node of group) {
+          if (excludes.has(node)) {
+            group.delete(node);
+          }
+        }
+      }
+    }
+    for (const map of [dependantMap, dependencyMap]) {
+      for (const [node, items] of map) {
+        if (excludes.has(node)) {
+          map.delete(node);
+        } else {
+          for (const item of items) {
+            if (excludes.has(item)) {
+              items.delete(item);
+            }
+          }
+        }
+      }
+    }
+  }
+
   const [traversedFromRoots, traversedFromLeave] = [
     roots && traverse(roots, dependantMap),
     leave && traverse(leave, dependencyMap),
@@ -102,35 +170,16 @@ export const filterGraphData = (
   // remove cycles, either
   // 1. duplicated
   // 2. cycle not accessible from both roots and leave
-  const allCycles: NodeId[][] = [];
-  for (const cycle of traversedFromRoots?.cycles || [])
-    if (cycle.every((node) => nodes.has(node))) allCycles.push(cycle);
-  for (const cycle of traversedFromLeave?.cycles || [])
-    if (cycle.every((node) => nodes.has(node))) allCycles.push(cycle);
-  // remove duplicated cycles
-  const separator = "|";
-  const orderedCycles = allCycles.map((cycle) => {
-    const headOfCycle = cycle.reduce((earliest, item) => (earliest < item ? earliest : item));
-    const indexOfHead = cycle.indexOf(headOfCycle);
-    return indexOfHead === 0 ? cycle : cycle.slice(indexOfHead).concat(cycle.slice(0, indexOfHead));
-  });
-  const cycles = Array.from(new Set(orderedCycles.map((cycle) => cycle.join(separator)))).map((cycle) =>
-    cycle.split(separator)
-  );
+  const allCycles: NodeId[][] = getAllCycles();
 
-  const links = new Map<NodeId, Set<NodeId>>();
-  for (const node of nodes) {
-    dependencyMap.get(node)?.forEach((dependency) => {
-      if (nodes.has(dependency)) safeMapGet(links, node, () => new Set()).add(dependency);
-    });
-    dependantMap.get(node)?.forEach((dependant) => {
-      if (nodes.has(dependant)) safeMapGet(links, dependant, () => new Set()).add(node);
-    });
-  }
+  // remove duplicated cycles
+  const cycles = deduplicateCycles(allCycles);
+
+  const links = getLinks();
 
   if (preventCycle) {
     // Remove links to prevent cycle to enable DAG rendering
-    // For example, if there was a cycle of `a -> b -> c -> a`.
+    // For example, if there was such cycle `a -> b -> c`.
     // If `a` is root, and prune for less roots, output would be `a -> b -> c`.
     // If `a` is leave, and prune for less leave, output would be `b -> c -> a`.
     allCycles.forEach((cycle) => {
@@ -183,4 +232,43 @@ export const filterGraphData = (
       separateAsyncImports ? links.filter(({ source, target }) => !asyncRefMap.get(source)?.has(target)) : links
     ),
   };
+
+  function getLinks() {
+    const links = new Map<NodeId, Set<NodeId>>();
+    for (const node of nodes) {
+      dependencyMap.get(node)?.forEach((dependency) => {
+        if (nodes.has(dependency)) safeMapGet(links, node, () => new Set()).add(dependency);
+      });
+      dependantMap.get(node)?.forEach((dependant) => {
+        if (nodes.has(dependant)) safeMapGet(links, dependant, () => new Set()).add(node);
+      });
+    }
+    return links;
+  }
+
+  function getAllCycles() {
+    const allCycles: NodeId[][] = [];
+    for (const cycles of [traversedFromRoots?.cycles, traversedFromLeave?.cycles]) {
+      if (cycles) {
+        for (const cycle of cycles) {
+          if (cycle.every((node) => nodes.has(node))) {
+            allCycles.push(cycle);
+          }
+        }
+      }
+    }
+    return allCycles;
+  }
 };
+function deduplicateCycles(allCycles: string[][]) {
+  const separator = "|";
+  const orderedCycles = allCycles.map((cycle) => {
+    const headOfCycle = cycle.reduce((earliest, item) => (earliest < item ? earliest : item));
+    const indexOfHead = cycle.indexOf(headOfCycle);
+    return indexOfHead === 0 ? cycle : cycle.slice(indexOfHead).concat(cycle.slice(0, indexOfHead));
+  });
+  const cycles = Array.from(new Set(orderedCycles.map((cycle) => cycle.join(separator)))).map((cycle) =>
+    cycle.split(separator)
+  );
+  return cycles;
+}
