@@ -8,7 +8,7 @@ export function safeRegExp(raw: string, flags: string = "") {
 
 export const safeMapGet = <K, V>(map: Map<K, V>, key: K, initialize: () => V) => {
   let value = map.get(key);
-  if (!value) map.set(key, (value = initialize()));
+  if (value === undefined) map.set(key, (value = initialize()));
   return value;
 };
 

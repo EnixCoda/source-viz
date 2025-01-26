@@ -3,7 +3,7 @@ import { DependencyEntry } from "../services/serializers";
 import { safeMapGet } from "./general";
 import { w } from "./w";
 
-type NodeId = NodeObject["id"];
+export type NodeId = NodeObject["id"];
 
 export type GraphMode = "dag" | "natural" | "cycles-only";
 
@@ -50,14 +50,15 @@ export const filterGraphData = (
     graphMode?: GraphMode;
     dagPruneMode?: DAGPruneMode | null;
     separateAsyncImports?: boolean;
-  } = {},
+  } = {}
 ) => {
   const preventCycle = graphMode === "dag";
 
   // Traverse through dependency map and dependent map starting from roots and leave to explore the graph
-  const traverse = (startNodes: Set<NodeId>, map: Map<NodeId, Set<NodeId>>) => {
-    const traversedNodes = new Set<NodeObject["id"]>();
-    const cycles: NodeId[][] = [];
+  const traverse = (startNodes: Set<NodeId>, togoMap: Map<NodeId, Set<NodeId>>) => {
+    const traversedNodes = new Set<NodeId>();
+    const cycles: NodeId[][] = []; // TODO: or save edges of cycles?
+    const mergedNodesMap = new Map<NodeId, Set<NodeId>>();
     const traverseData = (node: NodeId, stack: NodeId[] = []) => {
       if (excludes.has(node)) return;
 
@@ -69,8 +70,8 @@ export const filterGraphData = (
       if (traversedNodes.has(node)) return;
       traversedNodes.add(node);
 
-      for (const next of map.get(node)?.values() || []) {
-        if (excludes.has(next)) continue;
+      for (const next of togoMap.get(node)?.values() || []) {
+        if (excludes.has(next)) continue; // duplicate of above check but improves performance by calling less functions
         traverseData(next, stack.concat(node));
       }
     };
@@ -114,7 +115,7 @@ export const filterGraphData = (
     return indexOfHead === 0 ? cycle : cycle.slice(indexOfHead).concat(cycle.slice(0, indexOfHead));
   });
   const cycles = Array.from(new Set(orderedCycles.map((cycle) => cycle.join(separator)))).map((cycle) =>
-    cycle.split(separator),
+    cycle.split(separator)
   );
 
   const links = new Map<NodeId, Set<NodeId>>();
@@ -177,9 +178,9 @@ export const filterGraphData = (
     links: w(
       [...links.entries()]
         .map(([source, targets]) => [...targets.values()].map((target) => ({ source, target })))
-        .flat(),
+        .flat()
     )((links) =>
-      separateAsyncImports ? links.filter(({ source, target }) => !asyncRefMap.get(source)?.has(target)) : links,
+      separateAsyncImports ? links.filter(({ source, target }) => !asyncRefMap.get(source)?.has(target)) : links
     ),
   };
 };
