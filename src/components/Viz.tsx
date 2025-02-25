@@ -241,7 +241,7 @@ export function Viz({
   );
 
   return (
-    <HStack display="inline-flex" alignItems="stretch" spacing={0} maxHeight="100%" height="100%">
+    <HStack display="inline-flex" alignItems="stretch" spacing={0} maxHeight="100%" height="100vh">
       <VStack alignItems="stretch" height="100vh" width={width} spacing={0}>
         <HStack justifyContent="space-between" padding={2}>
           <HStack>
