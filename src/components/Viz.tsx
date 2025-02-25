@@ -28,14 +28,17 @@ import { NodeList } from "./NodeList";
 import { NodesFilter } from "./NodesFilter";
 import { OpenInVSCode, SettingsOfOpenInVSCode } from "./OpenInVSCode";
 import { EntriesTable } from "./Scan/EntriesTable";
+import { ArrowBackIcon, RepeatIcon } from "@chakra-ui/icons";
 
 export function Viz({
   entries,
-  backButton,
+  onBack,
+  onRescan,
 }: {
   entries: DependencyEntry[];
   setData: (entries: DependencyEntry[]) => void;
-  backButton?: React.ReactNode;
+  onBack?: () => void;
+  onRescan?: () => void;
 }) {
   const data = React.useMemo(() => prepareGraphData(entries), [entries]);
   const allNodes = React.useMemo(() => [...data.nodes.keys()].sort(), [data.nodes]);
@@ -241,7 +244,14 @@ export function Viz({
     <HStack display="inline-flex" alignItems="stretch" spacing={0} maxHeight="100%" height="100%">
       <VStack alignItems="stretch" height="100vh" width={width} spacing={0}>
         <HStack justifyContent="space-between" padding={2}>
-          {backButton}
+          <HStack>
+            <Button onClick={onBack} aria-label={"Back"}>
+              <ArrowBackIcon />
+            </Button>
+            <Button onClick={onRescan} aria-label={"Re-scan"}>
+              <RepeatIcon />
+            </Button>
+          </HStack>
           {vizModeView}
         </HStack>
         <Divider height="auto" />

@@ -24,7 +24,7 @@ export function Scanning({
   onCancel,
 }: {
   fs: FS;
-  onDataPrepared: React.Dispatch<DependencyEntry[] | null>;
+  onDataPrepared: React.Dispatch<DependencyEntry[]>;
   filter: MetaFilter;
   onCancel(): void;
 }) {
@@ -46,7 +46,7 @@ export function Scanning({
           const traverse = async function (
             handle: FileSystemDirectoryHandle,
             onFile: (handle: FileSystemFileHandle, stack: string[]) => void | Promise<void>,
-            stack: string[] = [],
+            stack: string[] = []
           ) {
             for await (const item of handle.values()) {
               if (signal.aborted) return;
@@ -94,7 +94,7 @@ export function Scanning({
               onFileParsed(file) {
                 dispatch({ type: "parsing", file });
               },
-            },
+            }
           );
 
           setEntries(getOrganizedEntries(entries));
@@ -102,8 +102,8 @@ export function Scanning({
           dispatch({ type: "done" });
         }
       },
-      [fs, filter, dispatch],
-    ),
+      [fs, filter, dispatch]
+    )
   );
 
   React.useEffect(() => {
@@ -136,7 +136,7 @@ export function Scanning({
                 </>
               ),
             },
-            phase,
+            phase
           )}
         </Box>
         {phase === "parsing" && <Progress value={(parsedRecords.length / progress.length) * 100} />}
@@ -168,14 +168,14 @@ export function Scanning({
         )}
         <Accordion allowToggle>
           {phase === "done" && entries && (
-            <CollapsibleSection label="Dependency records">
+            <CollapsibleSection label={`Dependency records (${entries.length} entries)`}>
               <Box maxHeight="50vh" overflowY="auto">
                 <EntriesTable entries={entries} showImportType />
               </Box>
             </CollapsibleSection>
           )}
           {problematicRecords.length > 0 && (
-            <CollapsibleSection label="Progress details (errors)">
+            <CollapsibleSection label={`Progress details (${problematicRecords.length} errors)`}>
               <Box maxHeight="50vh" overflowY="auto">
                 <ProgressTable progress={problematicRecords} />
               </Box>

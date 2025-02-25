@@ -6,7 +6,7 @@ export function FSLoadFilesButton({
   buttonProps,
   children = buttonProps?.children,
 }: {
-  onLoad: (fs: FS | null) => void;
+  onLoad: (fs: FS) => void;
   buttonProps?: ButtonProps;
   children?: ButtonProps["children"];
 } & Pick<React.InputHTMLAttributes<HTMLInputElement>, "accept">) {
