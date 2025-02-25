@@ -115,28 +115,20 @@ export function Viz({
     defaultValue: true,
   });
   const [separateAsyncImportsView, separateAsyncImports] = useCheckboxView({
-    label: "Separate async import",
+    label: "Cut-off async imports",
     defaultValue: false,
-  });
-  const [renderAsTextView, renderAsText] = useCheckboxView({
-    label: "Render as Text",
-    defaultValue: true,
   });
   const [fixFontSizeView, fixFontSize] = useCheckboxView({
     label: "Fix font size to canvas",
     defaultValue: true,
-    inputProps: {
-      isDisabled: !renderAsText,
-    },
   });
-  const [fixedFontSizeView, fixedFontSize] = useNumberInputView({
-    label: "Fixed Font Size",
-    defaultValue: 4,
+  const [fontSizeView, fontSize = 12] = useNumberInputView({
+    label: "Font Size",
+    defaultValue: 12,
     inputProps: {
       keepWithinRange: true,
       clampValueOnBlur: true,
       min: 1,
-      isDisabled: !fixFontSize || !renderAsText,
     },
   });
 
@@ -181,8 +173,8 @@ export function Viz({
     },
     {
       data,
-      renderAsText,
-      fixedFontSize: (fixFontSize && fixedFontSize) || undefined,
+      fixFontSize,
+      fontSize,
       fixNodeOnDragEnd,
       width: vizContainerSize?.width || 0,
       height: vizContainerSize?.height || 0,
@@ -220,13 +212,20 @@ export function Viz({
     defaultValue: true,
   });
   const renderedNodes = React.useMemo(() => graphData?.nodes.map((node) => node.id), [graphData.nodes]);
+  const links = graphData.links;
   const leavesInView = React.useMemo(
-    () => renderedNodes.filter((id) => graphData.links.every(({ source }) => source !== id)),
-    [renderedNodes, graphData.links]
+    () =>
+      renderedNodes.filter(
+        (id) => links.every(({ source }) => source !== id) && !links.every(({ target }) => target !== id)
+      ),
+    [renderedNodes, links]
   );
   const rootsInView = React.useMemo(
-    () => renderedNodes.filter((id) => graphData.links.every(({ target }) => target !== id)),
-    [renderedNodes, graphData.links]
+    () =>
+      renderedNodes.filter(
+        (id) => links.every(({ target }) => target !== id) && !links.every(({ source }) => source !== id)
+      ),
+    [renderedNodes, links]
   );
 
   const renderedEntries = React.useMemo(
@@ -283,7 +282,7 @@ export function Viz({
                   <div>
                     <ModalButton
                       title={"Cycles"}
-                      renderTrigger={({ onOpen }) => <Button onClick={onOpen}>Checkout Cycles</Button>}
+                      renderTrigger={({ onOpen }) => <Button onClick={onOpen}>Review cycles list</Button>}
                     >
                       {() => (
                         <ModalBody>
@@ -302,9 +301,8 @@ export function Viz({
                 )}
                 <div>{colorByView}</div>
                 <div>{fixNodeOnDragEndView}</div>
-                <div>{renderAsTextView}</div>
                 <div>{fixFontSizeView}</div>
-                <div>{fixedFontSizeView}</div>
+                <div>{fontSizeView}</div>
                 <div>{separateAsyncImportsView}</div>
               </VStack>
             </CollapsibleSection>
@@ -312,6 +310,9 @@ export function Viz({
           <CollapsibleSection label={`Selected Node`}>
             {selectedNode ? (
               <VStack alignItems="flex-start">
+                <Heading as="h3" size="sm">
+                  Recently selected nodes
+                </Heading>
                 <Heading as="h3" size="sm">
                   Path
                 </Heading>
@@ -343,9 +344,14 @@ export function Viz({
                   )}
                   mapProps={(id) => ({ onSelect: () => setSelectedNode(id) })}
                 />
-                <Heading as="h3" size="sm">
-                  Recently selected nodes
-                </Heading>
+                <FindPathToNode
+                  nodes={renderedNodes}
+                  data={data}
+                  selectedNode={selectedNode}
+                  setSelectedNode={setSelectedNode}
+                  nodeSelectionHistory={nodeSelectionHistory}
+                />
+
                 <Select
                   value=""
                   placeholder="Choosing a node will switch selection"
@@ -358,19 +364,12 @@ export function Viz({
                     </option>
                   ))}
                 </Select>
-                <FindPathToNode
-                  nodes={renderedNodes}
-                  data={data}
-                  selectedNode={selectedNode}
-                  setSelectedNode={setSelectedNode}
-                  nodeSelectionHistory={nodeSelectionHistory}
-                />
               </VStack>
             ) : (
               <Text color="gray.500">No selection yet</Text>
             )}
           </CollapsibleSection>
-          <CollapsibleSection label={`Root Nodes (source files)`}>
+          <CollapsibleSection label={`Root Nodes (as dependents)`}>
             <VStack alignItems="flex-start">
               <Text>These nodes are source files, which have no dependents, or they are in dependency cycles.</Text>
               {restrictRootInputView}
@@ -391,7 +390,7 @@ export function Viz({
               />
             </VStack>
           </CollapsibleSection>
-          <CollapsibleSection label={`Leaf Nodes (dependencies)`}>
+          <CollapsibleSection label={`Leaf Nodes (as dependencies)`}>
             <VStack alignItems="flex-start">
               <Text>
                 These nodes have no dependencies, some of them are 3rd party dependencies, or they are in dependency

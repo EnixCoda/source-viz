@@ -6,7 +6,6 @@ import { cloneData, ColorByMode, getColorByDataMapper, getNodeId } from "../../u
 import {
   decorateForColorBy,
   freezeNodeOnDragEnd,
-  highlightNodeOnHover,
   renderAsDAG,
   renderNodeAsText,
   selectNodeOnMouseDown,
@@ -20,8 +19,8 @@ export function useGraph<E extends HTMLElement>(
   nodeSelection: ReactState<string | null>,
   {
     data,
-    renderAsText,
-    fixedFontSize,
+    fixFontSize,
+    fontSize,
     fixNodeOnDragEnd,
     width,
     height,
@@ -30,15 +29,15 @@ export function useGraph<E extends HTMLElement>(
     colorBy = "color-by-depth",
   }: {
     data: PreparedData;
-    renderAsText: boolean;
     fixNodeOnDragEnd: boolean;
-    fixedFontSize?: number;
+    fixFontSize: boolean;
+    fontSize: number;
     width: number;
     height: number;
     enableDagMode: boolean;
     dagMode?: DagMode | null;
     colorBy?: ColorByMode;
-  },
+  }
 ) {
   const selectedNodeRef = React.useRef<string | null>(null);
   React.useEffect(() => {
@@ -63,25 +62,26 @@ export function useGraph<E extends HTMLElement>(
   useGraphDecorator(
     graph,
     renderAsDAG,
-    useMemo(() => ({ dagMode: enableDagMode ? dagMode : null }), [enableDagMode, dagMode]),
+    useMemo(() => ({ dagMode: enableDagMode ? dagMode : null }), [enableDagMode, dagMode])
   );
   useGraphDecorator(
     graph,
     freezeNodeOnDragEnd,
     useMemo(() => ({}), []),
-    fixNodeOnDragEnd,
+    fixNodeOnDragEnd
   );
   useGraphDecorator(
     graph,
     renderNodeAsText,
-    useMemo(() => ({ getSelection: () => selectedNodeRef.current, fixedFontSize }), [fixedFontSize]),
-    renderAsText,
+    useMemo(
+      () => ({ getSelectionId: () => selectedNodeRef.current, fixFontSize, fontSize, data }),
+      [data, fixFontSize, fontSize]
+    )
   );
-  useGraphDecorator(graph, highlightNodeOnHover, data, !renderAsText);
   useGraphDecorator(
     graph,
     selectNodeOnMouseDown,
-    useMemo(() => ({ onSelectNode: nodeSelection.setValue }), [nodeSelection.setValue]),
+    useMemo(() => ({ onSelectNode: nodeSelection.setValue }), [nodeSelection.setValue])
   );
   useGraphDecorator(graph, decorateForColorBy, colorBy);
 

@@ -62,7 +62,7 @@ export function FindPathToNode({
       </Heading>
       <ModalButton
         title={"Find path to another node"}
-        renderTrigger={({ onOpen }) => <Button onClick={onOpen}>Select node</Button>}
+        renderTrigger={({ onOpen }) => <Button onClick={onOpen}>Select node from list</Button>}
       >
         {({ onClose }) => {
           switch (step) {
