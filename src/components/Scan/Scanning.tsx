@@ -12,10 +12,11 @@ import { FS } from "../App";
 import { CollapsibleSection } from "../CollapsibleSection";
 import { ExportButton } from "../ExportButton";
 import { MonoText } from "../MonoText";
-import { useAbortableFunction } from "../abortable";
+import { runAbortableAsyncGenerator, useAbortableEffect } from "../abortable";
 import { EntriesTable } from "./EntriesTable";
 import { ProgressTable } from "./ProgressTable";
 import { useScanningStateReducer } from "./useScanningStateReducer";
+import { useForgetableMemo } from "../../hooks/useForgetableMemo";
 
 export function Scanning({
   fs,
@@ -32,9 +33,9 @@ export function Scanning({
 
   const [{ phase, progress, hasError }, dispatch] = useScanningStateReducer();
 
-  const scan = useAbortableFunction(
-    React.useCallback(
-      async function* (signal: AbortSignal) {
+  const [abortableEffect, rescan] = useForgetableMemo(
+    () => ({
+      getAsyncGenerator: async function* (signal: AbortSignal) {
         try {
           dispatch({ type: "init" });
 
@@ -43,24 +44,25 @@ export function Scanning({
             : [];
 
           // phase: collect files
-          const traverse = async function (
+          const traverse = async (
             handle: FileSystemDirectoryHandle,
             onFile: (handle: FileSystemFileHandle, stack: string[]) => void | Promise<void>,
             stack: string[] = []
-          ) {
-            for await (const item of handle.values()) {
-              if (signal.aborted) return;
-              if (isFileExcluded(item.name)) continue;
-              if (isPathExcluded(stack.concat(item.name).join("/"))) continue;
-              if (item.kind === "file") {
-                const $item = item as FileSystemFileHandle;
-                if (isFileIncluded($item.name)) await onFile($item, stack.concat(item.name));
-              } else {
-                const $item = item as FileSystemDirectoryHandle;
-                await traverse($item, onFile, stack.concat($item.name));
+          ) =>
+            runAbortableAsyncGenerator(async function* () {
+              for await (const item of handle.values()) {
+                yield;
+                if (isFileExcluded(item.name)) continue;
+                if (isPathExcluded(stack.concat(item.name).join("/"))) continue;
+                if (item.kind === "file") {
+                  const $item = item as FileSystemFileHandle;
+                  if (isFileIncluded($item.name)) await onFile($item, stack.concat(item.name));
+                } else {
+                  const $item = item as FileSystemDirectoryHandle;
+                  await traverse($item, onFile, stack.concat($item.name));
+                }
               }
-            }
-          };
+            }, signal);
 
           const reversePathMap: Map<string, FileSystemFileHandle> = new Map();
           const pathMap: Map<FileSystemFileHandle, string> = new Map();
@@ -102,13 +104,10 @@ export function Scanning({
           dispatch({ type: "done" });
         }
       },
-      [fs, filter, dispatch]
-    )
+    }),
+    [fs, filter, dispatch, setEntries]
   );
-
-  React.useEffect(() => {
-    scan();
-  }, [scan]);
+  useAbortableEffect(abortableEffect);
 
   const parsedRecords = React.useMemo(() => progress.filter(([, parsed, error]) => parsed || error), [progress]);
   const problematicRecords = React.useMemo(() => progress.filter(([, , error]) => error), [progress]);
@@ -153,7 +152,7 @@ export function Scanning({
                 Visualize
               </Button>
 
-              <Button onClick={() => scan()} rightIcon={<RepeatIcon />}>
+              <Button onClick={() => rescan()} rightIcon={<RepeatIcon />}>
                 Scan again
               </Button>
 
