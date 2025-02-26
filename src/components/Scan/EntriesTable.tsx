@@ -38,6 +38,7 @@ export function EntriesTable({
                     {onClickSelect ? (
                       <MonoText
                         as="button"
+                        textAlign="left"
                         onClick={() => onClickSelect(dependency)}
                         style={{ cursor: "pointer", textDecoration: "underline" }}
                       >
@@ -52,6 +53,7 @@ export function EntriesTable({
                   {onClickSelect ? (
                     <MonoText
                       as="button"
+                      textAlign="left"
                       onClick={() => onClickSelect(dependency)}
                       style={{ cursor: "pointer", textDecoration: "underline" }}
                     >
