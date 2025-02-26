@@ -1,5 +1,5 @@
 import { Box, Divider, HStack, Spinner, VStack } from "@chakra-ui/react";
-import React, { useCallback, useMemo } from "react";
+import React, { useMemo } from "react";
 import { checkIsTextFile } from "../../../utils/general";
 import { MonoText } from "../../MonoText";
 import { OpenInVSCode } from "../../OpenInVSCode";
@@ -39,7 +39,7 @@ export function ColumnFile({ item, stack }: { item: FileSystemHandle; stack: Fil
   );
 
   useAbortableEffect(
-    useCallback(
+    useMemo(
       () => ({
         async *getAsyncGenerator() {
           try {
@@ -62,8 +62,8 @@ export function ColumnFile({ item, stack }: { item: FileSystemHandle; stack: Fil
           }
         },
       }),
-      [item],
-    ),
+      [item]
+    )
   );
 
   const filePath = useMemo(() => stack.map((f) => f.name).join("/"), [stack]);
