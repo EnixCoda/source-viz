@@ -1,10 +1,10 @@
 import { ChevronLeftIcon, ChevronRightIcon, RepeatIcon } from "@chakra-ui/icons";
 import { Accordion, Box, Button, Center, HStack, Heading, IconButton, Progress, Text, VStack } from "@chakra-ui/react";
 import * as React from "react";
+import { useForgetableMemo } from "../../hooks/useForgetableMemo";
 import { FSLike, MetaFilter, getDependencyEntries } from "../../services";
 import * as babelParser from "../../services/parsers/babel";
 import { DependencyEntry } from "../../services/serializers";
-import { switchRender } from "../../utils/general";
 import { getOrganizedEntries } from "../../utils/getOrganizedEntries";
 import { resolvePath } from "../../utils/path";
 import { getFilterMatchers } from "../../utils/pattern";
@@ -16,7 +16,6 @@ import { runAbortableAsyncGenerator, useAbortableEffect } from "../abortable";
 import { EntriesTable } from "./EntriesTable";
 import { ProgressTable } from "./ProgressTable";
 import { useScanningStateReducer } from "./useScanningStateReducer";
-import { useForgetableMemo } from "../../hooks/useForgetableMemo";
 
 export function Scanning({
   fs,
@@ -119,26 +118,20 @@ export function Scanning({
           <IconButton aria-label="Back" onClick={() => onCancel?.()} icon={<ChevronLeftIcon />} />
           {phase === "done" && <ExportButton data={entries} />}
         </HStack>
-        <Box>
-          {switchRender(
-            {
-              collecting: () => (
-                <>
-                  <Text>Collected {progress.length} files, the last one is</Text>
-                  <MonoText as="span">{progress.at(-1)?.[0]}</MonoText>
-                </>
-              ),
-              parsing: () => (
-                <>
-                  <Text>Parsed {parsedRecords.length} files, the last one is</Text>
-                  <MonoText as="span">{parsedRecords.at(-1)?.[0]}</MonoText>
-                </>
-              ),
-            },
-            phase
-          )}
-        </Box>
-        {phase === "parsing" && <Progress value={(parsedRecords.length / progress.length) * 100} />}
+        {phase === "collecting" && (
+          <Box>
+            <Text>Collected {progress.length} files</Text>
+            <MonoText as="span">{progress.at(-1)?.[0]}</MonoText>
+          </Box>
+        )}
+        {phase === "parsing" && (
+          <Box>
+            <Text>
+              Parsed {parsedRecords.length} / {progress.length} files
+            </Text>
+            <Progress value={(parsedRecords.length / progress.length) * 100} />
+          </Box>
+        )}
         {phase === "done" && (
           <Center>
             <VStack alignItems="stretch" width={280}>

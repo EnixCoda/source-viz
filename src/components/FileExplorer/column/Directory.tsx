@@ -85,15 +85,15 @@ export function ColumnDirectory({
     <HStack flexShrink={0} overflow="auto">
       <List ref={ref} width={width} height="100%" overflowY="auto">
         {files.map((file) => (
-          <ListItem key={file.name} onClick={() => onSelect?.(file)} whiteSpace="nowrap">
+          <ListItem key={file.name} height={5} onClick={() => onSelect?.(file)} whiteSpace="nowrap">
             <Button
               width="100%"
               textOverflow="ellipsis"
               fontFamily="monospace"
               fontWeight="normal"
-              fontSize={14}
+              fontSize={12}
               lineHeight={1.5}
-              height={6}
+              height={5}
               background={selected === file ? "Highlight" : undefined}
               variant="ghost"
               textAlign="left"
@@ -110,7 +110,7 @@ export function ColumnDirectory({
                     ? "green.500"
                     : file.kind === "file"
                     ? "gray.500"
-                    : undefined,
+                    : undefined
               )}
             >
               <IIFC>
