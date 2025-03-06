@@ -313,6 +313,19 @@ export function Viz({
                 <Heading as="h3" size="sm">
                   Recently selected nodes
                 </Heading>
+                <Select
+                  value=""
+                  placeholder="Choosing a node will switch selection"
+                  onChange={(e) => setSelectedNode(e.target.value)}
+                >
+                  {/* slice 1 to exclude current selection */}
+                  {nodeSelectionHistory.slice(1).map((node) => (
+                    <option key={node} value={node}>
+                      {node}
+                    </option>
+                  ))}
+                </Select>
+
                 <Heading as="h3" size="sm">
                   Path
                 </Heading>
@@ -351,25 +364,12 @@ export function Viz({
                   setSelectedNode={setSelectedNode}
                   nodeSelectionHistory={nodeSelectionHistory}
                 />
-
-                <Select
-                  value=""
-                  placeholder="Choosing a node will switch selection"
-                  onChange={(e) => setSelectedNode(e.target.value)}
-                >
-                  {/* slice 1 to exclude current selection */}
-                  {nodeSelectionHistory.slice(1).map((node) => (
-                    <option key={node} value={node}>
-                      {node}
-                    </option>
-                  ))}
-                </Select>
               </VStack>
             ) : (
               <Text color="gray.500">No selection yet</Text>
             )}
           </CollapsibleSection>
-          <CollapsibleSection label={`Root Nodes (as dependents)`}>
+          <CollapsibleSection label={`Showing dependencies of ...`}>
             <VStack alignItems="flex-start">
               <Text>These nodes are source files, which have no dependents, or they are in dependency cycles.</Text>
               {restrictRootInputView}
@@ -390,7 +390,7 @@ export function Viz({
               />
             </VStack>
           </CollapsibleSection>
-          <CollapsibleSection label={`Leaf Nodes (as dependencies)`}>
+          <CollapsibleSection label={`Showing dependents of ...`}>
             <VStack alignItems="flex-start">
               <Text>
                 These nodes have no dependencies, some of them are 3rd party dependencies, or they are in dependency

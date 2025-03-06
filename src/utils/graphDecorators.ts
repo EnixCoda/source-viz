@@ -7,10 +7,11 @@ import { ColorByMode } from "./graphDataMappers";
 export type GraphDecorator<Options> = (graph: ForceGraphInstance, options: Options) => void | (() => void);
 
 const colors = {
-  selection: "rgba(255, 0, 0, 0.5)",
-  hovered: "rgba(200, 200, 0, 0.5)",
-  dependant: "rgba(0, 200, 200, 0.5)",
-  dependency: "rgba(200, 0, 200, 0.5)",
+  selection: "#67e5ab",
+  hovered: "#67e5abaa",
+  dependant: "#0ccbcb",
+  dependency: "#c6f580",
+  faded: "#00000000",
 };
 
 export const renderNodeAsText: GraphDecorator<{
@@ -52,31 +53,23 @@ export const renderNodeAsText: GraphDecorator<{
         );
       };
 
-      let fillColor: string | null = null;
-      if (selectionId === node.id) {
-        fillColor = colors.selection;
-      } else if (hoverNodeId) {
-        if (hoverNodeId === node.id) {
-          fillColor = colors.hovered;
-        } else {
-          if (data.dependantMap.get(hoverNodeId)?.has(node.id)) {
-            fillColor = colors.dependant;
-          } else if (data.dependencyMap.get(hoverNodeId)?.has(node.id)) {
-            fillColor = colors.dependency;
-          }
-        }
-      }
+      const fillColor: string | null = getOutlineColor(node, selectionId, hoverNodeId, data);
       if (fillColor) {
         fillOutline(fillColor);
       }
 
       // fill background
-      ctx.fillStyle = "rgba(255, 255, 255, 1)";
+      let backgroundColor: string = "rgba(255, 255, 255, 1)";
+      if (hoverNodeId && !fillColor) backgroundColor = "rgba(255, 255, 255, 0.2)";
+      ctx.fillStyle = backgroundColor;
       ctx.fillRect(x - backgroundWidth / 2, y - backgroundHeight / 2, ...backgroundDimensions);
 
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      if (node.color) ctx.fillStyle = node.color;
+      let textColor: string | null = null;
+      if (hoverNodeId && !fillColor) textColor = colors.faded;
+      else if (node.color) textColor = node.color;
+      if (textColor) ctx.fillStyle = textColor;
       ctx.fillText(label, x, y);
 
       backgroundDimensionsMap.set(node.id, backgroundDimensions); // to re-use in nodePointerAreaPaint
@@ -169,4 +162,18 @@ export const decorateForColorBy: GraphDecorator<ColorByMode> = (graph, key) => {
   return () => {
     graph.nodeAutoColorBy(undefined as any);
   };
+};
+
+const getOutlineColor = (
+  node: NodeObject & { color?: string },
+  selectionId: string | null,
+  hoverNodeId: string | null,
+  data: PreparedData
+) => {
+  if (selectionId === node.id) return colors.selection;
+  if (!hoverNodeId) return null;
+  if (hoverNodeId === node.id) return colors.hovered;
+  if (data.dependantMap.get(hoverNodeId)?.has(node.id)) return colors.dependant;
+  if (data.dependencyMap.get(hoverNodeId)?.has(node.id)) return colors.dependency;
+  return null;
 };
