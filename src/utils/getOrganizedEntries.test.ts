@@ -1,3 +1,4 @@
+import { describe, expect, it } from "vitest";
 import { DependencyEntry, entrySerializers } from "../services/serializers";
 import { getOrganizedEntries } from "./getOrganizedEntries";
 

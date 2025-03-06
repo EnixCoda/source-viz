@@ -1,6 +1,6 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`babel should parse import and require statements 1`] = `
+exports[`should parse import and require statements 1`] = `
 [
   [
     "b0.js",

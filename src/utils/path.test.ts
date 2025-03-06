@@ -1,3 +1,4 @@
+import { expect, it } from "vitest";
 import { isRelativePath, resolvePath } from "./path";
 
 it("resolvePath", () => {
