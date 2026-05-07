@@ -215,10 +215,14 @@ export class GraphViz {
     canvasSelection.call(this.zoomBehavior);
 
     // Node drag via manual mouse events — left button only
+    let dragStarted = false;
+    let dragModifiers = { metaKey: false, ctrlKey: false };
     this.canvas.addEventListener("mousedown", (event) => {
       if (event.button !== 0) return;
       mouseDownX = event.offsetX;
       mouseDownY = event.offsetY;
+      dragStarted = false;
+      dragModifiers = { metaKey: event.metaKey, ctrlKey: event.ctrlKey };
 
       const [cx, cy] = this.screenToCanvas(event.offsetX, event.offsetY);
       const node = hitTestNode(this.nodes, cx, cy);
@@ -228,7 +232,6 @@ export class GraphViz {
       node.fx = node.x;
       node.fy = node.y;
       this.simulation?.alphaTarget(0.3).restart();
-      this.options.onNodeDrag?.(node.id, { metaKey: event.metaKey, ctrlKey: event.ctrlKey });
       this.canvas.style.cursor = "grabbing";
     });
 
@@ -240,6 +243,11 @@ export class GraphViz {
       const [cx, cy] = this.screenToCanvas(screenX, screenY);
       this.draggedNode.fx = cx;
       this.draggedNode.fy = cy;
+      // Fire onNodeDrag only once per drag gesture, on first real movement
+      if (!dragStarted) {
+        dragStarted = true;
+        this.options.onNodeDrag?.(this.draggedNode.id, dragModifiers);
+      }
       this.scheduleRender();
     };
 
