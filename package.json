@@ -12,7 +12,9 @@
     "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
     "test": "vitest",
     "preview": "vite preview",
-    "source-viz": "tsx cli/index.ts"
+    "source-viz": "tsx cli/index.ts",
+    "build:cli": "tsup",
+    "prepublishOnly": "npm run build:cli"
   },
   "prettier": {
     "printWidth": 120
@@ -53,6 +55,7 @@
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
     "happy-dom": "^20.9.0",
+    "tsup": "^8.5.1",
     "tsx": "^4.21.0",
     "typescript": "^6.0.3",
     "vite": "^8.0.11",
@@ -71,6 +74,9 @@
     ]
   },
   "bin": {
-    "source-viz": "cli/bin.js"
-  }
+    "source-viz": "dist-cli/index.cjs"
+  },
+  "files": [
+    "dist-cli/"
+  ]
 }

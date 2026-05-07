@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 import { Command } from "commander";
 import { scanCmd } from "./commands/scan";
 import { cyclesCmd } from "./commands/cycles";

@@ -58,7 +58,13 @@ const resolveStringLiteralValue = (importTargetNode: zod.infer<typeof stringLite
 
 export async function prepare() {
   const babelParser = await import("@babel/parser");
-  const { default: traverse } = await import("@babel/traverse");
+  const traverseModule = await import("@babel/traverse");
+  // Handle CJS/ESM interop: traverse may be .default.default or .default
+  const traverse = (
+    typeof traverseModule.default === "function"
+      ? traverseModule.default
+      : (traverseModule.default as any).default
+  ) as (typeof traverseModule)["default"];
   return function parse(source: string) {
     const ast = babelParser.parse(source, {
       sourceType: "module",
