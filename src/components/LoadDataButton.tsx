@@ -25,8 +25,11 @@ export function LoadDataButton({
 
           const parser = entryParsers[ext as keyof typeof entryParsers];
           if (parser) {
-            // TODO: handle error
-            onLoad(getOrganizedEntries(parser(await file.text())));
+            try {
+              onLoad(getOrganizedEntries(parser(await file.text())));
+            } catch (err) {
+              alert(`Failed to parse "${file.name}": ${err instanceof Error ? err.message : err}`);
+            }
           }
         }
       }}
