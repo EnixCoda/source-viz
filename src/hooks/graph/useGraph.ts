@@ -93,8 +93,9 @@ export function useGraph<E extends HTMLElement>(
         const isMulti = event.metaKey || event.ctrlKey;
         callbacksRef.current.onNodeClick?.(id, isMulti);
       },
-      onNodeDrag: (id) => {
-        callbacksRef.current.onNodeClick?.(id, false);
+      onNodeDrag: (id, event) => {
+        const isMulti = event.metaKey || event.ctrlKey;
+        callbacksRef.current.onNodeClick?.(id, isMulti);
       },
       onBackgroundClick: () => {
         callbacksRef.current.onBackgroundClick?.();

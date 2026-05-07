@@ -228,7 +228,7 @@ export class GraphViz {
       node.fx = node.x;
       node.fy = node.y;
       this.simulation?.alphaTarget(0.3).restart();
-      this.options.onNodeDrag?.(node.id);
+      this.options.onNodeDrag?.(node.id, { metaKey: event.metaKey, ctrlKey: event.ctrlKey });
       this.canvas.style.cursor = "grabbing";
     });
 

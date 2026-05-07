@@ -59,7 +59,7 @@ export interface GraphVizOptions {
 
   // Callbacks
   onNodeClick?: (nodeId: string, event: { metaKey: boolean; ctrlKey: boolean }) => void;
-  onNodeDrag?: (nodeId: string) => void;
+  onNodeDrag?: (nodeId: string, event: { metaKey: boolean; ctrlKey: boolean }) => void;
   onNodeHover?: (nodeId: string | null) => void;
   onBackgroundClick?: () => void;
   onNodeContextMenu?: (nodeId: string, screenX: number, screenY: number) => void;
