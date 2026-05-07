@@ -4,7 +4,7 @@
   "description": "Visualize JavaScript/TypeScript import dependency graphs — in the browser or from the CLI",
   "author": "EnixCoda",
   "license": "MIT",
-  "homepage": "https://github.com/EnixCoda/source-viz",
+  "homepage": "https://srcviz.enix.one",
   "repository": {
     "type": "git",
     "url": "https://github.com/EnixCoda/source-viz.git"

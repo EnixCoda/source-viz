@@ -16,7 +16,7 @@ Visualize JavaScript/TypeScript import dependency graphs — in the browser or f
 
 ## Live Demo
 
-> Coming soon — or run `npm run dev` locally and click **Try Demo**.
+**[srcviz.enix.one](https://srcviz.enix.one/)** — deployed via Vercel.
 
 ## Web UI
 
