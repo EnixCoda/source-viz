@@ -73,12 +73,21 @@ export class GraphViz {
     this.scheduleRender();
   }
 
-  /** Set new graph data. Preserves positions of existing nodes; only resets viewport on first load. */
+  /**
+   * Set new graph data.
+   * - Preserves positions of nodes that already exist (by id).
+   * - Only applies DAG layout on first load. Incremental updates keep existing
+   *   positions intact — call rebuildLayout() to recompute the DAG.
+   * - Only resets viewport (zoom/pan) on first load.
+   */
   setData(data: GraphData): void {
     const isFirstLoad = this.nodes.length === 0;
 
     // Carry over positions from existing nodes so incremental changes don't scramble the layout
-    const prevPositions = new Map<string, { x?: number; y?: number; vx?: number; vy?: number; fx?: number | null; fy?: number | null }>();
+    const prevPositions = new Map<
+      string,
+      { x?: number; y?: number; vx?: number; vy?: number; fx?: number | null; fy?: number | null }
+    >();
     for (const node of this.nodes) {
       prevPositions.set(node.id, { x: node.x, y: node.y, vx: node.vx, vy: node.vy, fx: node.fx, fy: node.fy });
     }
@@ -92,32 +101,8 @@ export class GraphViz {
     computeModuleColors(this.nodes);
     computeEdgeImportance(this.nodes, this.links);
 
-    if (this.options.dagMode) {
-      applyDagLayout({
-        nodes: this.nodes,
-        links: this.links,
-        mode: this.options.dagMode,
-        levelDistance: this.options.dagLevelDistance ?? 120,
-        width: this.options.width,
-        height: this.options.height,
-      });
-
-      // After DAG layout overwrites x/y, restore the off-axis (secondary) coordinate
-      // for nodes that existed before. This keeps each node in roughly the same row
-      // within its level, even if levels shift, so removing a node doesn't reshuffle
-      // the entire graph's secondary ordering. The on-axis (primary) coord follows
-      // the new level since that's the whole point of DAG mode.
-      const dagMode = this.options.dagMode;
-      const isHorizontal = dagMode === "lr" || dagMode === "rl";
-      const isRadial = dagMode === "radialout" || dagMode === "radialin";
-      if (!isRadial) {
-        for (const node of this.nodes) {
-          const prev = prevPositions.get(node.id);
-          if (!prev) continue;
-          if (isHorizontal && prev.y != null) node.y = prev.y;
-          else if (!isHorizontal && prev.x != null) node.x = prev.x;
-        }
-      }
+    if (isFirstLoad && this.options.dagMode) {
+      this.applyDagLayoutNow();
     }
 
     // Only reset viewport on first load; incremental updates keep the user's zoom/pan
@@ -130,6 +115,35 @@ export class GraphViz {
     }
 
     this.startSimulation(isFirstLoad);
+  }
+
+  /**
+   * Recompute layout from scratch (DAG levels, simulation cold-start).
+   * Call this when the user wants to refresh the graph after incremental edits.
+   */
+  rebuildLayout(): void {
+    if (this.nodes.length === 0) return;
+    // Clear pinned positions so simulation can move nodes freely
+    for (const node of this.nodes) {
+      node.fx = null;
+      node.fy = null;
+    }
+    if (this.options.dagMode) {
+      this.applyDagLayoutNow();
+    }
+    this.startSimulation(true);
+  }
+
+  private applyDagLayoutNow(): void {
+    if (!this.options.dagMode) return;
+    applyDagLayout({
+      nodes: this.nodes,
+      links: this.links,
+      mode: this.options.dagMode,
+      levelDistance: this.options.dagLevelDistance ?? 120,
+      width: this.options.width,
+      height: this.options.height,
+    });
   }
 
   /** Clean up all resources */
@@ -200,8 +214,9 @@ export class GraphViz {
 
     canvasSelection.call(this.zoomBehavior);
 
-    // Node drag via manual mouse events
+    // Node drag via manual mouse events — left button only
     this.canvas.addEventListener("mousedown", (event) => {
+      if (event.button !== 0) return;
       mouseDownX = event.offsetX;
       mouseDownY = event.offsetY;
 

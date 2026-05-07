@@ -256,7 +256,7 @@ export function Viz({
     },
   }), [closeContextMenu]);
 
-  const [ref, render] = useGraph<HTMLDivElement>(
+  const [ref, render, rebuildLayout] = useGraph<HTMLDivElement>(
     {
       data,
       fixFontSize,
@@ -273,9 +273,26 @@ export function Viz({
     }
   );
 
+  const [layoutStale, setLayoutStale] = React.useState(false);
+  const initialRenderRef = React.useRef(true);
   React.useEffect(() => {
     render?.(graphData);
-  }, [render, graphData]);
+    if (initialRenderRef.current) {
+      initialRenderRef.current = false;
+    } else if (graphMode === "dag") {
+      setLayoutStale(true);
+    }
+  }, [render, graphData, graphMode]);
+
+  React.useEffect(() => {
+    // Reset stale flag when DAG mode is turned off (no DAG layout to rebuild)
+    if (graphMode !== "dag") setLayoutStale(false);
+  }, [graphMode]);
+
+  const handleRebuildLayout = React.useCallback(() => {
+    rebuildLayout();
+    setLayoutStale(false);
+  }, [rebuildLayout]);
 
   const [nodeSelectionHistory, setNodeSelectionHistory] = React.useState<string[]>([]);
   React.useEffect(() => {
@@ -337,6 +354,21 @@ export function Viz({
         <Divider height="auto" />
         <Box ref={vizContainerRef} flex={1} overflowY="auto" position="relative">
           <div ref={ref} style={{ display: vizMode === "table" ? "none" : undefined }} />
+          {layoutStale && vizMode === "graph" && (
+            <Button
+              position="absolute"
+              top={2}
+              right={2}
+              zIndex={5}
+              size="sm"
+              colorScheme="blue"
+              leftIcon={<RepeatIcon />}
+              onClick={handleRebuildLayout}
+              aria-label="Rebuild DAG layout"
+            >
+              Rebuild layout
+            </Button>
+          )}
           <div style={{ display: vizMode === "graph" ? "none" : undefined }}>
             <EntriesTable entries={renderedEntries} onClickSelect={setSelectedNode} />
           </div>

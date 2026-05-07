@@ -150,5 +150,9 @@ export function useGraph<E extends HTMLElement>(
     graphRef.current?.setData(graphData);
   }, []);
 
-  return [ref, render] as const;
+  const rebuildLayout = React.useCallback(() => {
+    graphRef.current?.rebuildLayout();
+  }, []);
+
+  return [ref, render, rebuildLayout] as const;
 }
