@@ -363,8 +363,16 @@ export function Viz({
                       : contextMenu.nodeId}
                   </Text>
                   <Divider />
-                  <ContextMenuItem onClick={() => { setSelectedNode(contextMenu.nodeId!); closeContextMenu(); }}>
-                    Select
+                  <ContextMenuItem onClick={() => {
+                    setSelectedNodes((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(contextMenu.nodeId!)) next.delete(contextMenu.nodeId!);
+                      else next.add(contextMenu.nodeId!);
+                      return next;
+                    });
+                    closeContextMenu();
+                  }}>
+                    {selectedNodes.has(contextMenu.nodeId) ? "Deselect" : "Select"}
                   </ContextMenuItem>
                   <ContextMenuItem onClick={() => { toggleExcludeNode(contextMenu.nodeId!); closeContextMenu(); }}>
                     {allExcludedNodes.has(contextMenu.nodeId) ? "Include in viz" : "Exclude from viz"}

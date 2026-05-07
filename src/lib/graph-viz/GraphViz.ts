@@ -101,6 +101,23 @@ export class GraphViz {
         width: this.options.width,
         height: this.options.height,
       });
+
+      // After DAG layout overwrites x/y, restore the off-axis (secondary) coordinate
+      // for nodes that existed before. This keeps each node in roughly the same row
+      // within its level, even if levels shift, so removing a node doesn't reshuffle
+      // the entire graph's secondary ordering. The on-axis (primary) coord follows
+      // the new level since that's the whole point of DAG mode.
+      const dagMode = this.options.dagMode;
+      const isHorizontal = dagMode === "lr" || dagMode === "rl";
+      const isRadial = dagMode === "radialout" || dagMode === "radialin";
+      if (!isRadial) {
+        for (const node of this.nodes) {
+          const prev = prevPositions.get(node.id);
+          if (!prev) continue;
+          if (isHorizontal && prev.y != null) node.y = prev.y;
+          else if (!isHorizontal && prev.x != null) node.x = prev.x;
+        }
+      }
     }
 
     // Only reset viewport on first load; incremental updates keep the user's zoom/pan
