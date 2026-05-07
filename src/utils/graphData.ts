@@ -56,7 +56,7 @@ export const filterGraphData = (
   // Traverse through dependency map and dependent map starting from roots and leave to explore the graph
   const traverse = (startNodes: Set<NodeId>, togoMap: Map<NodeId, Set<NodeId>>) => {
     const traversedNodes = new Set<NodeId>();
-    const cycles: NodeId[][] = []; // TODO: or save edges of cycles?
+    const cycles: NodeId[][] = []; // Cycle edges are derived downstream (e.g. cycleLinks in Viz.tsx)
     const mergedNodesMap = new Map<NodeId, Set<NodeId>>();
 
     const traverseNode = (node: NodeId, stack: NodeId[] = []) => {
