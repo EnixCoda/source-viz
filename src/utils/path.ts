@@ -1,7 +1,7 @@
-import { join } from "path-browserify";
+import pathBrowserify from "path-browserify";
 
 export const resolvePath = (...paths: string[]) => {
-  const path = join(...paths);
+  const path = pathBrowserify.join(...paths);
   if (path.match(/\.\./)) throw new Error(`Path "${path}" is lower than root`);
   return path;
 };

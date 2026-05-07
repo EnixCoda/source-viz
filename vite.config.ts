@@ -9,5 +9,6 @@ export default defineConfig({
   plugins: [react(), demoDataPlugin()],
   test: {
     environment: "happy-dom",
+    exclude: ["**/node_modules/**", "**/dist/**", "**/dist-cli/**"],
   },
 });
