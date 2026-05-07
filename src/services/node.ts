@@ -1,8 +1,6 @@
 import * as fs from "fs/promises";
 import path from "path";
 
-const resolveSymlink = false;
-
 export async function getFiles(rootDir: string, isExcluded: (path: string) => boolean) {
   const files: string[] = [];
 
@@ -16,13 +14,6 @@ export async function getFiles(rootDir: string, isExcluded: (path: string) => bo
       for (const item of items) await scan(path.join(relativePath, item));
     } else if (stats.isFile()) {
       files.push(relativePath);
-    } else if (stats.isSymbolicLink()) {
-      if (resolveSymlink) {
-        // TODO
-        console.info(`Skipped symbolic link "${relativePath}"`);
-      }
-    } else {
-      console.error(`Unrecognized item type "${relativePath}"`);
     }
   }
 

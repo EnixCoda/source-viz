@@ -12,9 +12,6 @@ export const ProgressTable = React.memo(function ProgressTable({ progress }: { p
           <Th width="0%" whiteSpace="nowrap">
             Status
           </Th>
-          <Th width="0%" whiteSpace="nowrap">
-            Action
-          </Th>
         </Tr>
       </Thead>
       <Tbody>
@@ -31,7 +28,6 @@ export const ProgressTable = React.memo(function ProgressTable({ progress }: { p
                   <Tooltip label="Pending parsing">⏳</Tooltip>
                 ))}
             </Td>
-            <Td width="0%">{/* TODO: setup vscode */}</Td>
           </Tr>
         ))}
       </Tbody>

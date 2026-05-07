@@ -72,7 +72,6 @@ export const filterGraphData = (
         const mergedNodes = mergedNodesMap.get(node);
         if (mergedNodes) {
           for (const item of stack) {
-            // TODO: checking from top would be faster
             if (mergedNodes === mergedNodesMap.get(item)) {
               const nodesOnCycle = stack.slice(stack.indexOf(item));
               saveCycle(nodesOnCycle);

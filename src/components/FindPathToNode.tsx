@@ -120,9 +120,17 @@ export function FindPathToNode({
               return (
                 <>
                   <ModalBody>
-                    {/* TODO: use a button to trigger single node selection modal dialog */}
                     <Text size="sm">Below shows paths between such nodes</Text>
-                    <NodeList nodes={[source, target]} />
+                    <NodeList
+                      nodes={[source, target]}
+                      mapProps={(id) => ({
+                        onSelect: () => {
+                          setSelectedNode(id);
+                          onClose();
+                          setStep("selectTarget");
+                        },
+                      })}
+                    />
                     <Heading as="h4" size="sm">
                       In dependents' direction
                     </Heading>

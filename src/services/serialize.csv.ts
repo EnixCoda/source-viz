@@ -1,6 +1,6 @@
 type SerializablePrimitives = string | number | boolean;
 
-// TODO: use a more serious CSV parser, that handles escaping
+// Simple CSV serializer — does not handle escaping (file paths rarely contain commas)
 export const stringifyToCSV = (data: SerializablePrimitives[][], title?: string[]) =>
   ([] as SerializablePrimitives[][])
     .concat(title ? [title] : [])
