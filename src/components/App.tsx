@@ -1,12 +1,13 @@
 import { Icon } from "@chakra-ui/icons";
-import { Heading, HStack, Link, Text, VStack } from "@chakra-ui/react";
+import { Button, Heading, HStack, Link, Text, VStack } from "@chakra-ui/react";
 import * as React from "react";
 import { AiFillGithub } from "react-icons/ai";
 import { MetaFilter } from "../services";
 import { DependencyEntry } from "../services/serializers";
 import { FSLoadFilesButton } from "./FSLoadFilesButton";
 import { LoadDataButton } from "./LoadDataButton";
-import { defaultExcludes, defaultIncludes, Filter } from "./Scan/Filter";
+import { defaultExcludes, defaultIncludes } from "./Scan/filterDefaults";
+import { Filter } from "./Scan/Filter";
 import { Scanning } from "./Scan/Scanning";
 import { Viz } from "./Viz";
 
@@ -100,6 +101,26 @@ export function App() {
               />
               <Text fontSize="sm">Or resume with the data you exported before.</Text>
             </VStack>
+            <VStack alignItems="flex-start">
+              <Button
+                variant="outline"
+                colorScheme="blue"
+                onClick={async () => {
+                  try {
+                    const resp = await fetch("demo-data.json");
+                    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                    const data: DependencyEntry[] = await resp.json();
+                    dispatch({ state: "restored-viz", data });
+                  } catch (err) {
+                    console.error("Failed to load demo data:", err);
+                    alert("Demo data is not available. Run `npm run generate-demo` first.");
+                  }
+                }}
+              >
+                Try Demo
+              </Button>
+              <Text fontSize="sm">See source-viz visualizing its own source code.</Text>
+            </VStack>
             <Text as="em" fontSize="sm">
               Note: either way, no files will be uploaded to remote server, all of them are processed locally.
             </Text>
@@ -174,6 +195,23 @@ export function App() {
                 fs: status.fs,
                 filter: status.filter,
               });
+            }}
+          />
+        </VStack>
+      );
+    case "restored-viz":
+      return (
+        <VStack alignItems="stretch" maxHeight="100vh" overflow="auto">
+          <Viz
+            entries={status.data}
+            setData={(data) =>
+              dispatch({
+                state: "restored-viz",
+                data,
+              })
+            }
+            onBack={() => {
+              dispatch({ state: "initial" });
             }}
           />
         </VStack>
