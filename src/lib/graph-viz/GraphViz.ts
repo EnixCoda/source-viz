@@ -217,6 +217,8 @@ export class GraphViz {
     // Node drag via manual mouse events — left button only
     let dragStarted = false;
     let dragModifiers = { metaKey: false, ctrlKey: false };
+    const DRAG_THRESHOLD_PX_SQ = 25; // 5px
+
     this.canvas.addEventListener("mousedown", (event) => {
       if (event.button !== 0) return;
       mouseDownX = event.offsetX;
@@ -241,13 +243,19 @@ export class GraphViz {
       const screenX = event.clientX - rect.left;
       const screenY = event.clientY - rect.top;
       const [cx, cy] = this.screenToCanvas(screenX, screenY);
-      this.draggedNode.fx = cx;
-      this.draggedNode.fy = cy;
-      // Fire onNodeDrag only once per drag gesture, on first real movement
+      // Don't move the node or fire onNodeDrag until movement exceeds
+      // the same threshold the click handler uses to distinguish click from drag.
+      // Otherwise micro-drift fires both onNodeDrag AND onNodeClick, causing
+      // double-toggle and apparent "click does nothing" behavior.
       if (!dragStarted) {
+        const dx = screenX - mouseDownX;
+        const dy = screenY - mouseDownY;
+        if (dx * dx + dy * dy < DRAG_THRESHOLD_PX_SQ) return;
         dragStarted = true;
         this.options.onNodeDrag?.(this.draggedNode.id, dragModifiers);
       }
+      this.draggedNode.fx = cx;
+      this.draggedNode.fy = cy;
       this.scheduleRender();
     };
 
@@ -300,11 +308,12 @@ export class GraphViz {
       }
     });
 
-    // Click — genuine click only (< 5px movement from mousedown)
+    // Click — genuine click only (< 5px movement from mousedown, and no drag fired)
     this.canvas.addEventListener("click", (event) => {
       const dx = event.offsetX - mouseDownX;
       const dy = event.offsetY - mouseDownY;
-      if (dx * dx + dy * dy > 25) return; // was a drag, not a click
+      if (dx * dx + dy * dy >= DRAG_THRESHOLD_PX_SQ) return; // was a drag, not a click
+      if (dragStarted) return; // drag handler already fired the callback
 
       const [cx, cy] = this.screenToCanvas(event.offsetX, event.offsetY);
       const node = hitTestNode(this.nodes, cx, cy);
