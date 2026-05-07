@@ -1,10 +1,29 @@
 {
   "name": "source-viz",
-  "private": true,
   "version": "1.0.0",
+  "description": "Visualize JavaScript/TypeScript import dependency graphs — in the browser or from the CLI",
+  "author": "EnixCoda",
+  "license": "MIT",
+  "homepage": "https://github.com/EnixCoda/source-viz",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/EnixCoda/source-viz.git"
+  },
+  "keywords": [
+    "dependency-graph",
+    "visualization",
+    "static-analysis",
+    "typescript",
+    "javascript",
+    "imports",
+    "cli",
+    "d3"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
   "main": "src/index.ts",
   "type": "module",
-  "license": "MIT",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
