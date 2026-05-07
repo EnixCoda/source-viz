@@ -76,8 +76,13 @@ export function Scanning({
 
           // phase: read & parse files
           const [, [isIncluded] = []] = filter ? getFilterMatchers(filter) : [];
+
+          // Try to read tsconfig.json for path alias resolution
+          const resolveAlias = await buildResolveAlias(fs.handle, reversePathMap);
+
           const fsLike: FSLike = {
             resolvePath,
+            resolveAlias,
             readFile: async (path) => {
               const handle = reversePathMap.get(path);
               if (!handle) throw new Error(`No file found for "${path}"`);
@@ -177,4 +182,58 @@ export function Scanning({
       </VStack>
     </VStack>
   );
+}
+
+/**
+ * Try to read tsconfig.json from the project root and build a resolveAlias function
+ * from compilerOptions.paths and baseUrl.
+ *
+ * Example tsconfig.json:
+ *   { "compilerOptions": { "baseUrl": ".", "paths": { "@/*": ["src/*"] } } }
+ *
+ * This maps `@/components/Foo` → `src/components/Foo`.
+ */
+async function buildResolveAlias(
+  rootHandle: FileSystemDirectoryHandle,
+  _reversePathMap: Map<string, FileSystemFileHandle>
+): Promise<((importPath: string) => string | null) | undefined> {
+  try {
+    const tsconfigHandle = await rootHandle.getFileHandle("tsconfig.json");
+    const text = await (await tsconfigHandle.getFile()).text();
+    const tsconfig = JSON.parse(text);
+    const paths: Record<string, string[]> | undefined = tsconfig?.compilerOptions?.paths;
+    if (!paths || Object.keys(paths).length === 0) return undefined;
+
+    const baseUrl: string = tsconfig?.compilerOptions?.baseUrl ?? ".";
+
+    // Build prefix rules: { "@/*": ["src/*"] } → [{ prefix: "@/", targets: ["src/"] }]
+    const rules = Object.entries(paths)
+      .filter(([pattern, targets]) => pattern.endsWith("/*") && targets.length > 0)
+      .map(([pattern, targets]) => ({
+        prefix: pattern.slice(0, -1), // "@/*" → "@/"
+        targets: targets
+          .filter((t) => t.endsWith("/*"))
+          .map((t) => {
+            const dir = t.slice(0, -1); // "src/*" → "src/"
+            return baseUrl === "." ? dir : baseUrl + "/" + dir;
+          }),
+      }))
+      .filter((r) => r.targets.length > 0);
+
+    if (rules.length === 0) return undefined;
+
+    return (importPath: string): string | null => {
+      for (const { prefix, targets } of rules) {
+        if (importPath.startsWith(prefix)) {
+          const rest = importPath.slice(prefix.length);
+          // Return the first target mapping
+          return targets[0] + rest;
+        }
+      }
+      return null;
+    };
+  } catch {
+    // No tsconfig.json or invalid — no alias resolution
+    return undefined;
+  }
 }

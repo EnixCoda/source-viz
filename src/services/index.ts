@@ -12,6 +12,8 @@ type Parse = (source: string) => [string, boolean][];
 export interface FSLike {
   readFile(path: string): string | Promise<string>;
   resolvePath(...paths: string[]): string;
+  /** Optional: resolve a non-relative import path using project aliases (e.g. tsconfig paths) */
+  resolveAlias?(importPath: string): string | null;
 }
 
 export async function getDependencyEntries(
@@ -81,9 +83,23 @@ function resolveDependencyFile(
   dependencyRef: string,
   resolveAllFiles: boolean,
 ) {
-  // TODO: handle path alias
-
-  if (!isRelativePath(dependencyRef)) return dependencyRef;
+  if (!isRelativePath(dependencyRef)) {
+    // Try path alias resolution (e.g. tsconfig paths like @/components/Foo)
+    const aliased = fs.resolveAlias?.(dependencyRef);
+    if (aliased) {
+      // Treat the aliased path like a relative import and resolve it
+      if (files.has(aliased)) return aliased;
+      const exts = ["js", "jsx", "mjs", "ts", "tsx", "mts"];
+      const withExt = exts.map((ext) => aliased + "." + ext).find((p) => files.has(p));
+      if (withExt) return withExt;
+      const indexFile = exts
+        .map((ext) => fs.resolvePath(aliased, "index." + ext))
+        .find((p) => files.has(p));
+      if (indexFile) return indexFile;
+      return aliased;
+    }
+    return dependencyRef;
+  }
 
   const baseResolved = run(() => {
     try {
