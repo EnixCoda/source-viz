@@ -1,9 +1,8 @@
-import { NodeObject } from "force-graph";
 import { DependencyEntry } from "../services/serializers";
 import { safeMapGet } from "./general";
 import { w } from "./w";
 
-export type NodeId = NodeObject["id"];
+export type NodeId = string;
 
 export type GraphMode = "dag" | "natural" | "cycles-only";
 

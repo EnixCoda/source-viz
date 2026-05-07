@@ -1,22 +1,19 @@
-import { DagMode, GraphData } from "force-graph";
 import * as React from "react";
-import { useMemo } from "react";
+import { GraphData, GraphViz } from "../../lib/graph-viz";
 import { PreparedData } from "../../utils/graphData";
-import { cloneData, ColorByMode, getColorByDataMapper, getNodeId } from "../../utils/graphDataMappers";
-import {
-  decorateForColorBy,
-  freezeNodeOnDragEnd,
-  renderAsDAG,
-  renderNodeAsText,
-  selectNodeOnMouseDown,
-} from "../../utils/graphDecorators";
-import { useGraphBasicStyles } from "./useGraphBasicStyles";
-import { useGraphDecorator } from "./useGraphDecorator";
-import { useGraphInstance } from "./useGraphInstance";
-import { useGraphSize } from "./useGraphSize";
+import { ColorByMode } from "../../utils/graphDataMappers";
+import { asyncLinkKey } from "../../lib/graph-viz/hit-test";
+
+import type { DagMode, EdgeStyleMode } from "../../lib/graph-viz";
+
+export interface GraphCallbacks {
+  onNodeClick?: (nodeId: string, multi: boolean) => void;
+  onBackgroundClick?: () => void;
+  onNodeContextMenu?: (nodeId: string, screenX: number, screenY: number) => void;
+  onBackgroundContextMenu?: (screenX: number, screenY: number) => void;
+}
 
 export function useGraph<E extends HTMLElement>(
-  nodeSelection: ReactState<string | null>,
   {
     data,
     fixFontSize,
@@ -26,7 +23,11 @@ export function useGraph<E extends HTMLElement>(
     height,
     enableDagMode,
     dagMode = "lr",
-    colorBy = "color-by-depth",
+    colorBy = "color-by-module",
+    edgeStyle = "flat",
+    cycleLinks,
+    selectedNodeIds,
+    callbacks,
   }: {
     data: PreparedData;
     fixNodeOnDragEnd: boolean;
@@ -37,62 +38,117 @@ export function useGraph<E extends HTMLElement>(
     enableDagMode: boolean;
     dagMode?: DagMode | null;
     colorBy?: ColorByMode;
+    edgeStyle?: EdgeStyleMode;
+    cycleLinks?: Set<string>;
+    selectedNodeIds?: Set<string>;
+    callbacks: GraphCallbacks;
   }
 ) {
-  const selectedNodeRef = React.useRef<string | null>(null);
+  const [mountedEl, setMountedEl] = React.useState<E | null>(null);
+  const ref = React.useCallback((el: E | null) => {
+    setMountedEl(el);
+  }, []);
+
+  const graphRef = React.useRef<GraphViz | null>(null);
+
+  // Build async link set from data
+  const asyncLinks = React.useMemo(() => {
+    const set = new Set<string>();
+    for (const [source, targets] of data.asyncRefMap.entries()) {
+      for (const target of targets) {
+        set.add(asyncLinkKey(source, target));
+      }
+    }
+    return set;
+  }, [data.asyncRefMap]);
+
+  // Keep callbacks ref-stable so GraphViz constructor doesn't re-create on every render
+  const callbacksRef = React.useRef(callbacks);
+  callbacksRef.current = callbacks;
+
+  // Initialize GraphViz instance
+  const hasSize = width > 0 && height > 0;
+  const pendingDataRef = React.useRef<GraphData | null>(null);
+
   React.useEffect(() => {
-    selectedNodeRef.current = nodeSelection.value;
-  }, [nodeSelection.value]);
+    if (!mountedEl || !hasSize) return;
 
-  const { ref, graph } = useGraphInstance<E>();
-  useGraphBasicStyles(graph);
-  useGraphSize(graph, width, height);
+    const graph = new GraphViz(mountedEl, {
+      width,
+      height,
+      dagMode: enableDagMode ? dagMode : undefined,
+      dagLevelDistance: 120,
+      fontSize,
+      fixFontSize,
+      fixNodeOnDragEnd,
+      colorBy,
+      edgeStyle,
+      arrowLength: 4,
+      asyncLinks,
+      cycleLinks,
+      selectedNodeIds,
+      dependencyMap: data.dependencyMap,
+      dependantMap: data.dependantMap,
+      onNodeClick: (id, event) => {
+        const isMulti = event.metaKey || event.ctrlKey;
+        callbacksRef.current.onNodeClick?.(id, isMulti);
+      },
+      onNodeDrag: (id) => {
+        callbacksRef.current.onNodeClick?.(id, false);
+      },
+      onBackgroundClick: () => {
+        callbacksRef.current.onBackgroundClick?.();
+      },
+      onNodeContextMenu: (nodeId, screenX, screenY) => {
+        callbacksRef.current.onNodeContextMenu?.(nodeId, screenX, screenY);
+      },
+      onBackgroundContextMenu: (screenX, screenY) => {
+        callbacksRef.current.onBackgroundContextMenu?.(screenX, screenY);
+      },
+    });
 
-  graph?.linkLineDash((link) => {
-    const source = getNodeId(link.source);
-    const target = getNodeId(link.target);
-    const dashLength = 5;
-    const gapLength = 5;
-    return source !== undefined && target !== undefined && data.asyncRefMap.get(source)?.has(target)
-      ? [dashLength, gapLength]
-      : [];
-  });
+    graphRef.current = graph;
 
-  // decorators
-  useGraphDecorator(
-    graph,
-    renderAsDAG,
-    useMemo(() => ({ dagMode: enableDagMode ? dagMode : null }), [enableDagMode, dagMode])
-  );
-  useGraphDecorator(
-    graph,
-    freezeNodeOnDragEnd,
-    useMemo(() => ({}), []),
-    fixNodeOnDragEnd
-  );
-  useGraphDecorator(
-    graph,
-    renderNodeAsText,
-    useMemo(
-      () => ({ getSelectionId: () => selectedNodeRef.current, fixFontSize, fontSize, data }),
-      [data, fixFontSize, fontSize]
-    )
-  );
-  useGraphDecorator(
-    graph,
-    selectNodeOnMouseDown,
-    useMemo(() => ({ onSelectNode: nodeSelection.setValue }), [nodeSelection.setValue])
-  );
-  useGraphDecorator(graph, decorateForColorBy, colorBy);
+    if (pendingDataRef.current) {
+      graph.setData(pendingDataRef.current);
+    }
 
-  // data mappers
-  const render = React.useMemo(() => {
-    const dataMappers: ((data: GraphData) => GraphData)[] = [cloneData, getColorByDataMapper(colorBy)];
+    return () => {
+      graph.destroy();
+      graphRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mountedEl, hasSize]);
 
-    const dataMapper = dataMappers.reduce((prev, cur) => (data) => cur(prev(data)));
+  // Update options reactively
+  React.useEffect(() => {
+    graphRef.current?.update({
+      width,
+      height,
+      dagMode: enableDagMode ? dagMode : undefined,
+      fontSize,
+      fixFontSize,
+      fixNodeOnDragEnd,
+      colorBy,
+      edgeStyle,
+      arrowLength: 4,
+      asyncLinks,
+      cycleLinks,
+      selectedNodeIds,
+      dependencyMap: data.dependencyMap,
+      dependantMap: data.dependantMap,
+    });
+  }, [
+    width, height, enableDagMode, dagMode, fontSize, fixFontSize,
+    fixNodeOnDragEnd, colorBy, edgeStyle, asyncLinks, cycleLinks, selectedNodeIds,
+    data.dependencyMap, data.dependantMap,
+  ]);
 
-    return (data: GraphData) => graph?.graphData(dataMapper(data));
-  }, [graph, colorBy]);
+  // Render function: sets graph data. Buffers if instance not yet ready.
+  const render = React.useCallback((graphData: GraphData) => {
+    pendingDataRef.current = graphData;
+    graphRef.current?.setData(graphData);
+  }, []);
 
   return [ref, render] as const;
 }

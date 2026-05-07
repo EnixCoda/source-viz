@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "generate-demo": "tsx scripts/generate-demo-data.ts",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "test": "vitest",
     "preview": "vite preview"
@@ -32,7 +33,6 @@
     "bfj": "^7.0.2",
     "buffer": "^6.0.3",
     "d3": "^7.4.4",
-    "force-graph": "file:packages/force-graph",
     "framer-motion": "^6",
     "path-browserify": "^1.0.1",
     "react": "^18.2.0",

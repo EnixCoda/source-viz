@@ -1,7 +1,7 @@
 import { Accordion, Box, Button, Divider, HStack, Heading, ModalBody, Select, Text, VStack } from "@chakra-ui/react";
 import * as React from "react";
 import { useWindowSize } from "react-use";
-import { useGraph } from "../hooks/graph/useGraph";
+import { useGraph, GraphCallbacks } from "../hooks/graph/useGraph";
 import { useClampedSize } from "../hooks/useClampedSize";
 import { useObserveElementSize } from "../hooks/useObserveElementSize";
 import { Size2D, useResizeHandler } from "../hooks/useResizeHandler";
@@ -16,6 +16,7 @@ import { DependencyEntry } from "../services/serializers";
 import { carry } from "../utils/general";
 import { GraphMode, filterGraphData, prepareGraphData } from "../utils/graphData";
 import { ColorByMode } from "../utils/graphDataMappers";
+import { EdgeStyleMode } from "../lib/graph-viz";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { ExportButton } from "./ExportButton";
 import { FindPathToNode } from "./FindPathToNode";
@@ -101,13 +102,26 @@ export function Viz({
   const [colorByView, colorBy] = useSelectView<ColorByMode>(
     {
       label: "Color nodes by",
-      defaultValue: "color-by-heat-both",
+      defaultValue: "color-by-module",
     },
     [
+      { value: "color-by-module", label: "Module" },
       { value: "color-by-depth", label: "File depth" },
       { value: "color-by-heat-both", label: "Connections" },
       { value: "color-by-heat-target", label: "Connections (dependency)" },
       { value: "color-by-heat-source", label: "Connections (dependant)" },
+    ]
+  );
+  const [edgeStyleView, edgeStyle] = useSelectView<EdgeStyleMode>(
+    {
+      label: "Edge style",
+      defaultValue: "flat",
+    },
+    [
+      { value: "flat", label: "Flat (colored by source)" },
+      { value: "tapered", label: "Tapered (wide→narrow shows direction)" },
+      { value: "gradient", label: "Gradient (source→target color)" },
+      { value: "highlight-cycles", label: "Highlight cycles (red)" },
     ]
   );
   const [fixNodeOnDragEndView, fixNodeOnDragEnd] = useCheckboxView({
@@ -118,10 +132,7 @@ export function Viz({
     label: "Cut-off async imports",
     defaultValue: false,
   });
-  const [fixFontSizeView, fixFontSize] = useCheckboxView({
-    label: "Fix font size to canvas",
-    defaultValue: true,
-  });
+  const fixFontSize = false;
   const [fontSizeView, fontSize = 12] = useNumberInputView({
     label: "Font Size",
     defaultValue: 12,
@@ -165,24 +176,6 @@ export function Viz({
 
   const [vizContainerRef, vizContainerSize] = useObserveElementSize();
 
-  const [selectedNode, setSelectedNode] = React.useState<string | null>(null);
-  const [ref, render] = useGraph<HTMLDivElement>(
-    {
-      value: selectedNode,
-      setValue: setSelectedNode,
-    },
-    {
-      data,
-      fixFontSize,
-      fontSize,
-      fixNodeOnDragEnd,
-      width: vizContainerSize?.width || 0,
-      height: vizContainerSize?.height || 0,
-      enableDagMode: graphMode === "dag",
-      colorBy,
-    }
-  );
-
   const graphData = React.useMemo(
     () =>
       filterGraphData(data, {
@@ -195,16 +188,104 @@ export function Viz({
     [data, restrictedRoots, restrictedLeaves, graphMode, allExcludedNodes, separateAsyncImports]
   );
 
+  const cycleLinks = React.useMemo(() => {
+    const set = new Set<string>();
+    for (const cycle of graphData.cycles) {
+      for (let i = 0; i < cycle.length; i++) {
+        const src = cycle[i];
+        const tgt = cycle[(i + 1) % cycle.length];
+        set.add(`${src}->${tgt}`);
+      }
+    }
+    return set;
+  }, [graphData.cycles]);
+
+  // Multi-select state
+  const [selectedNodes, setSelectedNodes] = React.useState<Set<string>>(new Set());
+  const selectedNode = selectedNodes.size === 1 ? [...selectedNodes][0] : null;
+
+  const setSelectedNode = React.useCallback((id: string | null) => {
+    setSelectedNodes(id ? new Set([id]) : new Set());
+  }, []);
+
+  // Context menu state
+  const [contextMenu, setContextMenu] = React.useState<{
+    x: number;
+    y: number;
+    nodeId: string | null;
+  } | null>(null);
+
+  const closeContextMenu = React.useCallback(() => setContextMenu(null), []);
+
+  // Close context menu on scroll or click outside
+  React.useEffect(() => {
+    if (!contextMenu) return;
+    const handler = () => setContextMenu(null);
+    window.addEventListener("click", handler);
+    window.addEventListener("scroll", handler, true);
+    window.addEventListener("keydown", (e) => { if (e.key === "Escape") handler(); });
+    return () => {
+      window.removeEventListener("click", handler);
+      window.removeEventListener("scroll", handler, true);
+    };
+  }, [contextMenu]);
+
+  const graphCallbacks = React.useMemo<GraphCallbacks>(() => ({
+    onNodeClick: (id, multi) => {
+      closeContextMenu();
+      if (multi) {
+        setSelectedNodes((prev) => {
+          const next = new Set(prev);
+          if (next.has(id)) next.delete(id);
+          else next.add(id);
+          return next;
+        });
+      } else {
+        setSelectedNodes(new Set([id]));
+      }
+    },
+    onBackgroundClick: () => {
+      closeContextMenu();
+      setSelectedNodes(new Set());
+    },
+    onNodeContextMenu: (nodeId, screenX, screenY) => {
+      setContextMenu({ x: screenX, y: screenY, nodeId });
+    },
+    onBackgroundContextMenu: (screenX, screenY) => {
+      setContextMenu({ x: screenX, y: screenY, nodeId: null });
+    },
+  }), [closeContextMenu]);
+
+  const [ref, render] = useGraph<HTMLDivElement>(
+    {
+      data,
+      fixFontSize,
+      fontSize,
+      fixNodeOnDragEnd,
+      width: vizContainerSize?.width || 0,
+      height: vizContainerSize?.height || 0,
+      enableDagMode: graphMode === "dag",
+      colorBy,
+      edgeStyle,
+      cycleLinks,
+      selectedNodeIds: selectedNodes.size > 0 ? selectedNodes : undefined,
+      callbacks: graphCallbacks,
+    }
+  );
+
   React.useEffect(() => {
     render?.(graphData);
   }, [render, graphData]);
 
   const [nodeSelectionHistory, setNodeSelectionHistory] = React.useState<string[]>([]);
   React.useEffect(() => {
-    if (selectedNode) {
-      setNodeSelectionHistory((history) => [selectedNode, ...history.filter((node) => node !== selectedNode)]);
+    if (selectedNodes.size > 0) {
+      setNodeSelectionHistory((history) => {
+        const newNodes = [...selectedNodes].filter((n) => !history.includes(n));
+        return [...newNodes, ...history.filter((n) => !selectedNodes.has(n))];
+      });
     }
-  }, [selectedNode]);
+  }, [selectedNodes]);
 
   // The in-views
   const [inViewView, inView, setInView] = useSwitchView({
@@ -254,11 +335,89 @@ export function Viz({
           {vizModeView}
         </HStack>
         <Divider height="auto" />
-        <Box ref={vizContainerRef} flex={1} overflowY="auto">
+        <Box ref={vizContainerRef} flex={1} overflowY="auto" position="relative">
           <div ref={ref} style={{ display: vizMode === "table" ? "none" : undefined }} />
           <div style={{ display: vizMode === "graph" ? "none" : undefined }}>
             <EntriesTable entries={renderedEntries} onClickSelect={setSelectedNode} />
           </div>
+          {contextMenu && (
+            <Box
+              position="fixed"
+              left={contextMenu.x}
+              top={contextMenu.y}
+              zIndex={1000}
+              bg="white"
+              shadow="lg"
+              borderRadius="md"
+              border="1px solid"
+              borderColor="gray.200"
+              py={1}
+              minW="200px"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {contextMenu.nodeId ? (
+                <VStack alignItems="stretch" spacing={0}>
+                  <Text px={3} py={1} fontSize="xs" color="gray.500" fontWeight="bold">
+                    {contextMenu.nodeId.length > 40
+                      ? "…" + contextMenu.nodeId.slice(-39)
+                      : contextMenu.nodeId}
+                  </Text>
+                  <Divider />
+                  <ContextMenuItem onClick={() => { setSelectedNode(contextMenu.nodeId!); closeContextMenu(); }}>
+                    Select
+                  </ContextMenuItem>
+                  <ContextMenuItem onClick={() => { toggleExcludeNode(contextMenu.nodeId!); closeContextMenu(); }}>
+                    {allExcludedNodes.has(contextMenu.nodeId) ? "Include in viz" : "Exclude from viz"}
+                  </ContextMenuItem>
+                  {data.dependencyMap.get(contextMenu.nodeId)?.size ? (
+                    <ContextMenuItem onClick={() => {
+                      data.dependencyMap.get(contextMenu.nodeId!)?.forEach((dep) => {
+                        if (!allExcludedNodes.has(dep)) toggleExcludeNode(dep);
+                      });
+                      closeContextMenu();
+                    }}>
+                      Exclude dependencies ({data.dependencyMap.get(contextMenu.nodeId)?.size})
+                    </ContextMenuItem>
+                  ) : null}
+                  {data.dependantMap.get(contextMenu.nodeId)?.size ? (
+                    <ContextMenuItem onClick={() => {
+                      data.dependantMap.get(contextMenu.nodeId!)?.forEach((dep) => {
+                        if (!allExcludedNodes.has(dep)) toggleExcludeNode(dep);
+                      });
+                      closeContextMenu();
+                    }}>
+                      Exclude dependants ({data.dependantMap.get(contextMenu.nodeId)?.size})
+                    </ContextMenuItem>
+                  ) : null}
+                  {selectedNodes.size > 1 && (
+                    <>
+                      <Divider />
+                      <ContextMenuItem onClick={() => {
+                        selectedNodes.forEach((id) => {
+                          if (!allExcludedNodes.has(id)) toggleExcludeNode(id);
+                        });
+                        setSelectedNodes(new Set());
+                        closeContextMenu();
+                      }}>
+                        Exclude all selected ({selectedNodes.size})
+                      </ContextMenuItem>
+                    </>
+                  )}
+                </VStack>
+              ) : (
+                <VStack alignItems="stretch" spacing={0}>
+                  {selectedNodes.size > 0 && (
+                    <ContextMenuItem onClick={() => { setSelectedNodes(new Set()); closeContextMenu(); }}>
+                      Deselect {selectedNodes.size > 1 ? `all (${selectedNodes.size})` : ""}
+                    </ContextMenuItem>
+                  )}
+                  {selectedNodes.size === 0 && (
+                    <Text px={3} py={2} fontSize="sm" color="gray.400">No actions</Text>
+                  )}
+                </VStack>
+              )}
+            </Box>
+          )}
         </Box>
       </VStack>
       <HorizontalResizeHandler onPointerDown={onPointerDown} />
@@ -300,15 +459,35 @@ export function Viz({
                   </div>
                 )}
                 <div>{colorByView}</div>
+                <div>{edgeStyleView}</div>
                 <div>{fixNodeOnDragEndView}</div>
-                <div>{fixFontSizeView}</div>
                 <div>{fontSizeView}</div>
                 <div>{separateAsyncImportsView}</div>
               </VStack>
             </CollapsibleSection>
           )}
-          <CollapsibleSection label={`Selected Node`}>
-            {selectedNode ? (
+          <CollapsibleSection label={`Selected Node${selectedNodes.size > 1 ? `s (${selectedNodes.size})` : ""}`}>
+            {selectedNodes.size > 1 ? (
+              <VStack alignItems="flex-start">
+                <Text fontSize="sm" color="gray.600">{selectedNodes.size} nodes selected (Ctrl/Cmd+click to toggle)</Text>
+                <Button size="sm" onClick={() => setSelectedNodes(new Set())}>Clear selection</Button>
+                <Button size="sm" colorScheme="red" variant="outline" onClick={() => {
+                  selectedNodes.forEach((id) => {
+                    if (!allExcludedNodes.has(id)) toggleExcludeNode(id);
+                  });
+                  setSelectedNodes(new Set());
+                }}>
+                  Exclude all selected
+                </Button>
+                <NodeList
+                  nodes={[...selectedNodes]}
+                  mapProps={(id) => ({
+                    onSelect: () => setSelectedNode(id),
+                    onExclude: () => toggleExcludeNode(id),
+                  })}
+                />
+              </VStack>
+            ) : selectedNode ? (
               <VStack alignItems="flex-start">
                 <Heading as="h3" size="sm">
                   Recently selected nodes
@@ -452,5 +631,23 @@ export function Viz({
         </Accordion>
       </VStack>
     </HStack>
+  );
+}
+
+function ContextMenuItem({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
+  return (
+    <Box
+      as="button"
+      display="block"
+      w="100%"
+      textAlign="left"
+      px={3}
+      py={1.5}
+      fontSize="sm"
+      _hover={{ bg: "gray.100" }}
+      onClick={onClick}
+    >
+      {children}
+    </Box>
   );
 }
