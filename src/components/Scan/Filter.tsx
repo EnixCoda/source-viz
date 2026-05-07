@@ -2,7 +2,7 @@ import { ChevronLeftIcon, InfoIcon } from "@chakra-ui/icons";
 import { Box, Button, Divider, Flex, Heading, HStack, IconButton, Text, VStack } from "@chakra-ui/react";
 import * as React from "react";
 import { MetaFilter } from "../../services";
-import { FS } from "../App";
+import { FS } from "../fs";
 import { FileExplorer } from "../FileExplorer";
 import { FilterInputList } from "./FilterInputList";
 

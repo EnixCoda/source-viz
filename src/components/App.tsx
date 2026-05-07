@@ -9,11 +9,8 @@ import { LoadDataButton } from "./LoadDataButton";
 import { defaultExcludes, defaultIncludes } from "./Scan/filterDefaults";
 import { Filter } from "./Scan/Filter";
 import { Scanning } from "./Scan/Scanning";
+import { FS } from "./fs";
 import { Viz } from "./Viz";
-
-export interface FS {
-  handle: FileSystemDirectoryHandle;
-}
 
 function AppWithHeader({ children }: React.PropsWithChildren<object>) {
   return (

@@ -1,5 +1,5 @@
 import { Button, ButtonProps } from "@chakra-ui/react";
-import { FS } from "./App";
+import { FS } from "./fs";
 
 export function FSLoadFilesButton({
   onLoad,

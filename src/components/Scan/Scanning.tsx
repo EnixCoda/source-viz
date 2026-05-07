@@ -8,7 +8,7 @@ import { DependencyEntry } from "../../services/serializers";
 import { getOrganizedEntries } from "../../utils/getOrganizedEntries";
 import { resolvePath } from "../../utils/path";
 import { getFilterMatchers } from "../../utils/pattern";
-import { FS } from "../App";
+import { FS } from "../fs";
 import { CollapsibleSection } from "../CollapsibleSection";
 import { ExportButton } from "../ExportButton";
 import { MonoText } from "../MonoText";

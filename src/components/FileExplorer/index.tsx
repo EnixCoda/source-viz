@@ -1,6 +1,6 @@
 import * as React from "react";
 import { MetaFilter } from "../../services";
-import { FS } from "../App";
+import { FS } from "../fs";
 import { RecursiveColumns } from "./column/Columns";
 
 interface FSItem {
