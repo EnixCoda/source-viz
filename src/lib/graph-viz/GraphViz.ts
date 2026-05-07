@@ -73,9 +73,20 @@ export class GraphViz {
     this.scheduleRender();
   }
 
-  /** Set new graph data. Restarts simulation. */
+  /** Set new graph data. Preserves positions of existing nodes; only resets viewport on first load. */
   setData(data: GraphData): void {
-    this.nodes = data.nodes.map((n) => ({ ...n } as RenderNode));
+    const isFirstLoad = this.nodes.length === 0;
+
+    // Carry over positions from existing nodes so incremental changes don't scramble the layout
+    const prevPositions = new Map<string, { x?: number; y?: number; vx?: number; vy?: number; fx?: number | null; fy?: number | null }>();
+    for (const node of this.nodes) {
+      prevPositions.set(node.id, { x: node.x, y: node.y, vx: node.vx, vy: node.vy, fx: node.fx, fy: node.fy });
+    }
+
+    this.nodes = data.nodes.map((n) => {
+      const prev = prevPositions.get(n.id);
+      return { ...n, ...prev } as RenderNode;
+    });
     this.resolveLinks(data);
     this.applyColors();
     computeModuleColors(this.nodes);
@@ -92,14 +103,16 @@ export class GraphViz {
       });
     }
 
-    // Center the viewport on the simulation origin
-    const centered = zoomIdentity.translate(this.options.width / 2, this.options.height / 2);
-    this.transform = centered;
-    if (this.zoomBehavior) {
-      select(this.canvas).call(this.zoomBehavior.transform, centered);
+    // Only reset viewport on first load; incremental updates keep the user's zoom/pan
+    if (isFirstLoad) {
+      const centered = zoomIdentity.translate(this.options.width / 2, this.options.height / 2);
+      this.transform = centered;
+      if (this.zoomBehavior) {
+        select(this.canvas).call(this.zoomBehavior.transform, centered);
+      }
     }
 
-    this.startSimulation();
+    this.startSimulation(isFirstLoad);
   }
 
   /** Clean up all resources */
@@ -296,7 +309,7 @@ export class GraphViz {
     return null;
   }
 
-  private startSimulation(): void {
+  private startSimulation(coldStart = true): void {
     this.simulation?.stop();
 
     const { alphaDecay = 0.0228, velocityDecay = 0.4, collideRadius, dagMode } = this.options;
@@ -318,6 +331,7 @@ export class GraphViz {
     }
 
     this.simulation = forceSimulation<RenderNode>(this.nodes)
+      .alpha(coldStart ? 1 : 0.3)
       .force(
         "link",
         forceLink<RenderNode, SimulationLinkDatum<RenderNode>>(
