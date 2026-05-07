@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import * as fs from "fs/promises";
 import path from "path";
 

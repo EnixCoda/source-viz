@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { GraphViz } from "../GraphViz";
 import { GraphData } from "../types";
 
@@ -33,6 +33,10 @@ function createMockCanvasContext(): CanvasRenderingContext2D {
 describe("GraphViz", () => {
   let container: HTMLElement;
   let mockCtx: CanvasRenderingContext2D;
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   beforeEach(() => {
     container = document.createElement("div");

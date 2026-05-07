@@ -46,7 +46,7 @@ export async function checkIsTextFile(file: File) {
   const txtStream = new TextDecoderStream();
   // Thank you for this `any`, declaration merging!
   const stream = file.stream() as any as ReadableStream<Uint8Array>;
-  stream.pipeTo(txtStream.writable);
+  stream.pipeTo(txtStream.writable as unknown as WritableStream<Uint8Array>);
   const reader = txtStream.readable.getReader();
 
   let threshold = 2 ** 10; // 1KB
