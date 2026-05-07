@@ -32,7 +32,7 @@ export function EntriesTable({
         {entries.map(([file, dependencies]) => (
           <React.Fragment key={file}>
             {dependencies.map(([dependency, isAsync], index, arr) => (
-              <Tr key={`${dependency}-${isAsync}`} verticalAlign="baseline">
+              <Tr key={`${index}-${dependency}-${isAsync}`} verticalAlign="baseline">
                 {index === 0 ? (
                   <Td rowSpan={arr.length}>
                     {onClickSelect ? (
