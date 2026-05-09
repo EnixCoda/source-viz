@@ -1,4 +1,52 @@
+import { interpolateRgb } from "d3-interpolate";
+import { interpolateSinebow } from "d3-scale-chromatic";
 import { ColorByMode, EdgeStyleMode, GraphVizOptions, RenderNode, ResolvedLink } from "./types";
+
+// Two-color gradient scales for sequential modes.
+// Each pair chosen for maximum perceptual contrast and accessibility.
+const DEPTH_COLOR_LOW = "#4fc3f7";   // light sky-blue  (shallow files)
+const DEPTH_COLOR_HIGH = "#e65100";  // deep amber-red   (deep files)
+const HEAT_COLOR_LOW = "#a5d6a7";    // soft green        (few connections)
+const HEAT_COLOR_HIGH = "#b71c1c";   // deep crimson      (many connections)
+
+const depthGradient = interpolateRgb(DEPTH_COLOR_LOW, DEPTH_COLOR_HIGH);
+const heatGradient = interpolateRgb(HEAT_COLOR_LOW, HEAT_COLOR_HIGH);
+
+// Okabe-Ito qualitative palette — color-blind safe, 8 distinct hues.
+// Ref: https://jfly.uni-koeln.de/color/
+const QUALITATIVE_PALETTE = [
+  "#0072B2", // blue
+  "#E69F00", // orange
+  "#009E73", // bluish green
+  "#CC79A7", // reddish purple
+  "#56B4E9", // sky blue
+  "#D55E00", // vermillion
+  "#F0E442", // yellow
+  "#999999", // neutral gray
+];
+
+// FNV-1a string hash → stable bucket index across runs.
+function hashString(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function paletteColor(key: string): string {
+  return QUALITATIVE_PALETTE[hashString(key) % QUALITATIVE_PALETTE.length];
+}
+
+/**
+ * Map a key to a position [0,1) on a circular spectrum via stable hash.
+ * Two different module strings get well-spread hues; the same string is stable.
+ */
+function spectrumPosition(key: string): number {
+  // Multiply by a fraction of UINT32_MAX so successive bits influence the result.
+  return (hashString(key) % 100000) / 100000;
+}
 
 const COLORS = {
   selection: "#67e5ab",
@@ -9,6 +57,9 @@ const COLORS = {
   defaultBg: "rgba(245, 245, 245, 1)",
   fadedBg: "rgba(245, 245, 245, 0.3)",
   defaultBorder: "rgba(200, 200, 200, 0.6)",
+  externalBg: "rgba(230, 230, 230, 1)",
+  externalBorder: "rgba(180, 180, 180, 0.8)",
+  unresolvedBorder: "rgba(230, 120, 40, 0.9)",
 };
 
 export interface RenderContext {
@@ -48,13 +99,10 @@ export function renderFrame({ ctx, globalScale, nodes, links, options, hoverNode
     renderDagAlignmentLines(ctx, nodes, dagLevelPositions, globalScale, options, hoveredDagLevel);
   }
   renderGraphBounds(ctx, nodes, globalScale);
-  // Layered rendering: backgrounds → links → text → badges
+  // Layered rendering: backgrounds → links → text
   renderNodeBackgrounds(ctx, nodes, globalScale, options, hoverNodeId, levelHoveredNodeIds);
-  const hiddenEdges = renderLinks(ctx, links, globalScale, options, hoverNodeId, levelHoveredNodeIds);
+  renderLinks(ctx, links, globalScale, options, hoverNodeId, levelHoveredNodeIds);
   renderNodeLabels(ctx, nodes, globalScale, options, hoverNodeId, levelHoveredNodeIds);
-  if (hiddenEdges.size > 0) {
-    renderHiddenEdgeBadges(ctx, nodes, hiddenEdges, globalScale);
-  }
 }
 
 /**
@@ -197,16 +245,18 @@ function renderLinks(
   options: GraphVizOptions,
   hoverNodeId: string | null,
   levelHoveredNodeIds: Set<string> | null = null
-): Map<string, number> {
+): void {
   const arrowLength = options.arrowLength ?? 4;
   const asyncLinks = options.asyncLinks;
   const cycleLinks = options.cycleLinks;
   const edgeStyle: EdgeStyleMode = options.edgeStyle ?? "flat";
   const selectedNodeIds = options.selectedNodeIds;
-  const hiddenEdges = new Map<string, number>();
 
-  // LOD: zoom factor drives base visibility — drops to 0 at extreme zoom-out
-  // so badges grow progressively as more edges are hidden
+  // Always gradient between the two endpoint node colors — direction is encoded
+  // in the color shift along the edge regardless of color mode.
+  const autoGradient = true;
+
+  // LOD: zoom factor drives base visibility — fades out at extreme zoom-out
   const zoomFactor = Math.max(0, Math.min(1, (globalScale - 0.02) / 1.48));
   const baseAlpha = zoomFactor;
 
@@ -242,11 +292,7 @@ function renderLinks(
       }
     }
 
-    if (edgeAlpha < 0.03) {
-      hiddenEdges.set(source.id, (hiddenEdges.get(source.id) || 0) + 1);
-      hiddenEdges.set(target.id, (hiddenEdges.get(target.id) || 0) + 1);
-      continue;
-    }
+    if (edgeAlpha < 0.03) continue;
 
     const sx = source.x;
     const sy = source.y;
@@ -277,14 +323,17 @@ function renderLinks(
     const isAsync = asyncLinks?.has(`${source.id}->${target.id}`);
     const isCycleEdge = cycleLinks?.has(`${source.id}->${target.id}`);
 
-    const sourceColor = (source as RenderNode)._moduleColor ?? "#888";
-    const targetColor = (target as RenderNode)._moduleColor ?? "#888";
+    const sourceColor = (source as RenderNode)._color ?? (source as RenderNode)._moduleColor ?? "#888";
+    const targetColor = (target as RenderNode)._color ?? (target as RenderNode)._moduleColor ?? "#888";
     const isCrossModule = extractModule(source.id) !== extractModule(target.id);
     const effectiveAlpha = isCrossModule ? edgeAlpha : edgeAlpha * 0.55;
 
-    // Determine final stroke color and arrowhead color based on edge style
-    let strokeColor = sourceColor;
-    let arrowColor = sourceColor;
+    // Edges always gradient from source→target node color, reinforcing
+    // directionality regardless of the active color mode. Neutral gray only
+    // when neither endpoint has a color assigned yet.
+    const NEUTRAL_EDGE = "#9aa0a6";
+    let strokeColor = sourceColor !== "#888" ? sourceColor : NEUTRAL_EDGE;
+    let arrowColor = targetColor !== "#888" ? targetColor : NEUTRAL_EDGE;
     let cycleHighlight = false;
 
     if (edgeStyle === "highlight-cycles" && isCycleEdge) {
@@ -301,7 +350,7 @@ function renderLinks(
       ctx.setLineDash([]);
     }
 
-    if (edgeStyle === "tapered") {
+    if (edgeStyle === "tapered" && !autoGradient) {
       // Tapered: draw as a filled trapezoid — wide at source, narrow at target
       const fatW = lineWidth * 2.5;
       const thinW = lineWidth * 0.4;
@@ -315,8 +364,10 @@ function renderLinks(
       ctx.lineTo(lineEndX + nx * thinW, lineEndY + ny * thinW);
       ctx.closePath();
       ctx.fill();
-    } else if (edgeStyle === "gradient") {
-      // Gradient: blend source color → target color along the edge
+    } else if (autoGradient || edgeStyle === "gradient") {
+      // Gradient: blend source color → target color along the edge.
+      // In sequential modes (depth, heat) this is always active to reinforce
+      // the scalar encoding direction without a user toggle.
       const grad = ctx.createLinearGradient(lineStartX, lineStartY, lineEndX, lineEndY);
       grad.addColorStop(0, sourceColor);
       grad.addColorStop(1, targetColor);
@@ -352,48 +403,6 @@ function renderLinks(
   }
 
   ctx.globalAlpha = 1;
-  return hiddenEdges;
-}
-
-/** Draw small badges on nodes that have edges hidden by LOD filtering */
-function renderHiddenEdgeBadges(
-  ctx: CanvasRenderingContext2D,
-  nodes: RenderNode[],
-  hiddenEdges: Map<string, number>,
-  globalScale: number
-) {
-  const badgeFontSize = 9 / globalScale;
-  ctx.font = `bold ${badgeFontSize}px Sans-Serif`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-
-  for (const node of nodes) {
-    const count = hiddenEdges.get(node.id);
-    if (!count || node.x == null || node.y == null) continue;
-
-    const hw = (node._width ?? 0) / 2;
-    const hh = (node._height ?? 0) / 2;
-    const text = `+${count}`;
-    const textWidth = ctx.measureText(text).width;
-    const padX = 3 / globalScale;
-    const padY = 2 / globalScale;
-    const badgeW = textWidth + padX * 2;
-    const badgeH = badgeFontSize + padY * 2;
-
-    // Position at bottom-right corner of node
-    const bx = node.x + hw + 2 / globalScale;
-    const by = node.y + hh - badgeH / 2;
-    const radius = 3 / globalScale;
-
-    // Background pill
-    ctx.fillStyle = "rgba(255, 120, 50, 0.85)";
-    roundRect(ctx, bx - badgeW / 2, by - badgeH / 2, badgeW, badgeH, radius);
-    ctx.fill();
-
-    // Text
-    ctx.fillStyle = "#fff";
-    ctx.fillText(text, bx, by);
-  }
 }
 
 function renderNodeBackgrounds(
@@ -404,7 +413,7 @@ function renderNodeBackgrounds(
   hoverNodeId: string | null,
   levelHoveredNodeIds: Set<string> | null = null
 ) {
-  const { selectedNodeIds, dependencyMap, dependantMap } = options;
+  const { selectedNodeIds, dependencyMap, dependantMap, highlightedNodeIds } = options;
 
   for (const node of nodes) {
     if (node.x == null || node.y == null) continue;
@@ -415,31 +424,62 @@ function renderNodeBackgrounds(
     const bgWidth = node._width ?? 0;
     const bgHeight = node._height ?? 0;
 
-    const outlineColor = getOutlineColor(node.id, selectedNodeIds, hoverNodeId, dependencyMap, dependantMap, levelHoveredNodeIds);
+    const isHighlighted = highlightedNodeIds?.has(node.id) === true;
+
+    // Halo for investigator highlights — draw underneath everything else
+    if (isHighlighted) {
+      const haloPad = 6 / globalScale;
+      ctx.fillStyle = "rgba(255, 196, 0, 0.35)";
+      ctx.fillRect(
+        x - bgWidth / 2 - haloPad,
+        y - bgHeight / 2 - haloPad,
+        bgWidth + haloPad * 2,
+        bgHeight + haloPad * 2,
+      );
+    }
+
+    const outline = getOutlineColor(node, selectedNodeIds, hoverNodeId, dependencyMap, dependantMap, levelHoveredNodeIds);
     const borderWidth = 4 / globalScale;
 
-    // Draw outline
-    if (outlineColor) {
-      ctx.fillStyle = outlineColor;
-      ctx.fillRect(
-        x - bgWidth / 2 - borderWidth,
-        y - bgHeight / 2 - borderWidth,
-        bgWidth + borderWidth * 2,
-        bgHeight + borderWidth * 2
-      );
+    // Draw outline: solid filled rect for selected/hovered; dashed stroke for connected nodes
+    if (outline) {
+      if (outline.dashed) {
+        ctx.strokeStyle = outline.color;
+        ctx.lineWidth = 2 / globalScale;
+        ctx.setLineDash([4 / globalScale, 3 / globalScale]);
+        ctx.strokeRect(x - bgWidth / 2, y - bgHeight / 2, bgWidth, bgHeight);
+        ctx.setLineDash([]);
+      } else {
+        ctx.fillStyle = outline.color;
+        ctx.fillRect(
+          x - bgWidth / 2 - borderWidth,
+          y - bgHeight / 2 - borderWidth,
+          bgWidth + borderWidth * 2,
+          bgHeight + borderWidth * 2
+        );
+      }
     }
 
     // Draw background
     const hasFocus = hoverNodeId != null || levelHoveredNodeIds != null || (selectedNodeIds != null && selectedNodeIds.size > 0);
-    const isFaded = hasFocus && !outlineColor;
-    ctx.fillStyle = isFaded ? COLORS.fadedBg : COLORS.defaultBg;
+    const isFaded = hasFocus && !outline && !isHighlighted;
+    const isExternal = node.kind === "external";
+    const isUnresolved = node.kind === "unresolved";
+    ctx.fillStyle = isFaded ? COLORS.fadedBg : isExternal ? COLORS.externalBg : COLORS.defaultBg;
     ctx.fillRect(x - bgWidth / 2, y - bgHeight / 2, bgWidth, bgHeight);
 
-    // Draw subtle border
-    if (!outlineColor) {
-      ctx.strokeStyle = isFaded ? "transparent" : COLORS.defaultBorder;
-      ctx.lineWidth = 1 / globalScale;
+    // Draw subtle border for unfocused nodes
+    if (!outline) {
+      if (isUnresolved) {
+        ctx.strokeStyle = COLORS.unresolvedBorder;
+        ctx.lineWidth = 1.5 / globalScale;
+        ctx.setLineDash([3 / globalScale, 2 / globalScale]);
+      } else {
+        ctx.strokeStyle = isFaded ? "transparent" : isExternal ? COLORS.externalBorder : COLORS.defaultBorder;
+        ctx.lineWidth = 1 / globalScale;
+      }
       ctx.strokeRect(x - bgWidth / 2, y - bgHeight / 2, bgWidth, bgHeight);
+      ctx.setLineDash([]);
     }
   }
 }
@@ -452,7 +492,7 @@ function renderNodeLabels(
   hoverNodeId: string | null,
   levelHoveredNodeIds: Set<string> | null = null
 ) {
-  const { fixFontSize = true, fontSize: preferFontSize = 12, selectedNodeIds, dependencyMap, dependantMap } = options;
+  const { fixFontSize = true, fontSize: preferFontSize = 12, selectedNodeIds, dependencyMap, dependantMap, highlightedNodeIds } = options;
   const fontSize = fixFontSize ? preferFontSize / globalScale : preferFontSize;
   ctx.font = `${fontSize}px Sans-Serif`;
   ctx.textAlign = "center";
@@ -461,9 +501,10 @@ function renderNodeLabels(
   for (const node of nodes) {
     if (node.x == null || node.y == null) continue;
 
-    const outlineColor = getOutlineColor(node.id, selectedNodeIds, hoverNodeId, dependencyMap, dependantMap, levelHoveredNodeIds);
+    const outline = getOutlineColor(node, selectedNodeIds, hoverNodeId, dependencyMap, dependantMap, levelHoveredNodeIds);
     const hasFocus = hoverNodeId != null || levelHoveredNodeIds != null || (selectedNodeIds != null && selectedNodeIds.size > 0);
-    const isFaded = hasFocus && !outlineColor;
+    const isHighlighted = highlightedNodeIds?.has(node.id) === true;
+    const isFaded = hasFocus && !outline && !isHighlighted;
 
     if (isFaded) {
       ctx.fillStyle = COLORS.faded;
@@ -485,48 +526,41 @@ function clipToBoxEdge(ux: number, uy: number, halfW: number, halfH: number): nu
   return Math.min(tX, tY);
 }
 
-function roundRect(
-  ctx: CanvasRenderingContext2D,
-  x: number, y: number, w: number, h: number, r: number
-) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
-}
-
 function getOutlineColor(
-  nodeId: string,
+  node: RenderNode,
   selectedNodeIds: Set<string> | undefined,
   hoverNodeId: string | null,
   dependencyMap?: Map<string, Set<string>>,
   dependantMap?: Map<string, Set<string>>,
   levelHoveredNodeIds?: Set<string> | null
-): string | null {
-  if (selectedNodeIds?.has(nodeId)) return COLORS.selection;
+): { color: string; dashed: boolean } | null {
+  const nodeId = node.id;
+  // Use the node's own color so border always matches text. The outline
+  // being drawn signals the relationship; spatial position in the graph
+  // already indicates direction (importer vs importee).
+  const nodeColor = node._color ?? COLORS.selection;
+
+  if (selectedNodeIds?.has(nodeId)) return { color: nodeColor, dashed: false };
 
   // Hover takes priority for outline coloring
   if (hoverNodeId) {
-    if (hoverNodeId === nodeId) return COLORS.hovered;
-    if (dependantMap?.get(hoverNodeId)?.has(nodeId)) return COLORS.dependant;
-    if (dependencyMap?.get(hoverNodeId)?.has(nodeId)) return COLORS.dependency;
+    if (hoverNodeId === nodeId) return { color: nodeColor, dashed: false };
   }
 
-  // Level hover: all nodes on the hovered DAG level get the hover color
-  if (levelHoveredNodeIds && levelHoveredNodeIds.has(nodeId)) return COLORS.hovered;
+  // Level hover: all nodes on the hovered DAG level
+  if (levelHoveredNodeIds && levelHoveredNodeIds.has(nodeId)) return { color: nodeColor, dashed: false };
 
-  // When no hover but nodes are selected, highlight deps/dependants of selected nodes
-  if (selectedNodeIds && selectedNodeIds.size > 0 && !hoverNodeId && !levelHoveredNodeIds) {
+  // Deps/dependants of hovered node
+  if (hoverNodeId) {
+    if (dependantMap?.get(hoverNodeId)?.has(nodeId)) return { color: nodeColor, dashed: true };
+    if (dependencyMap?.get(hoverNodeId)?.has(nodeId)) return { color: nodeColor, dashed: true };
+  }
+
+  // When nodes are selected, always highlight their deps/dependants with a dashed border
+  if (selectedNodeIds && selectedNodeIds.size > 0) {
     for (const selectedId of selectedNodeIds) {
-      if (dependantMap?.get(selectedId)?.has(nodeId)) return COLORS.dependant;
-      if (dependencyMap?.get(selectedId)?.has(nodeId)) return COLORS.dependency;
+      if (dependantMap?.get(selectedId)?.has(nodeId)) return { color: nodeColor, dashed: true };
+      if (dependencyMap?.get(selectedId)?.has(nodeId)) return { color: nodeColor, dashed: true };
     }
   }
 
@@ -534,20 +568,15 @@ function getOutlineColor(
 }
 
 /**
- * Assign stable per-file edge colors to nodes.
- * Each unique node ID gets a distinct golden-angle hue so that all edges
- * leaving the same source file share one color. This works correctly for
- * both flat projects (all files in src/) and deeply nested projects.
+ * Assign stable per-file edge colors using a color-blind-safe qualitative palette
+ * (Okabe-Ito). Each unique node ID is hashed into one of 8 buckets so adjacent
+ * nodes still differ visually but the user sees a small, memorable color set
+ * instead of thousands of nearly-identical hues.
  * Mutates node._moduleColor in place.
  */
 export function computeModuleColors(nodes: RenderNode[]): void {
-  const idIndex = new Map<string, number>();
-
   for (const node of nodes) {
-    if (!idIndex.has(node.id)) {
-      idIndex.set(node.id, idIndex.size);
-    }
-    node._moduleColor = moduleIndexToColor(idIndex.get(node.id)!);
+    node._moduleColor = paletteColor(node.id);
   }
 }
 
@@ -566,63 +595,52 @@ function extractModule(id: string): string {
 }
 
 /**
- * Map a module index to a high-contrast hue using golden angle spacing.
- * Produces maximally distinct hues for adjacent indices.
- */
-function moduleIndexToColor(index: number): string {
-  const hue = (index * 137.508) % 360; // golden angle
-  return `hsl(${hue.toFixed(1)}, 75%, 42%)`;
-}
-/**
  * Compute node colors based on the colorBy mode.
  * Mutates node._color in place.
  */
 export function applyNodeColors(nodes: RenderNode[], links: ResolvedLink[], colorBy: ColorByMode): void {
   switch (colorBy) {
     case "color-by-module": {
-      // Group nodes by parent directory for visual clustering.
-      // Fallback: if all files share the same directory (flat project), use the
-      // full node ID so every file still gets a distinct color.
+      // Locate each module on a perceptually-uniform circular spectrum
+      // (sinebow). Files in the same directory share a hue; cousin
+      // directories get well-separated hues. Stable across runs via hash.
       const uniqueDirs = new Set(nodes.map((n) => extractModule(n.id)));
       const useFullId = uniqueDirs.size <= 1 && nodes.length > 1;
-      const moduleIndex = new Map<string, number>();
       for (const node of nodes) {
-        const mod = useFullId ? node.id : extractModule(node.id);
-        if (!moduleIndex.has(mod)) moduleIndex.set(mod, moduleIndex.size);
-        node._color = moduleIndexToColor(moduleIndex.get(mod)!);
+        const key = useFullId ? node.id : extractModule(node.id);
+        node._color = interpolateSinebow(spectrumPosition(key));
       }
       break;
     }
     case "color-by-depth": {
-      // Sequential lightness scale by path nesting depth.
-      // Shallow files are darker (more prominent), deep leaves are lighter.
+      // Linear ramp between two contrasting colors: sky-blue (shallow) → amber-red (deep).
       const maxDepth = Math.max(1, ...nodes.map((n) => getDepth(n.id)));
       for (const node of nodes) {
-        const depth = getDepth(node.id);
-        const t = depth / maxDepth; // 0 = shallow, 1 = deep
-        // Hue 220 (cool blue-grey), lightness 30%→55% as depth increases
-        const lightness = 30 + t * 25;
-        node._color = `hsl(220, 40%, ${lightness.toFixed(1)}%)`;
+        const t = maxDepth === 0 ? 0 : getDepth(node.id) / maxDepth;
+        node._color = depthGradient(t);
       }
       break;
     }
-    case "color-by-heat-both":
-    case "color-by-heat-source":
-    case "color-by-heat-target": {
+    case "color-by-connections":
+    case "color-by-imports":
+    case "color-by-imported-by": {
       const countMap = new Map<string, number>();
       for (const link of links) {
-        if (colorBy !== "color-by-heat-target") {
+        if (colorBy !== "color-by-imported-by") {
           countMap.set(link.source.id, (countMap.get(link.source.id) || 0) + 1);
         }
-        if (colorBy !== "color-by-heat-source") {
+        if (colorBy !== "color-by-imports") {
           countMap.set(link.target.id, (countMap.get(link.target.id) || 0) + 1);
         }
       }
-      const maxCount = Math.max(1, ...countMap.values());
+      // log1p compresses the right-skewed distribution so non-hub nodes
+      // get distinguishable colors instead of all collapsing near the low end.
+      const maxLog = Math.log1p(Math.max(1, ...countMap.values()));
       for (const node of nodes) {
         const count = countMap.get(node.id) || 0;
-        const t = count / maxCount; // 0 = cold, 1 = hot
-        node._color = heatColor(t);
+        const t = maxLog === 0 ? 0 : Math.log1p(count) / maxLog;
+        // Linear ramp: soft-green (few connections) → deep-crimson (many connections).
+        node._color = heatGradient(t);
       }
       break;
     }
@@ -631,19 +649,4 @@ export function applyNodeColors(nodes: RenderNode[], links: ResolvedLink[], colo
 
 function getDepth(id: string): number {
   return (id.match(/\//g) || []).length;
-}
-
-function heatColor(t: number): string {
-  // Anchors: cold=220°(blue) mid=55°(yellow) hot=0°(red), saturation stays high
-  if (t < 0.5) {
-    const u = t * 2;
-    const hue = 220 - u * (220 - 55); // 220→55
-    const lightness = 40 + u * 5;     // 40→45
-    return `hsl(${hue.toFixed(1)}, 75%, ${lightness.toFixed(1)}%)`;
-  } else {
-    const u = (t - 0.5) * 2;
-    const hue = 55 - u * 55;          // 55→0
-    const lightness = 45 - u * 10;    // 45→35
-    return `hsl(${hue.toFixed(1)}, 80%, ${lightness.toFixed(1)}%)`;
-  }
 }

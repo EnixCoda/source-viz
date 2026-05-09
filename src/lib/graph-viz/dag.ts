@@ -119,44 +119,52 @@ function computeLevels(
   links: ResolvedLink[],
   _mode: DagMode
 ): Map<string, number> | null {
-  // Build adjacency (source -> targets)
-  const forward = new Map<string, Set<string>>();
-  const backward = new Map<string, Set<string>>();
-  const nodeIds = new Set(nodes.map((n) => n.id));
+  // Build adjacency (source -> targets) and in-degree counts
+  const forward = new Map<string, string[]>();
+  const inDegree = new Map<string, number>();
 
   for (const node of nodes) {
-    forward.set(node.id, new Set());
-    backward.set(node.id, new Set());
+    forward.set(node.id, []);
+    inDegree.set(node.id, 0);
   }
 
   for (const link of links) {
     const sourceId = link.source.id;
     const targetId = link.target.id;
-    if (!nodeIds.has(sourceId) || !nodeIds.has(targetId)) continue;
-    forward.get(sourceId)!.add(targetId);
-    backward.get(targetId)!.add(sourceId);
+    const fwd = forward.get(sourceId);
+    if (fwd === undefined || !inDegree.has(targetId)) continue;
+    fwd.push(targetId);
+    inDegree.set(targetId, inDegree.get(targetId)! + 1);
   }
 
-  // BFS from roots (nodes with no incoming edges)
-  const roots = nodes.filter((n) => backward.get(n.id)!.size === 0);
-  if (roots.length === 0) return null; // all nodes in cycles
-
+  // Kahn's topological sort + longest-path levelling in one pass.
+  // Process nodes in topo order so each node's final level = max(pred levels) + 1.
   const levels = new Map<string, number>();
-  const queue: [string, number][] = roots.map((r) => [r.id, 0]);
-  
-  while (queue.length > 0) {
-    const [id, level] = queue.shift()!;
-    if (levels.has(id) && levels.get(id)! >= level) continue;
-    levels.set(id, level);
+  // Use index-based queue (no shift()) — shift() is O(n).
+  const queue: string[] = [];
+  for (const node of nodes) {
+    if (inDegree.get(node.id) === 0) {
+      levels.set(node.id, 0);
+      queue.push(node.id);
+    }
+  }
+  if (queue.length === 0) return null; // all nodes in cycles
 
-    for (const target of forward.get(id) || []) {
-      if (!levels.has(target) || levels.get(target)! < level + 1) {
-        queue.push([target, level + 1]);
-      }
+  let head = 0;
+  while (head < queue.length) {
+    const id = queue[head++];
+    const level = levels.get(id)!;
+    for (const target of forward.get(id)!) {
+      const next = level + 1;
+      const cur = levels.get(target);
+      if (cur === undefined || next > cur) levels.set(target, next);
+      const remaining = inDegree.get(target)! - 1;
+      inDegree.set(target, remaining);
+      if (remaining === 0) queue.push(target);
     }
   }
 
-  // Assign level 0 to any unvisited nodes (in cycles)
+  // Assign level 0 to any unvisited nodes (in cycles or unreachable from roots)
   for (const node of nodes) {
     if (!levels.has(node.id)) levels.set(node.id, 0);
   }

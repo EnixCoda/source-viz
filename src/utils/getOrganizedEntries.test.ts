@@ -8,20 +8,20 @@ describe("getOrganizedEntries", () => {
       [
         "file1",
         [
-          ["dep3", true],
-          ["dep3", true],
-          ["dep2", false],
-          ["dep3", false],
+          ["dep3", true, "local"],
+          ["dep3", true, "local"],
+          ["dep2", false, "local"],
+          ["dep3", false, "local"],
         ],
       ],
       [
         "file1",
         [
-          ["dep2", true],
-          ["dep1", false],
+          ["dep2", true, "local"],
+          ["dep1", false, "local"],
         ],
       ],
-      ["file2", [["dep3", false]]],
+      ["file2", [["dep3", false, "external"]]],
     ];
     const organizedEntries = getOrganizedEntries(entries, "asc");
     expect(entrySerializers.csv(organizedEntries)).toMatchInlineSnapshot(`

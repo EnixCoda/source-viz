@@ -1,3 +1,7 @@
+import type { DependencyKind } from "../../services/serializers";
+
+export type { DependencyKind };
+
 export interface NodeObject {
   id: string;
   x?: number;
@@ -21,7 +25,7 @@ export interface GraphData {
 
 export type DagMode = "td" | "bu" | "lr" | "rl" | "radialout" | "radialin";
 
-export type ColorByMode = "color-by-module" | "color-by-depth" | "color-by-heat-both" | "color-by-heat-source" | "color-by-heat-target";
+export type ColorByMode = "color-by-module" | "color-by-depth" | "color-by-connections" | "color-by-imports" | "color-by-imported-by";
 
 export type EdgeStyleMode = "flat" | "tapered" | "gradient" | "highlight-cycles";
 
@@ -50,24 +54,28 @@ export interface GraphVizOptions {
   cycleLinks?: Set<string>; // set of "source->target" keys that form cycles
 
   // Behavior
-  fixNodeOnDragEnd?: boolean;
 
   // Highlight context (for rendering outlines)
   selectedNodeIds?: Set<string>;
+  /** Node ID that the context menu is currently open for — kept highlighted while menu is open */
+  contextMenuNodeId?: string | null;
+  /** Node IDs to render with a halo + label outline (used by usage investigator). */
+  highlightedNodeIds?: Set<string>;
   dependencyMap?: Map<string, Set<string>>;
   dependantMap?: Map<string, Set<string>>;
 
   // Callbacks
   onNodeClick?: (nodeId: string, event: { metaKey: boolean; ctrlKey: boolean }) => void;
-  onNodeDrag?: (nodeId: string, event: { metaKey: boolean; ctrlKey: boolean }) => void;
   onNodeHover?: (nodeId: string | null) => void;
   onBackgroundClick?: () => void;
+  onLevelClick?: (nodeIds: string[], event: { metaKey: boolean; ctrlKey: boolean }) => void;
   onNodeContextMenu?: (nodeId: string, screenX: number, screenY: number) => void;
   onBackgroundContextMenu?: (screenX: number, screenY: number) => void;
 }
 
 /** Internal node with computed render properties */
 export interface RenderNode extends NodeObject {
+  kind?: DependencyKind;
   _color?: string;
   /** Stable color derived from the node's module directory — used for edge rendering */
   _moduleColor?: string;

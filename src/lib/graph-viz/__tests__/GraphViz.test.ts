@@ -18,6 +18,7 @@ function createMockCanvasContext(): CanvasRenderingContext2D {
     stroke: vi.fn(),
     fill: vi.fn(),
     fillRect: vi.fn(),
+    strokeRect: vi.fn(),
     fillText: vi.fn(),
     measureText: vi.fn().mockReturnValue({ width: 50 }),
     setLineDash: vi.fn(),
@@ -36,12 +37,23 @@ describe("GraphViz", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    delete (globalThis as any).Worker;
   });
 
   beforeEach(() => {
     container = document.createElement("div");
     document.body.appendChild(container);
     mockCtx = createMockCanvasContext();
+
+    // happy-dom doesn't provide Worker; install a stub so the simulation
+    // worker construction doesn't throw. The stub never actually runs the
+    // simulation — tests only verify that setData() doesn't crash.
+    (globalThis as any).Worker = class {
+      onmessage: ((e: any) => void) | null = null;
+      onerror: ((e: any) => void) | null = null;
+      postMessage(_msg: unknown) {}
+      terminate() {}
+    };
 
     // Patch createElement to return a canvas with our mock context
     const origCreateElement = document.createElement.bind(document);
@@ -168,5 +180,64 @@ describe("GraphViz", () => {
 
     // Should not throw or accumulate old nodes
     viz.destroy();
+  });
+
+  describe("graph mode transitions", () => {
+    // Regression: data with cycles previously crashed when leaving DAG mode
+    // because computeTopoDepth's BFS could re-queue nodes indefinitely.
+    function withCycles(): GraphData {
+      // 4-cycle a→b→c→a plus a few extra edges
+      return {
+        nodes: [{ id: "a" }, { id: "b" }, { id: "c" }, { id: "d" }],
+        links: [
+          { source: "a", target: "b" },
+          { source: "b", target: "c" },
+          { source: "c", target: "a" },
+          { source: "b", target: "d" },
+        ],
+      };
+    }
+
+    it("natural → DAG (lr) does not crash", () => {
+      const viz = new GraphViz(container, { width: 800, height: 600 });
+      viz.setData(withCycles());
+      viz.update({ dagMode: "lr" });
+      expect(() => viz.setData(withCycles())).not.toThrow();
+      viz.destroy();
+    });
+
+    it("DAG (lr) → natural with cycles does not crash (regression)", () => {
+      const viz = new GraphViz(container, { width: 800, height: 600, dagMode: "lr" });
+      viz.setData(withCycles());
+      viz.update({ dagMode: undefined });
+      expect(() => viz.setData(withCycles())).not.toThrow();
+      viz.destroy();
+    });
+
+    it("DAG → natural → DAG round-trip does not crash", () => {
+      const viz = new GraphViz(container, { width: 800, height: 600, dagMode: "td" });
+      viz.setData(withCycles());
+      viz.update({ dagMode: undefined });
+      viz.setData(withCycles());
+      viz.update({ dagMode: "td" });
+      expect(() => viz.setData(withCycles())).not.toThrow();
+      viz.destroy();
+    });
+
+    it("changing DAG orientation (lr → td) does not crash", () => {
+      const viz = new GraphViz(container, { width: 800, height: 600, dagMode: "lr" });
+      viz.setData(withCycles());
+      viz.update({ dagMode: "td" });
+      expect(() => viz.setData(withCycles())).not.toThrow();
+      viz.destroy();
+    });
+
+    it("natural → radial does not crash", () => {
+      const viz = new GraphViz(container, { width: 800, height: 600 });
+      viz.setData(withCycles());
+      viz.update({ dagMode: "radialout" });
+      expect(() => viz.setData(withCycles())).not.toThrow();
+      viz.destroy();
+    });
   });
 });

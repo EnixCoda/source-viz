@@ -1,13 +1,3 @@
-import {
-  forceCenter,
-  forceCollide,
-  forceLink,
-  forceManyBody,
-  forceSimulation,
-  forceY,
-  type Simulation,
-  type SimulationLinkDatum,
-} from "d3";
 import { select } from "d3";
 import { zoom as d3Zoom, zoomIdentity, type ZoomBehavior, type ZoomTransform } from "d3";
 import { applyDagLayout } from "./dag";
@@ -21,14 +11,13 @@ export class GraphViz {
   private ctx: CanvasRenderingContext2D;
   private options: GraphVizOptions;
 
-  private simulation: Simulation<RenderNode, SimulationLinkDatum<RenderNode>> | null = null;
+  private simulationWorker: Worker | null = null;
   private nodes: RenderNode[] = [];
   private links: ResolvedLink[] = [];
   private transform: ZoomTransform = zoomIdentity;
   private zoomBehavior: ZoomBehavior<HTMLCanvasElement, unknown> | null = null;
 
   private hoverNodeId: string | null = null;
-  private draggedNode: RenderNode | null = null;
   private animFrameId: number | null = null;
   private destroyed = false;
   private cleanupListeners: (() => void) | null = null;
@@ -38,6 +27,14 @@ export class GraphViz {
   private dagLevelPositions: number[] | null = null;
   /** Currently hovered DAG level axis position (null = none) */
   private hoveredDagLevel: number | null = null;
+  /** Tracks dagMode at end of last setData() to detect transitions. */
+  private lastAppliedDagMode: import("./types").DagMode | null | undefined = null;
+  /** Bumped on each init/update postMessage; ticks with stale gen are discarded. */
+  private simGeneration = 0;
+  /** True until the first simulation converges; triggers auto fit-to-bounds. */
+  private needsFitAfterFirstSim = false;
+  /** Counts ticks received from the current generation for deferred fit. */
+  private firstSimTickCount = 0;
 
   constructor(container: HTMLElement, options: GraphVizOptions) {
     this.container = container;
@@ -82,6 +79,7 @@ export class GraphViz {
    */
   setData(data: GraphData): void {
     const isFirstLoad = this.nodes.length === 0;
+    const t0 = performance.now();
 
     // Carry over positions from existing nodes so incremental changes don't scramble the layout
     const prevPositions = new Map<
@@ -97,13 +95,60 @@ export class GraphViz {
       return { ...n, ...prev } as RenderNode;
     });
     this.resolveLinks(data);
+    console.log(`[GraphViz] resolveLinks: ${(performance.now() - t0).toFixed(1)}ms`);
     this.applyColors();
     computeModuleColors(this.nodes);
     computeEdgeImportance(this.nodes, this.links);
+    console.log(`[GraphViz] colors+importance: ${(performance.now() - t0).toFixed(1)}ms`);
 
-    if (isFirstLoad && this.options.dagMode) {
-      this.applyDagLayoutNow();
+    // Seed positions for nodes that didn't exist before, so they don't pop in
+    // at (0,0) and shoot across the screen during the in-place update.
+    if (!isFirstLoad) {
+      this.seedNewNodePositions(prevPositions);
     }
+
+    // Apply DAG layout when:
+    //   - first load with dagMode set
+    //   - transitioning into DAG mode (or DAG mode/orientation changed)
+    // For natural→DAG: setData runs after `update()` set the new dagMode, and
+    // after `resolveLinks` rebuilt this.links from the new (DAG-filtered) data,
+    // so computeLevels operates on a true DAG.
+    const dagMode = this.options.dagMode;
+    const dagModeChanged = dagMode !== this.lastAppliedDagMode;
+    const needsDagLayout = !!dagMode && (isFirstLoad || dagModeChanged);
+    const leavingDag = !!this.lastAppliedDagMode && !dagMode;
+    // For incremental DAG transitions (natural→DAG, lr→tb, etc.), animate the
+    // move by computing target positions but keeping nodes at current positions.
+    // The worker will lerp toward targets. Cold start hard-pins immediately.
+    const animateDagTransition = needsDagLayout && !isFirstLoad;
+
+    if (needsDagLayout) {
+      if (animateDagTransition) {
+        // Snapshot current positions, compute DAG layout (mutates node.x/y),
+        // then restore the snapshot. The grid positions will be picked up by
+        // startSimulation() into dagAxisPositions and used as soft-pull target.
+        const snapshot = new Map<string, { x?: number; y?: number }>();
+        for (const node of this.nodes) snapshot.set(node.id, { x: node.x, y: node.y });
+        this.applyDagLayoutNow();
+        for (const node of this.nodes) {
+          const s = snapshot.get(node.id);
+          // Stash DAG targets where startSimulation will read them later
+          (node as RenderNode & { _dagTargetX?: number; _dagTargetY?: number })._dagTargetX = node.x;
+          (node as RenderNode & { _dagTargetX?: number; _dagTargetY?: number })._dagTargetY = node.y;
+          if (s) { node.x = s.x; node.y = s.y; }
+        }
+      } else {
+        this.applyDagLayoutNow();
+      }
+      console.log(`[GraphViz] applyDagLayout (transition): ${(performance.now() - t0).toFixed(1)}ms`);
+    } else if (leavingDag) {
+      // Free pinned positions so natural forces can spread nodes
+      for (const node of this.nodes) {
+        node.fx = null;
+        node.fy = null;
+      }
+    }
+    this.lastAppliedDagMode = dagMode;
 
     // Only reset viewport on first load; incremental updates keep the user's zoom/pan
     if (isFirstLoad) {
@@ -112,9 +157,69 @@ export class GraphViz {
       if (this.zoomBehavior) {
         select(this.canvas).call(this.zoomBehavior.transform, centered);
       }
+      this.needsFitAfterFirstSim = true;
+      this.firstSimTickCount = 0;
     }
 
-    this.startSimulation(isFirstLoad);
+    // Layout-changing transitions (entering/leaving DAG) need extra energy
+    // so the simulation can spread/settle nodes into their new arrangement.
+    const layoutChanged = needsDagLayout || leavingDag;
+    this.startSimulation(isFirstLoad, layoutChanged && !isFirstLoad ? 0.6 : undefined);
+    console.log(`[GraphViz] startSimulation (worker dispatched): ${(performance.now() - t0).toFixed(1)}ms`);
+  }
+
+  /**
+   * For nodes new to this update, place them at the centroid of their connected
+   * neighbors that already had positions. This avoids the "shoot in from origin"
+   * effect when filtering causes nodes to reappear.
+   */
+  private seedNewNodePositions(
+    prevPositions: Map<string, { x?: number; y?: number }>
+  ): void {
+    const nodeById = new Map<string, RenderNode>();
+    for (const node of this.nodes) nodeById.set(node.id, node);
+
+    // Build adjacency from current links
+    const neighbors = new Map<string, RenderNode[]>();
+    for (const link of this.links) {
+      const s = link.source as RenderNode;
+      const t = link.target as RenderNode;
+      let arr = neighbors.get(s.id);
+      if (!arr) { arr = []; neighbors.set(s.id, arr); }
+      arr.push(t);
+      arr = neighbors.get(t.id);
+      if (!arr) { arr = []; neighbors.set(t.id, arr); }
+      arr.push(s);
+    }
+
+    // Compute centroid of all known positions for fallback
+    let cx = 0, cy = 0, cn = 0;
+    for (const [, p] of prevPositions) {
+      if (p.x != null && p.y != null) { cx += p.x; cy += p.y; cn++; }
+    }
+    if (cn > 0) { cx /= cn; cy /= cn; }
+
+    for (const node of this.nodes) {
+      if (prevPositions.has(node.id)) continue;
+      // Average positions of neighbors that have known positions
+      const ns = neighbors.get(node.id);
+      let sx = 0, sy = 0, n = 0;
+      if (ns) {
+        for (const nb of ns) {
+          if (prevPositions.has(nb.id) && nb.x != null && nb.y != null) {
+            sx += nb.x; sy += nb.y; n++;
+          }
+        }
+      }
+      if (n > 0) {
+        // Add small jitter so collide force can resolve overlap
+        node.x = sx / n + (Math.random() - 0.5) * 20;
+        node.y = sy / n + (Math.random() - 0.5) * 20;
+      } else {
+        node.x = cx + (Math.random() - 0.5) * 20;
+        node.y = cy + (Math.random() - 0.5) * 20;
+      }
+    }
   }
 
   /**
@@ -153,8 +258,7 @@ export class GraphViz {
       cancelAnimationFrame(this.animFrameId);
       this.animFrameId = null;
     }
-    this.simulation?.stop();
-    this.simulation = null;
+    this.stopSimulation();
     this.cleanupListeners?.();
     this.cleanupListeners = null;
     this.canvas.remove();
@@ -191,19 +295,16 @@ export class GraphViz {
   private setupInteractions(): void {
     const canvasSelection = select(this.canvas);
 
-    // Track mousedown position for drag-vs-click detection
-    let mouseDownX = 0;
-    let mouseDownY = 0;
-
-    // Zoom — filter out mousedown events on nodes so zoom doesn't pan during drag
+    // Zoom — pan/zoom on background; skip mousedown on a node so it bubbles
+    // through to the click handler (otherwise d3-zoom calls stopPropagation
+    // and mouseDownX/Y never update, causing clicks to miss the threshold check).
     this.zoomBehavior = d3Zoom<HTMLCanvasElement, unknown>()
       .scaleExtent([0.02, 30])
       .filter((event) => {
         if (event.type === "wheel") return true;
-        if (event.type === "mousedown") {
+        if (event.type === "mousedown" && event.button === 0) {
           const [cx, cy] = this.screenToCanvas(event.offsetX, event.offsetY);
-          const node = hitTestNode(this.nodes, cx, cy);
-          if (node) return false;
+          if (hitTestNode(this.nodes, cx, cy)) return false;
         }
         return true;
       })
@@ -214,72 +315,44 @@ export class GraphViz {
 
     canvasSelection.call(this.zoomBehavior);
 
-    // Node drag via manual mouse events — left button only
-    let dragStarted = false;
-    let dragModifiers = { metaKey: false, ctrlKey: false };
-    const DRAG_THRESHOLD_PX_SQ = 25; // 5px
+    // Track mousedown position for click detection
+    let mouseDownX = 0;
+    let mouseDownY = 0;
+    let mouseDownOnNode = false;
+    let mouseDownOnLevel = false;
+    const CLICK_THRESHOLD_PX_SQ = 25; // 5px
 
+    // Use capture so this fires before d3-zoom's mousedown handler, which calls
+    // stopImmediatePropagation() and would prevent this from running otherwise.
     this.canvas.addEventListener("mousedown", (event) => {
       if (event.button !== 0) return;
       mouseDownX = event.offsetX;
       mouseDownY = event.offsetY;
-      dragStarted = false;
-      dragModifiers = { metaKey: event.metaKey, ctrlKey: event.ctrlKey };
-
       const [cx, cy] = this.screenToCanvas(event.offsetX, event.offsetY);
-      const node = hitTestNode(this.nodes, cx, cy);
-      if (!node) return;
+      mouseDownOnNode = !!hitTestNode(this.nodes, cx, cy);
+      mouseDownOnLevel = !mouseDownOnNode && this.hitTestDagLevel(cx, cy) != null;
+    }, { capture: true });
 
-      this.draggedNode = node;
-      node.fx = node.x;
-      node.fy = node.y;
-      this.simulation?.alphaTarget(0.3).restart();
-      this.canvas.style.cursor = "grabbing";
-    });
-
-    const onWindowMouseMove = (event: MouseEvent) => {
-      if (!this.draggedNode) return;
-      const rect = this.canvas.getBoundingClientRect();
-      const screenX = event.clientX - rect.left;
-      const screenY = event.clientY - rect.top;
-      const [cx, cy] = this.screenToCanvas(screenX, screenY);
-      // Don't move the node or fire onNodeDrag until movement exceeds
-      // the same threshold the click handler uses to distinguish click from drag.
-      // Otherwise micro-drift fires both onNodeDrag AND onNodeClick, causing
-      // double-toggle and apparent "click does nothing" behavior.
-      if (!dragStarted) {
-        const dx = screenX - mouseDownX;
-        const dy = screenY - mouseDownY;
-        if (dx * dx + dy * dy < DRAG_THRESHOLD_PX_SQ) return;
-        dragStarted = true;
-        this.options.onNodeDrag?.(this.draggedNode.id, dragModifiers);
+    // Background dismiss on mouseup — d3-zoom registers a window-level capture
+    // mouseup listener on mousedown and calls stopImmediatePropagation(), which
+    // prevents our canvas mouseup from firing. By registering at the window
+    // capture phase ourselves (before d3-zoom's dynamic listener is added), we
+    // guarantee our handler runs first.
+    const windowMouseUpHandler = (event: MouseEvent) => {
+      if (event.button !== 0 || event.target !== this.canvas || mouseDownOnNode || mouseDownOnLevel) return;
+      const dx = event.offsetX - mouseDownX;
+      const dy = event.offsetY - mouseDownY;
+      if (dx * dx + dy * dy < CLICK_THRESHOLD_PX_SQ) {
+        this.options.onBackgroundClick?.();
       }
-      this.draggedNode.fx = cx;
-      this.draggedNode.fy = cy;
-      this.scheduleRender();
     };
-
-    const onWindowMouseUp = () => {
-      if (!this.draggedNode) return;
-      this.simulation?.alphaTarget(0);
-      if (!this.options.fixNodeOnDragEnd) {
-        this.draggedNode.fx = null;
-        this.draggedNode.fy = null;
-      }
-      this.draggedNode = null;
-      this.canvas.style.cursor = this.hoverNodeId ? "pointer" : "grab";
-    };
-
-    window.addEventListener("mousemove", onWindowMouseMove);
-    window.addEventListener("mouseup", onWindowMouseUp);
+    window.addEventListener("mouseup", windowMouseUpHandler, { capture: true });
     this.cleanupListeners = () => {
-      window.removeEventListener("mousemove", onWindowMouseMove);
-      window.removeEventListener("mouseup", onWindowMouseUp);
+      window.removeEventListener("mouseup", windowMouseUpHandler, { capture: true });
     };
 
     // Hover
     this.canvas.addEventListener("mousemove", (event) => {
-      if (this.draggedNode) return;
       const [cx, cy] = this.screenToCanvas(event.offsetX, event.offsetY);
       const node = hitTestNode(this.nodes, cx, cy);
       const newHoverId = node?.id ?? null;
@@ -292,14 +365,14 @@ export class GraphViz {
         this.hoverNodeId = newHoverId;
         this.hoveredDagLevel = newLevelHover;
         this.options.onNodeHover?.(newHoverId);
-        this.canvas.style.cursor = newHoverId ? "pointer" : "grab";
+        this.canvas.style.cursor = newHoverId || newLevelHover != null ? "pointer" : "grab";
         this.scheduleRender();
       }
     });
 
     this.canvas.addEventListener("mouseleave", () => {
       const changed = this.hoverNodeId !== null || this.hoveredDagLevel !== null;
-      if (changed && !this.draggedNode) {
+      if (changed) {
         this.hoverNodeId = null;
         this.hoveredDagLevel = null;
         this.options.onNodeHover?.(null);
@@ -308,19 +381,32 @@ export class GraphViz {
       }
     });
 
-    // Click — genuine click only (< 5px movement from mousedown, and no drag fired)
+    // Click — node clicks and level clicks (background is handled in mouseup above)
     this.canvas.addEventListener("click", (event) => {
       const dx = event.offsetX - mouseDownX;
       const dy = event.offsetY - mouseDownY;
-      if (dx * dx + dy * dy >= DRAG_THRESHOLD_PX_SQ) return; // was a drag, not a click
-      if (dragStarted) return; // drag handler already fired the callback
+      if (dx * dx + dy * dy >= CLICK_THRESHOLD_PX_SQ) return;
 
       const [cx, cy] = this.screenToCanvas(event.offsetX, event.offsetY);
       const node = hitTestNode(this.nodes, cx, cy);
       if (node) {
         this.options.onNodeClick?.(node.id, { metaKey: event.metaKey, ctrlKey: event.ctrlKey });
-      } else {
-        this.options.onBackgroundClick?.();
+        return;
+      }
+
+      // Check if clicking on a DAG alignment line
+      const levelPos = this.hitTestDagLevel(cx, cy);
+      if (levelPos != null) {
+        const isHorizontal = this.options.dagMode === "lr" || this.options.dagMode === "rl";
+        const nodeIds = this.nodes
+          .filter((n) => {
+            const pos = isHorizontal ? n.x : n.y;
+            return pos != null && Math.abs(pos - levelPos) < 1;
+          })
+          .map((n) => n.id);
+        if (nodeIds.length > 0) {
+          this.options.onLevelClick?.(nodeIds, { metaKey: event.metaKey, ctrlKey: event.ctrlKey });
+        }
       }
     });
 
@@ -358,84 +444,238 @@ export class GraphViz {
     return null;
   }
 
-  private startSimulation(coldStart = true): void {
-    this.simulation?.stop();
+  private startSimulation(coldStart = true, alphaOverride?: number): void {
+    // Decide whether to do an in-place update vs full restart.
+    // In-place keeps the worker alive and preserves simulation momentum,
+    // making graphMode/edge-set transitions feel smooth.
+    const canReuse = !coldStart && this.simulationWorker != null;
+    if (!canReuse) {
+      this.stopSimulation();
+    }
 
-    const { alphaDecay = 0.0228, velocityDecay = 0.4, collideRadius, dagMode } = this.options;
+    const t0 = performance.now();
+    const { collideRadius, dagMode } = this.options;
     const isRadial = dagMode === "radialout" || dagMode === "radialin";
     const isHorizontalDag = dagMode === "lr" || dagMode === "rl";
     const isLinearDag = dagMode && !isRadial;
 
-    // Save DAG-axis positions before simulation starts so we can constrain them
+    // Pre-measure node label dimensions so collision force can use accurate radii.
+    // This mirrors measureNodes() in renderer.ts but runs before the first render tick.
+    const { fixFontSize = true, fontSize: preferFontSize = 12 } = this.options;
+    const initialScale = this.transform.k || 1;
+    const fontSize = fixFontSize ? preferFontSize / initialScale : preferFontSize;
+    this.ctx.save();
+    this.ctx.font = `${fontSize}px Sans-Serif`;
+    const padding = fontSize * 0.4;
+    for (const node of this.nodes) {
+      if (!node._width || !node._height) {
+        const textWidth = this.ctx.measureText(node.id).width;
+        node._width = textWidth + padding * 2;
+        node._height = fontSize + padding * 2;
+      }
+    }
+    this.ctx.restore();
+    console.log(`[sim] measureText ×${this.nodes.length}: ${(performance.now() - t0).toFixed(1)}ms`);
+
+    // Save DAG-axis positions so we can render alignment lines (constraint itself runs in worker).
+    // If setData stashed `_dagTarget*` (animated transition), prefer those targets so
+    // the worker can lerp current node positions toward them. Otherwise read from node.x/y
+    // (cold start path — node.x/y is already at the grid).
+    let animatedDagTransition = false;
     if (isLinearDag) {
       this.dagAxisPositions = new Map();
       for (const node of this.nodes) {
-        this.dagAxisPositions.set(node.id, isHorizontalDag ? node.x! : node.y!);
+        const stash = node as RenderNode & { _dagTargetX?: number; _dagTargetY?: number };
+        const target = isHorizontalDag
+          ? (stash._dagTargetX ?? node.x ?? 0)
+          : (stash._dagTargetY ?? node.y ?? 0);
+        if (stash._dagTargetX !== undefined || stash._dagTargetY !== undefined) {
+          animatedDagTransition = true;
+        }
+        this.dagAxisPositions.set(node.id, target);
+        // Clear stash so future ticks don't re-trigger animation
+        stash._dagTargetX = undefined;
+        stash._dagTargetY = undefined;
       }
-      // Extract unique level positions for alignment lines
       this.dagLevelPositions = [...new Set(this.dagAxisPositions.values())].sort((a, b) => a - b);
     } else {
       this.dagAxisPositions = null;
       this.dagLevelPositions = null;
     }
 
-    this.simulation = forceSimulation<RenderNode>(this.nodes)
-      .alpha(coldStart ? 1 : 0.3)
-      .force(
-        "link",
-        forceLink<RenderNode, SimulationLinkDatum<RenderNode>>(
-          this.links as unknown as SimulationLinkDatum<RenderNode>[]
-        )
-          .id((d) => d.id)
-          .distance(80)
-      )
-      .force("charge", forceManyBody().strength(dagMode ? -100 : -200))
-      .alphaDecay(dagMode ? 0.02 : alphaDecay)
-      .velocityDecay(dagMode ? 0.3 : velocityDecay)
-      .on("tick", () => {
-        this.applyDagConstraints();
-        this.scheduleRender();
-      });
+    if (this.nodes.length === 0) return;
 
-    // Only add center force in non-DAG mode (DAG layout handles its own centering)
+    // Pack node positions + radii into a Float32Array [x0,y0,r0, x1,y1,r1, ...]
+    // and link indices into an Int32Array [s0,t0, s1,t1, ...].
+    // Using TypedArrays lets us transfer (not clone) large link arrays to the worker.
+    const indexById = new Map<string, number>();
+    for (let i = 0; i < this.nodes.length; i++) indexById.set(this.nodes[i].id, i);
+
+    const nodesBuf = new Float32Array(this.nodes.length * 3);
+    for (let i = 0; i < this.nodes.length; i++) {
+      const n = this.nodes[i];
+      const w = n._width ?? 60;
+      const h = n._height ?? 20;
+      const radius =
+        collideRadius != null
+          ? typeof collideRadius === "number"
+            ? collideRadius
+            : (collideRadius as (node: RenderNode) => number)(n)
+          : Math.sqrt((w / 2) ** 2 + (h / 2) ** 2) + 4;
+      nodesBuf[i * 3] = n.x ?? 0;
+      nodesBuf[i * 3 + 1] = n.y ?? 0;
+      nodesBuf[i * 3 + 2] = radius;
+    }
+
+    // Count valid links first for exact allocation
+    let validLinkCount = 0;
+    for (const link of this.links) {
+      if (indexById.has(link.source.id) && indexById.has(link.target.id)) validLinkCount++;
+    }
+    const linksBuf = new Int32Array(validLinkCount * 2);
+    let li = 0;
+    for (const link of this.links) {
+      const s = indexById.get(link.source.id);
+      const t = indexById.get(link.target.id);
+      if (s !== undefined && t !== undefined) {
+        linksBuf[li++] = s;
+        linksBuf[li++] = t;
+      }
+    }
+
+    console.log(`[sim] payload build: ${(performance.now() - t0).toFixed(1)}ms (${this.nodes.length} nodes, ${validLinkCount} links)`);
+
+    let dagAxis: Float32Array | null = null;
+    if (isLinearDag && this.dagAxisPositions) {
+      dagAxis = new Float32Array(this.nodes.length);
+      for (let i = 0; i < this.nodes.length; i++) {
+        dagAxis[i] = this.dagAxisPositions.get(this.nodes[i].id) ?? 0;
+      }
+    }
+
+    let depthBands: Float32Array | null = null;
+    let spread = 0;
     if (!dagMode) {
-      this.simulation.force("center", forceCenter(0, 0));
-
-      // Soft Y-stratification: push nodes to vertical bands by topological depth.
-      // This gives a natural top-down flow without locking positions (nodes can
-      // still float sideways freely). Strength 0.15 is gentle enough not to fight
-      // the link force.
       const depthMap = computeTopoDepth(this.nodes, this.links);
-      const maxDepth = Math.max(1, ...depthMap.values());
-      const spread = Math.max(200, maxDepth * 120);
-      this.simulation.force(
-        "y-layer",
-        forceY<RenderNode>((n) => ((depthMap.get(n.id) ?? 0) / maxDepth) * spread - spread / 2).strength(0.15)
-      );
+      let maxDepth = 1;
+      for (const d of depthMap.values()) if (d > maxDepth) maxDepth = d;
+      spread = Math.max(200, maxDepth * 120);
+      depthBands = new Float32Array(this.nodes.length);
+      for (let i = 0; i < this.nodes.length; i++) {
+        depthBands[i] = (depthMap.get(this.nodes[i].id) ?? 0) / maxDepth;
+      }
     }
 
-    if (collideRadius || dagMode) {
-      this.simulation.force("collide", forceCollide(collideRadius ?? 30));
+    let worker = this.simulationWorker;
+    if (!worker) {
+      worker = new Worker(new URL("./simulation.worker.ts", import.meta.url), { type: "module" });
+      this.simulationWorker = worker;
+
+      worker.onerror = (e) => {
+        console.error("[sim] worker error:", e.message, e);
+      };
+
+      worker.onmessage = (event: MessageEvent<{ type: "tick"; positions: Float32Array; generation: number } | { type: "end" }>) => {
+        const msg = event.data;
+        if (msg.type === "tick") {
+          // Discard ticks from a previous generation. After we send an
+          // init/update message, the worker may have already queued tick
+          // messages from the prior simulation; applying them would briefly
+          // overwrite carefully-placed positions (e.g. DAG layout) and cause
+          // a visible flash before the new sim takes over.
+          if (msg.generation !== this.simGeneration) return;
+          const pos = msg.positions;
+          const ns = this.nodes;
+          // Position buffer is sized to current node count; protect against
+          // races where a stale tick arrives after node count changed.
+          const n = Math.min(ns.length, pos.length / 2);
+          for (let i = 0; i < n; i++) {
+            ns[i].x = pos[i * 2];
+            ns[i].y = pos[i * 2 + 1];
+          }
+          // Fit viewport after a few ticks of the first simulation so nodes
+          // have spread enough for a meaningful bounding box, but the user
+          // isn't left watching zoom=1 for the full simulation duration.
+          if (this.needsFitAfterFirstSim) {
+            this.firstSimTickCount++;
+            if (this.firstSimTickCount >= 3) {
+              this.needsFitAfterFirstSim = false;
+              this.fitToNodes();
+            }
+          }
+          this.scheduleRender();
+        } else if (msg.type === "end") {
+          this.scheduleRender();
+        }
+      };
     }
+
+    const transfer: Transferable[] = [nodesBuf.buffer, linksBuf.buffer];
+    if (dagAxis) transfer.push(dagAxis.buffer);
+    if (depthBands) transfer.push(depthBands.buffer);
+
+    this.simGeneration++;
+    worker.postMessage(
+      {
+        type: canReuse ? "update" : "init",
+        nodesBuf,
+        linksBuf,
+        dagMode: !!dagMode,
+        isHorizontal: isHorizontalDag,
+        dagAxis,
+        // Soft pull (lerp) for animated natural→DAG transitions; the worker
+        // auto-snaps to hard pin once nodes converge near the axis.
+        dagAxisStrength: animatedDagTransition ? 0.15 : 1,
+        depthBands,
+        spread,
+        // Cold start: full alpha. Warm restart (e.g. after rebuild button): 0.3.
+        // In-place update (graphMode toggle, etc.): low alpha so layout barely shifts.
+        // alphaOverride lets callers (e.g. DAG-mode transition) request a stronger kick.
+        alpha: alphaOverride ?? (coldStart ? 1 : canReuse ? 0.15 : 0.3),
+        // Skip link/charge in any DAG mode (constraint or radial layout dominates)
+        useLink: !dagMode,
+        useCharge: !dagMode,
+        useCenter: !dagMode,
+        alphaDecay: dagMode ? 0.02 : 0.0228,
+        alphaMin: dagMode ? 0.05 : 0.0001,
+        velocityDecay: dagMode ? 0.4 : 0.6,
+        generation: this.simGeneration,
+      },
+      transfer,
+    );
+    console.log(`[sim] postMessage ${canReuse ? "(update)" : "(init)"}: ${(performance.now() - t0).toFixed(1)}ms`);
   }
 
-  /** Constrain node positions on the DAG axis after each simulation tick */
-  private applyDagConstraints(): void {
-    if (!this.dagAxisPositions) return;
-    const { dagMode } = this.options;
-    const isHorizontal = dagMode === "lr" || dagMode === "rl";
-
+  private fitToNodes(): void {
+    if (!this.nodes.length || !this.zoomBehavior) return;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const node of this.nodes) {
-      const target = this.dagAxisPositions.get(node.id);
-      if (target !== undefined) {
-        if (isHorizontal) {
-          node.x = target;
-          node.vx = 0;
-        } else {
-          node.y = target;
-          node.vy = 0;
-        }
-      }
+      const x = node.x ?? 0, y = node.y ?? 0;
+      const hw = (node._width ?? 60) / 2, hh = (node._height ?? 20) / 2;
+      if (x - hw < minX) minX = x - hw;
+      if (y - hh < minY) minY = y - hh;
+      if (x + hw > maxX) maxX = x + hw;
+      if (y + hh > maxY) maxY = y + hh;
+    }
+    const padding = 40;
+    const bw = maxX - minX + padding * 2;
+    const bh = maxY - minY + padding * 2;
+    const { width, height } = this.options;
+    const scale = Math.min(width / bw, height / bh, 1); // never zoom in past 1:1
+    const tx = width / 2 - scale * ((minX + maxX) / 2);
+    const ty = height / 2 - scale * ((minY + maxY) / 2);
+    const t = zoomIdentity.translate(tx, ty).scale(scale);
+    this.transform = t;
+    select(this.canvas).call(this.zoomBehavior.transform, t);
+  }
+
+  private stopSimulation(): void {
+    if (this.simulationWorker) {
+      try {
+        this.simulationWorker.postMessage({ type: "stop" });
+      } catch {}
+      this.simulationWorker.terminate();
+      this.simulationWorker = null;
     }
   }
 
@@ -470,7 +710,7 @@ export class GraphViz {
       nodes: this.nodes,
       links: this.links,
       options: this.options,
-      hoverNodeId: this.hoverNodeId,
+      hoverNodeId: this.hoverNodeId ?? this.options.contextMenuNodeId ?? null,
       dagLevelPositions: this.dagLevelPositions,
       hoveredDagLevel: this.hoveredDagLevel,
     });
@@ -484,7 +724,7 @@ export class GraphViz {
  * Roots (no incoming edges) get depth 0; their dependencies get depth 1, etc.
  * Used to place nodes in vertical bands for natural readability.
  */
-function computeTopoDepth(nodes: RenderNode[], links: ResolvedLink[]): Map<string, number> {
+export function computeTopoDepth(nodes: RenderNode[], links: ResolvedLink[]): Map<string, number> {
   const depth = new Map<string, number>();
   const inEdges = new Map<string, string[]>();
 
@@ -509,10 +749,16 @@ function computeTopoDepth(nodes: RenderNode[], links: ResolvedLink[]): Map<strin
   for (const n of nodes) outEdges.set(n.id, []);
   for (const link of links) outEdges.get(link.source.id)?.push(link.target.id);
 
+  // True topological depth never exceeds N-1. Cycles in the graph would
+  // otherwise let depth keep increasing forever (re-queueing nodes), so
+  // we hard-cap to bound the BFS.
+  const maxAllowed = Math.max(0, nodes.length - 1);
+
   let i = 0;
   while (i < queue.length) {
     const id = queue[i++];
     const d = depth.get(id) ?? 0;
+    if (d >= maxAllowed) continue;
     for (const target of outEdges.get(id) ?? []) {
       const cur = depth.get(target) ?? 0;
       if (d + 1 > cur) {

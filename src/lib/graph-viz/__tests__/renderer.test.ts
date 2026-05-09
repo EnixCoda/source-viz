@@ -21,7 +21,10 @@ describe("applyNodeColors", () => {
 
       for (const node of nodes) {
         expect(node._color).toBeDefined();
-        expect(node._color).toMatch(/^hsl\(/);
+        // Color may be hsl/rgb/hex depending on the gradient used; just
+        // verify it's a non-empty string the canvas can accept.
+        expect(typeof node._color).toBe("string");
+        expect(node._color!.length).toBeGreaterThan(0);
       }
     });
 
@@ -44,7 +47,7 @@ describe("applyNodeColors", () => {
     });
   });
 
-  describe("color-by-heat-both", () => {
+  describe("color-by-connections", () => {
     it("nodes with more connections get different color than isolated nodes", () => {
       const nodes = makeNodes(["hub", "a", "b", "c", "isolated"]);
       const links = makeLinks(
@@ -52,7 +55,7 @@ describe("applyNodeColors", () => {
         nodes
       );
 
-      applyNodeColors(nodes, links, "color-by-heat-both");
+      applyNodeColors(nodes, links, "color-by-connections");
 
       // hub has 3 connections, isolated has 0
       expect(nodes[0]._color).not.toBe(nodes[4]._color);
@@ -62,7 +65,7 @@ describe("applyNodeColors", () => {
       const nodes = makeNodes(["a", "b"]);
       const links = makeLinks([["a", "b"]], nodes);
 
-      applyNodeColors(nodes, links, "color-by-heat-both");
+      applyNodeColors(nodes, links, "color-by-connections");
 
       for (const node of nodes) {
         expect(node._color).toBeDefined();
@@ -70,13 +73,13 @@ describe("applyNodeColors", () => {
     });
   });
 
-  describe("color-by-heat-source", () => {
+  describe("color-by-imports", () => {
     it("only counts source-side connections", () => {
       // a -> b -> c: a has 1 outgoing, b has 1 outgoing, c has 0
       const nodes = makeNodes(["a", "b", "c"]);
       const links = makeLinks([["a", "b"], ["b", "c"]], nodes);
 
-      applyNodeColors(nodes, links, "color-by-heat-source");
+      applyNodeColors(nodes, links, "color-by-imports");
 
       // a and b each have 1 source connection, c has 0
       expect(nodes[0]._color).toBe(nodes[1]._color); // same count
@@ -84,13 +87,13 @@ describe("applyNodeColors", () => {
     });
   });
 
-  describe("color-by-heat-target", () => {
+  describe("color-by-imported-by", () => {
     it("only counts target-side connections", () => {
       // a -> c, b -> c: c has 2 incoming, a and b have 0
       const nodes = makeNodes(["a", "b", "c"]);
       const links = makeLinks([["a", "c"], ["b", "c"]], nodes);
 
-      applyNodeColors(nodes, links, "color-by-heat-target");
+      applyNodeColors(nodes, links, "color-by-imported-by");
 
       // c has 2 target connections, a and b have 0
       expect(nodes[0]._color).toBe(nodes[1]._color); // both 0
@@ -105,7 +108,7 @@ describe("applyNodeColors", () => {
 
   it("handles single node with no links", () => {
     const nodes = makeNodes(["only.ts"]);
-    applyNodeColors(nodes, [], "color-by-heat-both");
+    applyNodeColors(nodes, [], "color-by-connections");
     expect(nodes[0]._color).toBeDefined();
   });
 });

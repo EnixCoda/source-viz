@@ -10,20 +10,20 @@ export const cloneData = // clone data to prevent pollution
 
 export type { ColorByMode };
 
-type ColorByHeatMode = "color-by-heat-source" | "color-by-heat-target" | "color-by-heat-both";
+type ColorByConnectionsMode = "color-by-imports" | "color-by-imported-by" | "color-by-connections";
 
 export const getNodeId = (node: string | NodeObject | undefined) =>
   typeof node === "string" ? node : node?.id;
 
-export function colorByHeat(mode: ColorByHeatMode) {
+export function colorByConnections(mode: ColorByConnectionsMode) {
   return (data: GraphData) => {
     const countMap = new Map<string, number>();
     data.links.forEach((link) => {
-      if (mode !== "color-by-heat-target") {
+      if (mode !== "color-by-imported-by") {
         const source = typeof link.source === "string" ? link.source : link.source;
         if (source !== undefined) countMap.set(source, (countMap.get(source) || 0) + 1);
       }
-      if (mode !== "color-by-heat-source") {
+      if (mode !== "color-by-imports") {
         const target = typeof link.target === "string" ? link.target : link.target;
         if (target !== undefined) countMap.set(target, (countMap.get(target) || 0) + 1);
       }
@@ -51,10 +51,10 @@ export function getColorByDataMapper(colorBy: ColorByMode) {
       return (data: GraphData) => data; // handled by renderer's applyNodeColors
     case "color-by-depth":
       return colorByDepth();
-    case "color-by-heat-both":
-    case "color-by-heat-source":
-    case "color-by-heat-target":
-      return colorByHeat(colorBy);
+    case "color-by-connections":
+    case "color-by-imports":
+    case "color-by-imported-by":
+      return colorByConnections(colorBy);
     default:
       throw new Error(`Unknown colorBy: ${colorBy}`);
   }

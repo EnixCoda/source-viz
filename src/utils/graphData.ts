@@ -1,4 +1,4 @@
-import { DependencyEntry } from "../services/serializers";
+import { DependencyEntry, DependencyKind } from "../services/serializers";
 import { safeMapGet } from "./general";
 import { w } from "./w";
 
@@ -14,8 +14,17 @@ export function prepareGraphData(data: DependencyEntry[]) {
   const dependantMap = new Map<NodeId, Set<NodeId>>(); // dep -> files
   const syncRefMap = new Map<NodeId, Set<NodeId>>();
   const asyncRefMap = new Map<NodeId, Set<NodeId>>();
+  // "local" wins if a node appears as local in any entry; otherwise highest-priority kind wins
+  const nodeKinds = new Map<NodeId, DependencyKind>();
+  const kindPriority: Record<DependencyKind, number> = { local: 0, unresolved: 1, external: 2 };
+  const setKind = (id: NodeId, kind: DependencyKind) => {
+    const current = nodeKinds.get(id);
+    if (current === undefined || kindPriority[kind] < kindPriority[current]) nodeKinds.set(id, kind);
+  };
   for (const [file, deps] of data) {
-    for (const [dep, isAsync] of deps) {
+    setKind(file, "local");
+    for (const [dep, isAsync, kind] of deps) {
+      setKind(dep, kind);
       safeMapGet(dependencyMap, file, () => new Set<NodeId>()).add(dep);
       safeMapGet(dependantMap, dep, () => new Set<NodeId>()).add(file);
       if (!isAsync) {
@@ -26,7 +35,7 @@ export function prepareGraphData(data: DependencyEntry[]) {
       }
     }
   }
-  return { nodes, dependantMap, dependencyMap, dependencies, dependents, asyncRefMap };
+  return { nodes, dependantMap, dependencyMap, dependencies, dependents, asyncRefMap, nodeKinds };
 }
 
 export type PreparedData = ReturnType<typeof prepareGraphData>;
@@ -34,7 +43,7 @@ export type PreparedData = ReturnType<typeof prepareGraphData>;
 type DAGPruneMode = "less leave" | "less roots";
 
 export const filterGraphData = (
-  { dependantMap, dependencyMap, asyncRefMap }: PreparedData,
+  { dependantMap, dependencyMap, asyncRefMap, nodeKinds }: PreparedData,
   {
     roots,
     leave,
@@ -59,8 +68,11 @@ export const filterGraphData = (
     const cycles: NodeId[][] = []; // Cycle edges are derived downstream (e.g. cycleLinks in Viz.tsx)
     const mergedNodesMap = new Map<NodeId, Set<NodeId>>();
 
-    const traverseNode = (node: NodeId, stack: NodeId[] = []) => {
-      if (stack.includes(node)) {
+    const stack: NodeId[] = [];
+    const stackSet = new Set<NodeId>(); // O(1) membership instead of O(n) stack.includes()
+
+    const traverseNode = (node: NodeId) => {
+      if (stackSet.has(node)) {
         // save nodes in stack as a cycle
         const nodesOnCycle = stack.slice(stack.indexOf(node));
         saveCycle(nodesOnCycle);
@@ -83,9 +95,13 @@ export const filterGraphData = (
       }
       traversedNodes.add(node);
 
+      stack.push(node);
+      stackSet.add(node);
       for (const next of togoMap.get(node)?.values() || []) {
-        traverseNode(next, stack.concat(node));
+        traverseNode(next);
       }
+      stack.pop();
+      stackSet.delete(node);
     };
 
     function saveCycle(nodesOnCycle: string[]) {
@@ -198,10 +214,9 @@ export const filterGraphData = (
   }
 
   if (graphMode === "cycles-only") {
+    const cycleNodes = new Set<NodeId>(cycles.flat());
     for (const node of nodes) {
-      if (cycles.every((cycle) => !cycle.includes(node))) {
-        nodes.delete(node);
-      }
+      if (!cycleNodes.has(node)) nodes.delete(node);
     }
 
     // links
@@ -221,7 +236,7 @@ export const filterGraphData = (
 
   return {
     cycles,
-    nodes: [...nodes.values()].map((id) => ({ id })),
+    nodes: [...nodes.values()].map((id) => ({ id, kind: nodeKinds.get(id) ?? ("local" as DependencyKind) })),
     links: w(
       [...links.entries()]
         .map(([source, targets]) => [...targets.values()].map((target) => ({ source, target })))
