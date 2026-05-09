@@ -1,0 +1,42 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`should parse import and require statements 1`] = `
+[
+  [
+    "b0.js",
+    false,
+  ],
+  [
+    "b1.js",
+    false,
+  ],
+  [
+    "b2.js",
+    false,
+  ],
+  [
+    "b3.js",
+    true,
+  ],
+  [
+    "b4.js",
+    true,
+  ],
+  [
+    "b15.js",
+    true,
+  ],
+  [
+    "b9.js",
+    false,
+  ],
+  [
+    "b10.js",
+    false,
+  ],
+  [
+    "b14.js",
+    false,
+  ],
+]
+`;
