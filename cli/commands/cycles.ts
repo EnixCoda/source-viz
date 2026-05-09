@@ -49,11 +49,13 @@ export function cyclesCmd(): Command {
     .option("--exclude <patterns...>", "File exclude regex patterns")
     .option("--silent", "Suppress warnings")
     .option("--json", "Output as JSON array")
-    .action(async (dir: string, opts: { include?: string[]; exclude?: string[]; silent?: boolean; json?: boolean }) => {
+    .option("--parser <parser>", "Parser backend: oxc (default) or babel", "oxc")
+    .action(async (dir: string, opts: { include?: string[]; exclude?: string[]; silent?: boolean; json?: boolean; parser?: string }) => {
       const { depMap } = await scan(dir, {
         include: opts.include,
         exclude: opts.exclude,
         silent: opts.silent,
+        parser: opts.parser as "oxc" | "babel",
       });
 
       const cycles = findCycles(depMap);

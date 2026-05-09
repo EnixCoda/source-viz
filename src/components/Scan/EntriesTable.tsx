@@ -1,7 +1,13 @@
-import { Table, TableProps, Tbody, Td, Th, Thead, Tr } from "@chakra-ui/react";
+import { Badge, Table, TableProps, Tbody, Td, Th, Thead, Tr } from "@chakra-ui/react";
 import * as React from "react";
-import { DependencyEntry } from "../../services/serializers";
+import { DependencyEntry, DependencyKind } from "../../services/serializers";
 import { MonoText } from "../MonoText";
+
+const kindBadge: Record<DependencyKind, { label: string; colorScheme: string } | null> = {
+  local: null,
+  external: { label: "ext", colorScheme: "gray" },
+  unresolved: { label: "unresolved", colorScheme: "orange" },
+};
 
 export function EntriesTable({
   entries,
@@ -31,10 +37,27 @@ export function EntriesTable({
       <Tbody>
         {entries.map(([file, dependencies]) => (
           <React.Fragment key={file}>
-            {dependencies.map(([dependency, isAsync], index, arr) => (
-              <Tr key={`${index}-${dependency}-${isAsync}`} verticalAlign="baseline">
-                {index === 0 ? (
-                  <Td rowSpan={arr.length}>
+            {dependencies.map(([dependency, isAsync, kind], index, arr) => {
+              const badge = kindBadge[kind];
+              return (
+                <Tr key={`${index}-${dependency}-${isAsync}`} verticalAlign="baseline">
+                  {index === 0 ? (
+                    <Td rowSpan={arr.length}>
+                      {onClickSelect ? (
+                        <MonoText
+                          as="button"
+                          textAlign="left"
+                          onClick={() => onClickSelect(dependency)}
+                          style={{ cursor: "pointer", textDecoration: "underline" }}
+                        >
+                          {file}
+                        </MonoText>
+                      ) : (
+                        <MonoText>{file}</MonoText>
+                      )}
+                    </Td>
+                  ) : null}
+                  <Td>
                     {onClickSelect ? (
                       <MonoText
                         as="button"
@@ -42,30 +65,21 @@ export function EntriesTable({
                         onClick={() => onClickSelect(dependency)}
                         style={{ cursor: "pointer", textDecoration: "underline" }}
                       >
-                        {file}
+                        {dependency}
                       </MonoText>
                     ) : (
-                      <MonoText>{file}</MonoText>
+                      <MonoText>{dependency}</MonoText>
+                    )}
+                    {badge && (
+                      <Badge ml={1} colorScheme={badge.colorScheme} fontSize="0.65em">
+                        {badge.label}
+                      </Badge>
                     )}
                   </Td>
-                ) : null}
-                <Td>
-                  {onClickSelect ? (
-                    <MonoText
-                      as="button"
-                      textAlign="left"
-                      onClick={() => onClickSelect(dependency)}
-                      style={{ cursor: "pointer", textDecoration: "underline" }}
-                    >
-                      {dependency}
-                    </MonoText>
-                  ) : (
-                    <MonoText>{dependency}</MonoText>
-                  )}
-                </Td>
-                {showImportType && <Td>{isAsync ? "yes" : null}</Td>}
-              </Tr>
-            ))}
+                  {showImportType && <Td>{isAsync ? "yes" : null}</Td>}
+                </Tr>
+              );
+            })}
           </React.Fragment>
         ))}
       </Tbody>

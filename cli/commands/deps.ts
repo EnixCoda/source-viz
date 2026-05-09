@@ -27,16 +27,18 @@ export function depsCmd(): Command {
     .option("--exclude <patterns...>", "File exclude regex patterns")
     .option("--silent", "Suppress warnings")
     .option("--json", "Output as JSON array")
+    .option("--parser <parser>", "Parser backend: oxc (default) or babel", "oxc")
     .action(
       async (
         dir: string,
         file: string,
-        opts: { dependents?: boolean; transitive?: boolean; include?: string[]; exclude?: string[]; silent?: boolean; json?: boolean },
+        opts: { dependents?: boolean; transitive?: boolean; include?: string[]; exclude?: string[]; silent?: boolean; json?: boolean; parser?: string },
       ) => {
         const { depMap, dependantMap } = await scan(dir, {
           include: opts.include,
           exclude: opts.exclude,
           silent: opts.silent,
+          parser: opts.parser as "oxc" | "babel",
         });
 
         const adjMap = opts.dependents ? dependantMap : depMap;

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
  * This effect makes it possible to run effects that can be aborted.
@@ -12,14 +12,22 @@ export function useAbortableEffect<T, TReturn, TNext>({
   onCancel?: () => void;
   onAbort?: () => void;
 }) {
+  const abortControllerRef = useRef<AbortController | null>(null);
+
   useEffect(() => {
     const abortController = new AbortController();
+    abortControllerRef.current = abortController;
     runAbortableAsyncGenerator(getAsyncGenerator, abortController.signal, onAbort);
     return () => {
       onCancel?.();
       abortController.abort();
+      if (abortControllerRef.current === abortController) abortControllerRef.current = null;
     };
   }, [getAsyncGenerator, onCancel, onAbort]);
+
+  return useCallback(() => {
+    abortControllerRef.current?.abort();
+  }, []);
 }
 
 export async function runAbortableAsyncGenerator<T>(

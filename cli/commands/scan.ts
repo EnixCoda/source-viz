@@ -12,11 +12,13 @@ export function scanCmd(): Command {
     .option("--include <patterns...>", "File include regex patterns")
     .option("--exclude <patterns...>", "File exclude regex patterns")
     .option("--silent", "Suppress warnings")
-    .action(async (dir: string, opts: { format: string; out?: string; include?: string[]; exclude?: string[]; silent?: boolean }) => {
+    .option("--parser <parser>", "Parser backend: oxc (default) or babel", "oxc")
+    .action(async (dir: string, opts: { format: string; out?: string; include?: string[]; exclude?: string[]; silent?: boolean; parser?: string }) => {
       const { entries } = await scan(dir, {
         include: opts.include,
         exclude: opts.exclude,
         silent: opts.silent,
+        parser: opts.parser as "oxc" | "babel",
       });
 
       const format = opts.format as "json" | "csv";

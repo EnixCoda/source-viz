@@ -1,5 +1,5 @@
-import { ChevronLeftIcon, InfoIcon } from "@chakra-ui/icons";
-import { Box, Button, Divider, Flex, Heading, HStack, IconButton, Text, VStack } from "@chakra-ui/react";
+import { ChevronLeftIcon } from "@chakra-ui/icons";
+import { Button, Divider, Flex, Heading, HStack, IconButton, Text, VStack } from "@chakra-ui/react";
 import * as React from "react";
 import { MetaFilter } from "../../services";
 import { FS } from "../fs";
@@ -25,7 +25,7 @@ export function Filter({
     <HStack alignItems="flex-start" flex={1} minH={0} padding={2}>
       <VStack width={240} flexShrink={0} alignItems="stretch" overflow="auto" minH={0} maxH="100%">
         <HStack>
-          <IconButton icon={<ChevronLeftIcon />} onClick={() => onCancel()} aria-label="Back" />
+          <IconButton icon={<ChevronLeftIcon boxSize={6} />} onClick={() => onCancel()} aria-label="Back" />
           <Heading as="h2" size="lg">
             Filter files
           </Heading>
@@ -42,40 +42,16 @@ export function Filter({
 
         <Divider />
 
-        <VStack as="section" gap={1} minH={0} overflow="auto">
-          <Box>
-            <InfoIcon />{" "}
-            <Text fontSize="sm" as="span">
-              Inputs below accept regular expressions. The regular expressions will match against path instead of
-              filename.
-            </Text>
-          </Box>
-          <VStack alignItems="stretch">
-            <Heading as="h3" size="md">
-              Include
-            </Heading>
-            <Text fontSize="sm">
-              Text files matching any of these patterns will be read and parsed. They will be
-              <Text as="span" color="orange.500">
-                {" "}
-                highlighted{" "}
-              </Text>
-              in the list.
-            </Text>
+        <VStack as="section" gap={2} minH={0} overflow="auto">
+          <VStack alignItems="stretch" gap={1}>
+            <Heading as="h3" size="sm">Include</Heading>
+            <Text fontSize="xs" color="gray.500">Matched files will be read and parsed.</Text>
             <FilterInputList values={includes} onChange={setIncludes} />
           </VStack>
-          <VStack alignItems="stretch">
-            <Heading as="h3" size="md">
-              Exclude
-            </Heading>
-            <Text fontSize="sm">
-              Files, folders, and content inside matched folders will not be scanned. They are
-              <Text as="span" color="gray.400">
-                {" "}
-                dimmed{" "}
-              </Text>
-              in the list.
-            </Text>
+          <Divider />
+          <VStack alignItems="stretch" gap={1}>
+            <Heading as="h3" size="sm">Exclude</Heading>
+            <Text fontSize="xs" color="gray.500">Matched files and folders will not be scanned.</Text>
             <FilterInputList values={excludes} onChange={setExcludes} />
           </VStack>
         </VStack>

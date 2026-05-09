@@ -105,11 +105,11 @@ export function ColumnDirectory({
                   .join("/"),
                 (path) =>
                   isItemExcluded(path)
-                    ? "gray.500"
+                    ? "gray.300"
                     : isItemIncluded(path)
-                    ? "green.500"
+                    ? "green.600"
                     : file.kind === "file"
-                    ? "gray.500"
+                    ? "gray.600"
                     : undefined
               )}
             >

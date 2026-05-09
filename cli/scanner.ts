@@ -1,6 +1,7 @@
 import * as nodepath from "node:path";
 import { getFiles } from "../src/services/node";
 import { prepare as prepareBabelParser } from "../src/services/parsers/babel";
+import { prepare as prepareOxcParser } from "../src/services/parsers/oxc";
 import { getDependencyEntries } from "../src/services/index";
 import { defaultIncludes, defaultExcludes } from "../src/components/Scan/filterDefaults";
 import type { DependencyEntry } from "../src/services/serializers";
@@ -10,6 +11,7 @@ export interface ScanOptions {
   include?: string[];
   exclude?: string[];
   silent?: boolean;
+  parser?: "oxc" | "babel";
 }
 
 export interface ScanResult {
@@ -32,7 +34,7 @@ export async function scan(dir: string, options: ScanOptions = {}): Promise<Scan
   const files = await getFiles(rootDir, isExcluded);
   const fileSet = new Set(files);
   const fs = await createNodeFs(rootDir);
-  const parse = await prepareBabelParser();
+  const parse = await (options.parser === "babel" ? prepareBabelParser() : prepareOxcParser());
 
   const errors: string[] = [];
   const entries = await getDependencyEntries(fileSet, parse, fs, isIncluded, {
@@ -43,6 +45,7 @@ export async function scan(dir: string, options: ScanOptions = {}): Promise<Scan
       }
       errors.push(file);
     },
+    fallbackParse: options.parser !== "babel" ? () => prepareBabelParser() : undefined,
   });
 
   const depMap = new Map<string, Set<string>>();

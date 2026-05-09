@@ -4,13 +4,18 @@ import { safeMapGet } from "../utils/general";
 import { parseCSV, stringifyToCSV } from "./serialize.csv";
 import { parseJSON, stringifyToJSON } from "./serialize.json";
 
-export type Dependency = [dependency: string, isAsync: boolean];
+export type DependencyKind = "local" | "external" | "unresolved";
+
+export type Dependency = [dependency: string, isAsync: boolean, kind: DependencyKind];
 export type DependencyMap = Map<string, Dependency[]>;
 
 export type DependencyEntry = [KeyOfMap<DependencyMap>, Dependency[]];
+const zDependencyKind = z.enum(["local", "external", "unresolved"]).default("local");
 const zDependencyRecord = z.tuple([z.string(), z.string(), z.boolean()]);
 export type DependencyRecord = [file: KeyOfMap<DependencyMap>, dependency: string, isAsync: boolean];
-const zDependencyEntry = z.array(z.tuple([z.string(), z.array(z.tuple([z.string(), z.boolean()]))]));
+const zDependencyEntry = z.array(
+  z.tuple([z.string(), z.array(z.tuple([z.string(), z.boolean(), zDependencyKind]))]),
+);
 export type __test__ = Expect<Equal<DependencyEntry[], z.infer<typeof zDependencyEntry>>>;
 
 function flatEntries(entires: DependencyEntry[]): DependencyRecord[] {
@@ -33,7 +38,7 @@ export const entryParsers: Record<SupportExts, (source: string) => DependencyEnt
       const map: DependencyMap = new Map();
       for (const [file, dep, isAsync] of records) {
         const d = safeMapGet(map, file, () => []);
-        d.push([dep, isAsync]);
+        d.push([dep, isAsync, "local"]);
       }
 
       const entries: DependencyEntry[] = Array.from(map.entries());
