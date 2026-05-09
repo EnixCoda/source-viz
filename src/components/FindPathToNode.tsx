@@ -132,7 +132,7 @@ export function FindPathToNode({
                       })}
                     />
                     <Heading as="h4" size="sm">
-                      In dependents' direction
+                      Through importers
                     </Heading>
                     <ListOfNodeList
                       lists={allPaths?.dependant}
@@ -148,7 +148,7 @@ export function FindPathToNode({
                     />
 
                     <Heading as="h4" size="sm">
-                      In dependencies' direction
+                      Through imports
                     </Heading>
                     <ListOfNodeList
                       lists={allPaths?.dependency}

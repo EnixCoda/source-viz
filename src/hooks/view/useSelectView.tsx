@@ -5,13 +5,13 @@ import { useView } from "./useView";
 
 export function useSelectView<T extends string>(
   { defaultValue, inputProps, ...formControlViewProps }: UseFormControlConfig<T | undefined, SelectProps> = {},
-  options: { label: React.ReactNode; value: T | null }[],
+  options: { label: React.ReactNode; value: T | null; disabled?: boolean }[],
 ) {
   return useView<T | undefined>(defaultValue, (value, setState) => (
     <FormControlView {...formControlViewProps}>
       <Select value={value} onChange={(e) => setState(e.target.value as typeof value)} {...inputProps}>
-        {options.map(({ label, value }) => (
-          <option key={value} value={value || ""}>
+        {options.map(({ label, value, disabled }) => (
+          <option key={value} value={value || ""} disabled={disabled}>
             {label}
           </option>
         ))}

@@ -8,6 +8,7 @@ import type { DagMode, EdgeStyleMode } from "../../lib/graph-viz";
 
 export interface GraphCallbacks {
   onNodeClick?: (nodeId: string, multi: boolean) => void;
+  onLevelClick?: (nodeIds: string[], multi: boolean) => void;
   onBackgroundClick?: () => void;
   onNodeContextMenu?: (nodeId: string, screenX: number, screenY: number) => void;
   onBackgroundContextMenu?: (screenX: number, screenY: number) => void;
@@ -18,7 +19,6 @@ export function useGraph<E extends HTMLElement>(
     data,
     fixFontSize,
     fontSize,
-    fixNodeOnDragEnd,
     width,
     height,
     enableDagMode,
@@ -27,10 +27,11 @@ export function useGraph<E extends HTMLElement>(
     edgeStyle = "flat",
     cycleLinks,
     selectedNodeIds,
+    contextMenuNodeId,
+    highlightedNodeIds,
     callbacks,
   }: {
     data: PreparedData;
-    fixNodeOnDragEnd: boolean;
     fixFontSize: boolean;
     fontSize: number;
     width: number;
@@ -41,6 +42,8 @@ export function useGraph<E extends HTMLElement>(
     edgeStyle?: EdgeStyleMode;
     cycleLinks?: Set<string>;
     selectedNodeIds?: Set<string>;
+    highlightedNodeIds?: Set<string>;
+    contextMenuNodeId?: string | null;
     callbacks: GraphCallbacks;
   }
 ) {
@@ -80,22 +83,22 @@ export function useGraph<E extends HTMLElement>(
       dagLevelDistance: 120,
       fontSize,
       fixFontSize,
-      fixNodeOnDragEnd,
       colorBy,
       edgeStyle,
       arrowLength: 4,
       asyncLinks,
       cycleLinks,
       selectedNodeIds,
+      highlightedNodeIds,
       dependencyMap: data.dependencyMap,
       dependantMap: data.dependantMap,
       onNodeClick: (id, event) => {
         const isMulti = event.metaKey || event.ctrlKey;
         callbacksRef.current.onNodeClick?.(id, isMulti);
       },
-      onNodeDrag: (id, event) => {
+      onLevelClick: (nodeIds, event) => {
         const isMulti = event.metaKey || event.ctrlKey;
-        callbacksRef.current.onNodeClick?.(id, isMulti);
+        callbacksRef.current.onLevelClick?.(nodeIds, isMulti);
       },
       onBackgroundClick: () => {
         callbacksRef.current.onBackgroundClick?.();
@@ -129,19 +132,21 @@ export function useGraph<E extends HTMLElement>(
       dagMode: enableDagMode ? dagMode : undefined,
       fontSize,
       fixFontSize,
-      fixNodeOnDragEnd,
       colorBy,
       edgeStyle,
       arrowLength: 4,
       asyncLinks,
       cycleLinks,
       selectedNodeIds,
+      contextMenuNodeId,
+      highlightedNodeIds,
       dependencyMap: data.dependencyMap,
       dependantMap: data.dependantMap,
     });
   }, [
     width, height, enableDagMode, dagMode, fontSize, fixFontSize,
-    fixNodeOnDragEnd, colorBy, edgeStyle, asyncLinks, cycleLinks, selectedNodeIds,
+    colorBy, edgeStyle, asyncLinks, cycleLinks, selectedNodeIds, contextMenuNodeId,
+    highlightedNodeIds,
     data.dependencyMap, data.dependantMap,
   ]);
 
