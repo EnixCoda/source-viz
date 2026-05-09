@@ -17,6 +17,7 @@ type DependencyEntry = [file: string, Dependency[]];
 const ROOT_DIR = path.resolve(import.meta.dirname, "..");
 const SRC_DIR = path.resolve(ROOT_DIR, "src");
 const OUT_FILE = path.resolve(ROOT_DIR, "public", "demo-data.json");
+const SOURCES_OUT_FILE = path.resolve(ROOT_DIR, "public", "demo-sources.json");
 
 function buildMatcher(patterns: string[]): (p: string) => boolean {
   const regexes = patterns.map((p) => new RegExp(p));
@@ -65,6 +66,7 @@ async function main() {
   const parse = await prepareBabelParser();
 
   const entries: DependencyEntry[] = [];
+  const sources: Record<string, string> = {};
 
   for (const file of files) {
     if (!isIncluded(file)) continue;
@@ -76,6 +78,7 @@ async function main() {
         isAsync,
       ]);
       entries.push([file, resolved]);
+      sources[file] = content;
     } catch (err) {
       console.warn(`Warning: failed to parse ${file}:`, err);
     }
@@ -83,8 +86,10 @@ async function main() {
 
   await fs.mkdir(path.dirname(OUT_FILE), { recursive: true });
   await fs.writeFile(OUT_FILE, JSON.stringify(entries), "utf-8");
+  await fs.writeFile(SOURCES_OUT_FILE, JSON.stringify(sources), "utf-8");
 
   console.log(`Demo data generated: ${entries.length} files → ${OUT_FILE}`);
+  console.log(`Demo sources generated: ${Object.keys(sources).length} files → ${SOURCES_OUT_FILE}`);
 }
 
 main().catch((err) => {

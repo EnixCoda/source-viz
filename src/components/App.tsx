@@ -11,6 +11,7 @@ import { Filter } from "./Scan/Filter";
 import { Scanning } from "./Scan/Scanning";
 import { FS } from "./fs";
 import { Viz } from "./Viz";
+import { createDirectoryHandleFs, createMemoryFs, InvestigatorFs } from "../lib/usage-investigator";
 
 function AppWithHeader({ children }: React.PropsWithChildren<object>) {
   return (
@@ -53,11 +54,20 @@ export function App() {
     | {
         state: "restored-viz";
         data: DependencyEntry[];
+        sources?: Record<string, string>;
       };
 
   const [status, dispatch] = React.useReducer((_: State, newState: State): State => newState, {
     state: "initial",
   });
+
+  const liveHandle = status.state === "viz" ? status.fs.handle : null;
+  const memorySources = status.state === "restored-viz" ? status.sources ?? null : null;
+  const investigatorFs = React.useMemo<InvestigatorFs | null>(() => {
+    if (liveHandle) return createDirectoryHandleFs(liveHandle);
+    if (memorySources) return createMemoryFs(memorySources);
+    return null;
+  }, [liveHandle, memorySources]);
 
   switch (status.state) {
     case "initial":
@@ -107,7 +117,14 @@ export function App() {
                     const resp = await fetch("demo-data.json");
                     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                     const data: DependencyEntry[] = await resp.json();
-                    dispatch({ state: "restored-viz", data });
+                    let sources: Record<string, string> | undefined;
+                    try {
+                      const srcResp = await fetch("demo-sources.json");
+                      if (srcResp.ok) sources = await srcResp.json();
+                    } catch {
+                      // sources are optional — investigator just won't be available
+                    }
+                    dispatch({ state: "restored-viz", data, sources });
                   } catch (err) {
                     console.error("Failed to load demo data:", err);
                     alert("Demo data is not available. Run `npm run generate-demo` first.");
@@ -171,6 +188,7 @@ export function App() {
         <VStack alignItems="stretch" maxHeight="100vh" overflow="auto">
           <Viz
             entries={status.data}
+            investigatorFs={investigatorFs}
             setData={(data) =>
               dispatch({
                 state: "viz",
@@ -201,10 +219,12 @@ export function App() {
         <VStack alignItems="stretch" maxHeight="100vh" overflow="auto">
           <Viz
             entries={status.data}
+            investigatorFs={investigatorFs}
             setData={(data) =>
               dispatch({
                 state: "restored-viz",
                 data,
+                sources: status.sources,
               })
             }
             onBack={() => {
