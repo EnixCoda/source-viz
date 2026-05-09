@@ -4,18 +4,22 @@ import { MonoText } from "./MonoText";
 
 export type NodeItemProps = {
   label: React.ReactNode;
+  badge?: React.ReactNode;
   title?: string;
   onExclude?: () => void;
   onSelect?: () => void;
   onCancel?: () => void;
+  onInvestigate?: () => void;
 };
 
 export function NodeItem({
   label,
+  badge,
   title = typeof label === "string" ? label : undefined,
   onExclude,
   onSelect,
   onCancel,
+  onInvestigate,
 }: NodeItemProps) {
   return (
     <HStack gap={1} whiteSpace="nowrap">
@@ -34,9 +38,15 @@ export function NodeItem({
           Cancel
         </Button>
       )}
+      {onInvestigate && (
+        <Button size="xs" flexShrink={0} onClick={onInvestigate} title="Investigate exports">
+          🔍
+        </Button>
+      )}
       <MonoText fontSize="sm" overflow="hidden" textOverflow="ellipsis" title={title}>
         {label}
       </MonoText>
+      {badge}
     </HStack>
   );
 }

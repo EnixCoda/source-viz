@@ -53,7 +53,7 @@ export function SettingsOfOpenInVSCode({ example }: { example?: string }) {
   );
 }
 
-function OpenInVSCodeOrSetup({ path, layout = "icon" }: { layout: "icon" | "text"; path: string }) {
+function OpenInVSCodeOrSetup({ path, layout = "icon", size }: { layout: "icon" | "text"; path: string; size?: string }) {
   const ctx = useContext(LocalPathContext);
   const localPath = ctx?.value;
 
@@ -68,6 +68,7 @@ function OpenInVSCodeOrSetup({ path, layout = "icon" }: { layout: "icon" | "text
         }}
         path={path}
         layout={layout}
+        size={size}
       />
       {view}
     </>
@@ -115,21 +116,23 @@ function OpenInVSCodeSettingsContent({ example }: { example?: string }) {
 function OpenInVSCodeButton({
   path,
   layout = "icon",
+  size,
   onTrigger = () => window.open(path),
 }: {
   layout: "icon" | "text";
   path: string;
+  size?: string;
   onTrigger?: () => void;
 }) {
   switch (layout) {
     case "icon":
       return (
         <Tooltip label="Open in VSCode">
-          <IconButton aria-label="Open in VSCode" icon={<ExternalLinkIcon />} onClick={onTrigger} />
+          <IconButton aria-label="Open in VSCode" icon={<ExternalLinkIcon />} size={size} onClick={onTrigger} />
         </Tooltip>
       );
     case "text":
-      return <Button onClick={onTrigger}>Open in VS Code</Button>;
+      return <Button size={size} onClick={onTrigger}>Open in VS Code</Button>;
   }
 }
 

@@ -1,4 +1,5 @@
-import { Accordion, Box, Button, Divider, HStack, Heading, ModalBody, Select, Text, VStack } from "@chakra-ui/react";
+import { Accordion, Box, Button, Divider, HStack, Heading, IconButton, ModalBody, Select, Text, VStack } from "@chakra-ui/react";
+import { ChevronLeftIcon, ChevronRightIcon } from "@chakra-ui/icons";
 import * as React from "react";
 import { useWindowSize } from "react-use";
 import { useGraph, GraphCallbacks } from "../hooks/graph/useGraph";
@@ -22,6 +23,8 @@ import { ExportButton } from "./ExportButton";
 import { FindPathToNode } from "./FindPathToNode";
 import { FormSwitch } from "./FormSwitch";
 import { HorizontalResizeHandler } from "./HorizontalResizeHandler";
+import { InvestigatePanel } from "./UsageInvestigator/InvestigatePanel";
+import { InvestigatorFs } from "../lib/usage-investigator";
 import { ListOfNodeList } from "./ListOfNodeList";
 import { ModalButton } from "./ModalButton";
 import { MonoText } from "./MonoText";
@@ -35,13 +38,26 @@ export function Viz({
   entries,
   onBack,
   onRescan,
+  investigatorFs = null,
 }: {
   entries: DependencyEntry[];
   setData: (entries: DependencyEntry[]) => void;
   onBack?: () => void;
   onRescan?: () => void;
+  /**
+   * Filesystem reader used by the usage investigator. Pass `null` to disable
+   * the investigator UI. Live "Browse" sessions wrap a `FileSystemDirectoryHandle`;
+   * demo / restored sessions wrap an in-memory `Record<file, source>`. Both
+   * implementations conform to the same `InvestigatorFs` interface.
+   */
+  investigatorFs?: InvestigatorFs | null;
 }) {
-  const data = React.useMemo(() => prepareGraphData(entries), [entries]);
+  const data = React.useMemo(() => {
+    const t0 = performance.now();
+    const result = prepareGraphData(entries);
+    console.log(`[Viz] prepareGraphData: ${(performance.now() - t0).toFixed(1)}ms, nodes=${result.nodes.size}`);
+    return result;
+  }, [entries]);
   const allNodes = React.useMemo(() => [...data.nodes.keys()].sort(), [data.nodes]);
 
   // Excludes
@@ -87,17 +103,38 @@ export function Viz({
   );
 
   // Graph
-  const [graphModeView, graphMode] = useSelectView<GraphMode>(
+  // Detect cycles independently of graphMode/separateAsyncImports so we can
+  // disable "cycles-only" when there are none, before the select view is set up.
+  const hasCycles = React.useMemo(() => {
+    const result = filterGraphData(data, {
+      roots: restrictedRoots,
+      leave: restrictedLeaves,
+      excludes: allExcludedNodes,
+      graphMode: "natural",
+      separateAsyncImports: false,
+    });
+    return result.cycles.length > 0;
+  }, [data, restrictedRoots, restrictedLeaves, allExcludedNodes]);
+
+  const [graphModeView, graphMode, setGraphMode] = useSelectView<GraphMode>(
     {
       label: "Graph Mode",
       defaultValue: "dag",
+      helperText: !hasCycles ? "No cycles detected — \"Cycles Only\" is unavailable." : undefined,
     },
     [
       { value: "dag", label: "DAG (Directed Acyclic Graph, all nodes, no cycle)" },
       { value: "natural", label: "Natural (all nodes, allow cycles)" },
-      { value: "cycles-only", label: `Cycles Only (only nodes on cycles)` },
+      { value: "cycles-only", label: `Cycles Only (only nodes on cycles)`, disabled: !hasCycles },
     ]
   );
+
+  // Auto-switch away from "cycles-only" if there are no cycles in the current data
+  React.useEffect(() => {
+    if (graphMode === "cycles-only" && !hasCycles) {
+      setGraphMode("natural");
+    }
+  }, [graphMode, hasCycles, setGraphMode]);
 
   const [colorByView, colorBy] = useSelectView<ColorByMode>(
     {
@@ -107,9 +144,9 @@ export function Viz({
     [
       { value: "color-by-module", label: "Module" },
       { value: "color-by-depth", label: "File depth" },
-      { value: "color-by-heat-both", label: "Connections" },
-      { value: "color-by-heat-target", label: "Connections (dependency)" },
-      { value: "color-by-heat-source", label: "Connections (dependant)" },
+      { value: "color-by-connections", label: "Connections" },
+      { value: "color-by-imported-by", label: "Imported by" },
+      { value: "color-by-imports", label: "Imports" },
     ]
   );
   const [edgeStyleView, edgeStyle] = useSelectView<EdgeStyleMode>(
@@ -124,10 +161,6 @@ export function Viz({
       { value: "highlight-cycles", label: "Highlight cycles (red)" },
     ]
   );
-  const [fixNodeOnDragEndView, fixNodeOnDragEnd] = useCheckboxView({
-    label: "Fix node on drag end",
-    defaultValue: true,
-  });
   const [separateAsyncImportsView, separateAsyncImports] = useCheckboxView({
     label: "Cut-off async imports",
     defaultValue: false,
@@ -176,17 +209,18 @@ export function Viz({
 
   const [vizContainerRef, vizContainerSize] = useObserveElementSize();
 
-  const graphData = React.useMemo(
-    () =>
-      filterGraphData(data, {
-        roots: restrictedRoots,
-        leave: restrictedLeaves,
-        excludes: allExcludedNodes,
-        graphMode,
-        separateAsyncImports,
-      }),
-    [data, restrictedRoots, restrictedLeaves, graphMode, allExcludedNodes, separateAsyncImports]
-  );
+  const graphData = React.useMemo(() => {
+    const t0 = performance.now();
+    const result = filterGraphData(data, {
+      roots: restrictedRoots,
+      leave: restrictedLeaves,
+      excludes: allExcludedNodes,
+      graphMode,
+      separateAsyncImports,
+    });
+    console.log(`[Viz] filterGraphData: ${(performance.now() - t0).toFixed(1)}ms, nodes=${result.nodes.length}, links=${result.links.length}, cycles=${result.cycles.length}`);
+    return result;
+  }, [data, restrictedRoots, restrictedLeaves, graphMode, allExcludedNodes, separateAsyncImports]);
 
   const cycleLinks = React.useMemo(() => {
     const set = new Set<string>();
@@ -217,6 +251,11 @@ export function Viz({
 
   const closeContextMenu = React.useCallback(() => setContextMenu(null), []);
 
+  // Usage investigator state
+  const [investigateTarget, setInvestigateTarget] = React.useState<{ file: string; symbol?: string | null } | null>(null);
+  const [highlightedFiles, setHighlightedFiles] = React.useState<Set<string> | null>(null);
+  const knownFiles = React.useMemo(() => new Set(data.nodes.keys()), [data.nodes]);
+
   // Close context menu on scroll or click outside
   React.useEffect(() => {
     if (!contextMenu) return;
@@ -244,6 +283,21 @@ export function Viz({
         setSelectedNodes(new Set([id]));
       }
     },
+    onLevelClick: (nodeIds, multi) => {
+      closeContextMenu();
+      if (multi) {
+        setSelectedNodes((prev) => {
+          const next = new Set(prev);
+          for (const id of nodeIds) {
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+          }
+          return next;
+        });
+      } else {
+        setSelectedNodes(new Set(nodeIds));
+      }
+    },
     onBackgroundClick: () => {
       closeContextMenu();
       setSelectedNodes(new Set());
@@ -261,7 +315,6 @@ export function Viz({
       data,
       fixFontSize,
       fontSize,
-      fixNodeOnDragEnd,
       width: vizContainerSize?.width || 0,
       height: vizContainerSize?.height || 0,
       enableDagMode: graphMode === "dag",
@@ -269,17 +322,19 @@ export function Viz({
       edgeStyle,
       cycleLinks,
       selectedNodeIds: selectedNodes.size > 0 ? selectedNodes : undefined,
+      contextMenuNodeId: contextMenu?.nodeId ?? null,
+      highlightedNodeIds: highlightedFiles ?? undefined,
       callbacks: graphCallbacks,
     }
   );
 
   const [layoutStale, setLayoutStale] = React.useState(false);
-  const initialRenderRef = React.useRef(true);
+  const prevGraphDataRef = React.useRef<typeof graphData | null>(null);
   React.useEffect(() => {
     render?.(graphData);
-    if (initialRenderRef.current) {
-      initialRenderRef.current = false;
-    } else if (graphMode === "dag") {
+    const isInitial = prevGraphDataRef.current === null;
+    prevGraphDataRef.current = graphData;
+    if (!isInitial && graphMode === "dag") {
       setLayoutStale(true);
     }
   }, [render, graphData, graphMode]);
@@ -304,37 +359,52 @@ export function Viz({
     }
   }, [selectedNodes]);
 
+  // Cursor for prev/next navigation through history without mutating it
+  const [historyOffset, setHistoryOffset] = React.useState(0);
+  React.useEffect(() => { setHistoryOffset(0); }, [selectedNodes]);
+
   // The in-views
   const [inViewView, inView, setInView] = useSwitchView({
     label: "Hide nodes not rendered in viz",
     defaultValue: true,
   });
   const renderedNodes = React.useMemo(() => graphData?.nodes.map((node) => node.id), [graphData.nodes]);
+  const kindMap = React.useMemo(
+    () => new Map(graphData.nodes.map((n) => [n.id, n.kind])),
+    [graphData.nodes]
+  );
   const links = graphData.links;
+
+  // Build sets once (O(m)) then use O(1) membership instead of O(n×m) links.every()
+  const { sourcesSet, targetsSet } = React.useMemo(() => {
+    const sourcesSet = new Set<string>();
+    const targetsSet = new Set<string>();
+    for (const { source, target } of links) {
+      sourcesSet.add(source);
+      targetsSet.add(target);
+    }
+    return { sourcesSet, targetsSet };
+  }, [links]);
+
   const leavesInView = React.useMemo(
-    () =>
-      renderedNodes.filter(
-        (id) => links.every(({ source }) => source !== id) && !links.every(({ target }) => target !== id)
-      ),
-    [renderedNodes, links]
+    () => renderedNodes.filter((id) => !sourcesSet.has(id) && targetsSet.has(id)),
+    [renderedNodes, sourcesSet, targetsSet]
   );
   const rootsInView = React.useMemo(
-    () =>
-      renderedNodes.filter(
-        (id) => links.every(({ target }) => target !== id) && !links.every(({ source }) => source !== id)
-      ),
-    [renderedNodes, links]
+    () => renderedNodes.filter((id) => !targetsSet.has(id) && sourcesSet.has(id)),
+    [renderedNodes, sourcesSet, targetsSet]
   );
 
+  const renderedNodesSet = React.useMemo(() => new Set(renderedNodes), [renderedNodes]);
   const renderedEntries = React.useMemo(
     () =>
       entries
-        .filter(([entry]) => renderedNodes.includes(entry))
+        .filter(([entry]) => renderedNodesSet.has(entry))
         .map(([entry, dependencies]) => [
           entry,
-          dependencies.filter(([dependency]) => renderedNodes.includes(dependency)),
+          dependencies.filter(([dependency]) => renderedNodesSet.has(dependency)),
         ]) satisfies DependencyEntry[],
-    [entries, renderedNodes]
+    [entries, renderedNodesSet]
   );
 
   return (
@@ -369,9 +439,9 @@ export function Viz({
               Rebuild layout
             </Button>
           )}
-          <div style={{ display: vizMode === "graph" ? "none" : undefined }}>
+          {vizMode === "table" && (
             <EntriesTable entries={renderedEntries} onClickSelect={setSelectedNode} />
-          </div>
+          )}
           {contextMenu && (
             <Box
               position="fixed"
@@ -409,6 +479,16 @@ export function Viz({
                   <ContextMenuItem onClick={() => { toggleExcludeNode(contextMenu.nodeId!); closeContextMenu(); }}>
                     {allExcludedNodes.has(contextMenu.nodeId) ? "Include in viz" : "Exclude from viz"}
                   </ContextMenuItem>
+                  <ContextMenuItem
+                    isDisabled={!investigatorFs}
+                    title={!investigatorFs ? "Source files are not available for this dataset" : undefined}
+                    onClick={() => {
+                      setInvestigateTarget({ file: contextMenu.nodeId! });
+                      closeContextMenu();
+                    }}
+                  >
+                    Investigate export…
+                  </ContextMenuItem>
                   {data.dependencyMap.get(contextMenu.nodeId)?.size ? (
                     <ContextMenuItem onClick={() => {
                       data.dependencyMap.get(contextMenu.nodeId!)?.forEach((dep) => {
@@ -416,7 +496,7 @@ export function Viz({
                       });
                       closeContextMenu();
                     }}>
-                      Exclude dependencies ({data.dependencyMap.get(contextMenu.nodeId)?.size})
+                      Exclude imports ({data.dependencyMap.get(contextMenu.nodeId)?.size})
                     </ContextMenuItem>
                   ) : null}
                   {data.dependantMap.get(contextMenu.nodeId)?.size ? (
@@ -426,7 +506,7 @@ export function Viz({
                       });
                       closeContextMenu();
                     }}>
-                      Exclude dependants ({data.dependantMap.get(contextMenu.nodeId)?.size})
+                      Exclude importers ({data.dependantMap.get(contextMenu.nodeId)?.size})
                     </ContextMenuItem>
                   ) : null}
                   {selectedNodes.size > 1 && (
@@ -500,7 +580,6 @@ export function Viz({
                 )}
                 <div>{colorByView}</div>
                 <div>{edgeStyleView}</div>
-                <div>{fixNodeOnDragEndView}</div>
                 <div>{fontSizeView}</div>
                 <div>{separateAsyncImportsView}</div>
               </VStack>
@@ -521,6 +600,7 @@ export function Viz({
                 </Button>
                 <NodeList
                   nodes={[...selectedNodes]}
+                  kindMap={kindMap}
                   mapProps={(id) => ({
                     onSelect: () => setSelectedNode(id),
                     onExclude: () => toggleExcludeNode(id),
@@ -528,72 +608,115 @@ export function Viz({
                 />
               </VStack>
             ) : selectedNode ? (
-              <VStack alignItems="flex-start">
-                <Heading as="h3" size="sm">
-                  Recently selected nodes
-                </Heading>
-                <Select
-                  value=""
-                  placeholder="Choosing a node will switch selection"
-                  onChange={(e) => setSelectedNode(e.target.value)}
-                >
-                  {/* slice 1 to exclude current selection */}
-                  {nodeSelectionHistory.slice(1).map((node) => (
-                    <option key={node} value={node}>
-                      {node}
-                    </option>
-                  ))}
-                </Select>
+              (() => {
+                const displayedNode = nodeSelectionHistory[historyOffset] ?? selectedNode;
+                return (
+                <VStack alignItems="flex-start">
+                  <HStack width="100%" justifyContent="space-between" alignItems="center">
+                    <IconButton
+                      aria-label="Previous node"
+                      icon={<ChevronLeftIcon />}
+                      size="xs"
+                      variant="ghost"
+                      isDisabled={historyOffset >= nodeSelectionHistory.length - 1}
+                      onClick={() => setHistoryOffset((o) => o + 1)}
+                    />
+                    <Heading as="h3" size="sm" flex={1} textAlign="center">
+                      Recently selected nodes
+                    </Heading>
+                    <IconButton
+                      aria-label="Next node"
+                      icon={<ChevronRightIcon />}
+                      size="xs"
+                      variant="ghost"
+                      isDisabled={historyOffset <= 0}
+                      onClick={() => setHistoryOffset((o) => o - 1)}
+                    />
+                  </HStack>
+                  <Select
+                    value={displayedNode}
+                    onChange={(e) => {
+                      const idx = nodeSelectionHistory.indexOf(e.target.value);
+                      setHistoryOffset(idx >= 0 ? idx : 0);
+                    }}
+                    size="sm"
+                  >
+                    {nodeSelectionHistory.map((node) => (
+                      <option key={node} value={node}>
+                        {node}
+                      </option>
+                    ))}
+                  </Select>
 
-                <Heading as="h3" size="sm">
-                  Path
-                </Heading>
-                <MonoText wordBreak="break-word">{selectedNode}</MonoText>
-                <div>
-                  <OpenInVSCode layout="text" path={selectedNode} />
-                </div>
-                <FormSwitch
-                  label="Exclude from viz"
-                  value={allExcludedNodes.has(selectedNode)}
-                  onChange={() => toggleExcludeNode(selectedNode)}
-                />
+                  <Heading as="h3" size="sm">
+                    Path
+                  </Heading>
+                  <MonoText wordBreak="break-word" fontSize="xs">{displayedNode}</MonoText>
+                  <div>
+                    <OpenInVSCode layout="text" path={displayedNode} size="xs" />
+                  </div>
 
-                <Heading as="h3" size="sm">
-                  Dependencies
-                </Heading>
-                <NodeList
-                  nodes={carry(data.dependencyMap.get(selectedNode), (set) =>
-                    set ? renderedNodes.filter((id) => set.has(id)) : []
-                  )}
-                  mapProps={(id) => ({ onSelect: () => setSelectedNode(id) })}
-                />
-                <Heading as="h3" size="sm">
-                  Dependents
-                </Heading>
-                <NodeList
-                  nodes={carry(data.dependantMap.get(selectedNode), (set) =>
-                    set ? renderedNodes.filter((id) => set.has(id)) : []
-                  )}
-                  mapProps={(id) => ({ onSelect: () => setSelectedNode(id) })}
-                />
-                <FindPathToNode
-                  nodes={renderedNodes}
-                  data={data}
-                  selectedNode={selectedNode}
-                  setSelectedNode={setSelectedNode}
-                  nodeSelectionHistory={nodeSelectionHistory}
-                />
-              </VStack>
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    isDisabled={!investigatorFs}
+                    title={!investigatorFs ? "Source files are not available for this dataset" : undefined}
+                    onClick={() => setInvestigateTarget({ file: displayedNode })}
+                  >
+                    Investigate exports…
+                  </Button>
+
+                  <Heading as="h3" size="sm">
+                    Imports
+                  </Heading>
+                  <NodeList
+                    nodes={carry(data.dependencyMap.get(displayedNode), (set) =>
+                      set ? renderedNodes.filter((id) => set.has(id)) : []
+                    )}
+                    kindMap={kindMap}
+                    mapProps={(id) => ({
+                      onSelect: () => setSelectedNode(id),
+                      onInvestigate: investigatorFs ? () => setInvestigateTarget({ file: id }) : undefined,
+                    })}
+                  />
+                  <Heading as="h3" size="sm">
+                    Imported by
+                  </Heading>
+                  <NodeList
+                    nodes={carry(data.dependantMap.get(displayedNode), (set) =>
+                      set ? renderedNodes.filter((id) => set.has(id)) : []
+                    )}
+                    kindMap={kindMap}
+                    mapProps={(id) => ({
+                      onSelect: () => setSelectedNode(id),
+                      onInvestigate: investigatorFs ? () => setInvestigateTarget({ file: id }) : undefined,
+                    })}
+                  />
+                  <FindPathToNode
+                    nodes={renderedNodes}
+                    data={data}
+                    selectedNode={displayedNode}
+                    setSelectedNode={setSelectedNode}
+                    nodeSelectionHistory={nodeSelectionHistory}
+                  />
+                  <FormSwitch
+                    label="Exclude from viz"
+                    value={allExcludedNodes.has(displayedNode)}
+                    onChange={() => toggleExcludeNode(displayedNode)}
+                  />
+                </VStack>
+                );
+              })()
             ) : (
               <Text color="gray.500">No selection yet</Text>
             )}
           </CollapsibleSection>
-          <CollapsibleSection label={`Showing dependencies of ...`}>
+          <CollapsibleSection label={`Entry points`}>
             <VStack alignItems="flex-start">
-              <Text>These nodes are source files, which have no dependents, or they are in dependency cycles.</Text>
+              <Text>These files import others but are not imported by anything — they are entry points or roots of the graph.</Text>
               {restrictRootInputView}
               <FormSwitch
-                label="Hide nodes not rendered as root"
+                label="Hide nodes not rendered as entry point"
                 inputProps={{
                   isDisabled: restrictRootsRegExp === null,
                 }}
@@ -602,6 +725,7 @@ export function Viz({
               />
               <NodeList
                 nodes={restrictRootsRegExp === null || inView ? rootsInView : [...restrictedRoots]}
+                kindMap={kindMap}
                 mapProps={(id) => ({
                   onExclude: () => toggleExcludeNode(id),
                   onSelect: () => setSelectedNode(id),
@@ -609,15 +733,14 @@ export function Viz({
               />
             </VStack>
           </CollapsibleSection>
-          <CollapsibleSection label={`Showing dependents of ...`}>
+          <CollapsibleSection label={`Leaf files`}>
             <VStack alignItems="flex-start">
               <Text>
-                These nodes have no dependencies, some of them are 3rd party dependencies, or they are in dependency
-                cycles.
+                These files are imported by others but import nothing themselves — utilities, types, constants, or 3rd party packages.
               </Text>
               {restrictLeavesInputView}
               <FormSwitch
-                label="Hide nodes not rendered as leave"
+                label="Hide nodes not rendered as leaf"
                 inputProps={{
                   isDisabled: restrictLeavesRegExp === null,
                 }}
@@ -626,6 +749,7 @@ export function Viz({
               />
               <NodeList
                 nodes={restrictLeavesRegExp === null || inView ? leavesInView : [...restrictedLeaves]}
+                kindMap={kindMap}
                 mapProps={(id) => ({
                   onExclude: () => toggleExcludeNode(id),
                   onSelect: () => setSelectedNode(id),
@@ -641,6 +765,7 @@ export function Viz({
                 </Heading>
                 <NodeList
                   nodes={excludedNodes}
+                  kindMap={kindMap}
                   mapProps={(id) => ({
                     onCancel: () => toggleExcludeNode(id),
                   })}
@@ -670,11 +795,33 @@ export function Viz({
           <Box height={360} />
         </Accordion>
       </VStack>
+      <InvestigatePanel
+        isOpen={investigateTarget !== null}
+        onClose={() => setInvestigateTarget(null)}
+        file={investigateTarget?.file ?? null}
+        initialSymbol={investigateTarget?.symbol ?? null}
+        fs={investigatorFs}
+        knownFiles={knownFiles}
+        dependencyMap={data.dependencyMap}
+        onHighlightedFilesChange={setHighlightedFiles}
+        onFocusFile={(file) => setSelectedNode(file)}
+        onNavigate={(file, symbol) => setInvestigateTarget({ file, symbol })}
+      />
     </HStack>
   );
 }
 
-function ContextMenuItem({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
+function ContextMenuItem({
+  children,
+  onClick,
+  isDisabled,
+  title,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  isDisabled?: boolean;
+  title?: string;
+}) {
   return (
     <Box
       as="button"
@@ -684,8 +831,11 @@ function ContextMenuItem({ children, onClick }: { children: React.ReactNode; onC
       px={3}
       py={1.5}
       fontSize="sm"
-      _hover={{ bg: "gray.100" }}
-      onClick={onClick}
+      color={isDisabled ? "gray.400" : undefined}
+      cursor={isDisabled ? "not-allowed" : undefined}
+      _hover={isDisabled ? undefined : { bg: "gray.100" }}
+      title={title}
+      onClick={isDisabled ? undefined : onClick}
     >
       {children}
     </Box>
