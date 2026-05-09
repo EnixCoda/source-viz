@@ -136,3 +136,4 @@ npm
 # Generated demo data
 public/demo-data.json
 dist-cli/
+public/demo-sources.json
