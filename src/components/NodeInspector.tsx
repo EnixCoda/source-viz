@@ -206,6 +206,22 @@ export function NodeInspector({
         </TabList>
         <TabPanels flex={1} overflow="auto" minH={0}>
           <TabPanel px={0} py={1}>
+            {imports.length > 0 && (
+              <HStack px={2} pb={1} justifyContent="flex-end">
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  colorScheme="red"
+                  onClick={() => {
+                    imports.forEach((id) => {
+                      if (!allExcludedNodes.has(id)) toggleExcludeNode(id);
+                    });
+                  }}
+                >
+                  Exclude all ({imports.length})
+                </Button>
+              </HStack>
+            )}
             <NodeList
               nodes={imports}
               kindMap={kindMap}
@@ -216,6 +232,22 @@ export function NodeInspector({
             />
           </TabPanel>
           <TabPanel px={0} py={1}>
+            {importedBy.length > 0 && (
+              <HStack px={2} pb={1} justifyContent="flex-end">
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  colorScheme="red"
+                  onClick={() => {
+                    importedBy.forEach((id) => {
+                      if (!allExcludedNodes.has(id)) toggleExcludeNode(id);
+                    });
+                  }}
+                >
+                  Exclude all ({importedBy.length})
+                </Button>
+              </HStack>
+            )}
             <NodeList
               nodes={importedBy}
               kindMap={kindMap}
