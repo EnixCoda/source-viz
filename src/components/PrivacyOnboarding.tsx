@@ -12,7 +12,8 @@ import {
   Text,
   VStack,
 } from "@chakra-ui/react";
-import { CheckCircleIcon, DownloadIcon, ExternalLinkIcon } from "@chakra-ui/icons";
+import { DownloadIcon, ExternalLinkIcon } from "@chakra-ui/icons";
+import { MdCloudOff, MdVerifiedUser, MdWifiOff } from "react-icons/md";
 import * as React from "react";
 import {
   canPromptInstall,
@@ -92,7 +93,7 @@ export function PrivacyOnboarding({ onAcknowledge }: PrivacyOnboardingProps) {
 
         <List spacing={3}>
           <ListItem display="flex" alignItems="flex-start">
-            <ListIcon as={CheckCircleIcon} color="green.500" mt={1} />
+            <ListIcon as={MdCloudOff} color="blue.500" mt={1} boxSize={5} />
             <Box>
               <Text fontWeight="semibold">No server, no uploads</Text>
               <Text fontSize="sm" color="gray.600">
@@ -102,7 +103,7 @@ export function PrivacyOnboarding({ onAcknowledge }: PrivacyOnboardingProps) {
             </Box>
           </ListItem>
           <ListItem display="flex" alignItems="flex-start">
-            <ListIcon as={CheckCircleIcon} color="green.500" mt={1} />
+            <ListIcon as={MdVerifiedUser} color="green.500" mt={1} boxSize={5} />
             <Box>
               <Text fontWeight="semibold">You stay in control</Text>
               <Text fontSize="sm" color="gray.600">
@@ -112,7 +113,7 @@ export function PrivacyOnboarding({ onAcknowledge }: PrivacyOnboardingProps) {
             </Box>
           </ListItem>
           <ListItem display="flex" alignItems="flex-start">
-            <ListIcon as={CheckCircleIcon} color="green.500" mt={1} />
+            <ListIcon as={MdWifiOff} color="purple.500" mt={1} boxSize={5} />
             <Box>
               <Text fontWeight="semibold">Works fully offline once installed</Text>
               <Text fontSize="sm" color="gray.600">
