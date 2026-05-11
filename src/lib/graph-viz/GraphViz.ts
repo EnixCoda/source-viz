@@ -141,10 +141,21 @@ export class GraphViz {
       }
       console.log(`[GraphViz] applyDagLayout (transition): ${(performance.now() - t0).toFixed(1)}ms`);
     } else if (leavingDag) {
-      // Free pinned positions so natural forces can spread nodes
+      // DAG mode hard-pins node Y via worker constraints. The natural simulation
+      // can't overcome the 100-1000px gaps those grid positions create because
+      // high friction (velocityDecay=0.6) limits total displacement to ~25px over
+      // all ticks. Scatter nodes near the centroid so forces converge properly.
+      let cx = 0, cy = 0;
+      for (const node of this.nodes) { cx += node.x ?? 0; cy += node.y ?? 0; }
+      cx /= Math.max(1, this.nodes.length);
+      cy /= Math.max(1, this.nodes.length);
       for (const node of this.nodes) {
         node.fx = null;
         node.fy = null;
+        node.x = cx + (Math.random() - 0.5) * 80;
+        node.y = cy + (Math.random() - 0.5) * 80;
+        node.vx = 0;
+        node.vy = 0;
       }
     }
     this.lastAppliedDagMode = dagMode;
