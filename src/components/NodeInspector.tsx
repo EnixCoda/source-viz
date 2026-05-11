@@ -155,8 +155,6 @@ export function NodeInspector({
           {displayedNode}
         </MonoText>
         <HStack mt={1} spacing={1} flexWrap="wrap">
-          <Badge fontSize="0.65em" colorScheme="purple">in:{importedBy.length}</Badge>
-          <Badge fontSize="0.65em" colorScheme="teal">out:{imports.length}</Badge>
           {allExcludedNodes.has(displayedNode) && (
             <Badge fontSize="0.65em" colorScheme="red">excluded</Badge>
           )}

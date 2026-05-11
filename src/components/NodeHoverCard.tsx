@@ -9,8 +9,6 @@ export function NodeHoverCard({
   nodeId,
   screenX,
   screenY,
-  inCount,
-  outCount,
   onCycle,
   importsPreview,
   importedByPreview,
@@ -18,8 +16,6 @@ export function NodeHoverCard({
   nodeId: string;
   screenX: number;
   screenY: number;
-  inCount: number;
-  outCount: number;
   onCycle?: boolean;
   importsPreview: string[];
   importedByPreview: string[];
@@ -62,8 +58,6 @@ export function NodeHoverCard({
           {nodeId}
         </MarqueeText>
         <HStack spacing={1}>
-          <Badge fontSize="0.65em" colorScheme="purple">in:{inCount}</Badge>
-          <Badge fontSize="0.65em" colorScheme="teal">out:{outCount}</Badge>
           {onCycle && <Badge fontSize="0.65em" colorScheme="red">on cycle</Badge>}
         </HStack>
         {importedByPreview.length > 0 && (

@@ -845,8 +845,6 @@ export function Viz({
                     nodeId={hover.nodeId}
                     screenX={hover.x}
                     screenY={hover.y}
-                    inCount={data.dependantMap.get(hover.nodeId)?.size ?? 0}
-                    outCount={data.dependencyMap.get(hover.nodeId)?.size ?? 0}
                     onCycle={graphData.cycles.some((c) => c.includes(hover.nodeId))}
                     importsPreview={[...(data.dependencyMap.get(hover.nodeId) ?? [])].slice(0, 5)}
                     importedByPreview={[...(data.dependantMap.get(hover.nodeId) ?? [])].slice(0, 5)}
