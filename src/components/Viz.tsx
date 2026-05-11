@@ -37,6 +37,7 @@ import { ColorByMode } from "../utils/graphDataMappers";
 import { EdgeStyleMode } from "../lib/graph-viz";
 import { ActiveFilter, ActiveFiltersBar } from "./ActiveFiltersBar";
 import { CommandPalette, PaletteAction } from "./CommandPalette";
+import { DiffSection } from "./DiffSection";
 import { DockDef, DockId, DockRail } from "./DockRail";
 import { ExportButton } from "./ExportButton";
 import { FormSwitch } from "./FormSwitch";
@@ -1049,6 +1050,7 @@ export function Viz({
                       onApply={applySavedView}
                       onDelete={deleteSavedView}
                     />
+                    <DiffSection currentEntries={entries} onFocusNode={setSelectedNode} />
                     {vizMode !== "table" && (
                       <VStack alignItems="stretch" spacing={1}>
                         <Heading as="h3" size="xs" color="gray.600">Graph</Heading>
