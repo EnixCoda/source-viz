@@ -441,11 +441,11 @@ function renderNodeBackgrounds(
     const outline = getOutlineColor(node, selectedNodeIds, hoverNodeId, dependencyMap, dependantMap, levelHoveredNodeIds);
     const borderWidth = 4 / globalScale;
 
-    // Draw outline: solid filled rect for selected/hovered; dashed stroke for connected nodes
+    // Draw outline: solid filled rect for selected; dashed stroke for hovered/connected nodes
     if (outline) {
       if (outline.dashed) {
         ctx.strokeStyle = outline.color;
-        ctx.lineWidth = 2 / globalScale;
+        ctx.lineWidth = borderWidth;
         ctx.setLineDash([4 / globalScale, 3 / globalScale]);
         ctx.strokeRect(x - bgWidth / 2, y - bgHeight / 2, bgWidth, bgHeight);
         ctx.setLineDash([]);
@@ -542,13 +542,14 @@ function getOutlineColor(
 
   if (selectedNodeIds?.has(nodeId)) return { color: nodeColor, dashed: false };
 
-  // Hover takes priority for outline coloring
+  // Hover takes priority for outline coloring — dashed border signals
+  // "focused but not committed"; clicking turns it solid (selected).
   if (hoverNodeId) {
-    if (hoverNodeId === nodeId) return { color: nodeColor, dashed: false };
+    if (hoverNodeId === nodeId) return { color: nodeColor, dashed: true };
   }
 
-  // Level hover: all nodes on the hovered DAG level
-  if (levelHoveredNodeIds && levelHoveredNodeIds.has(nodeId)) return { color: nodeColor, dashed: false };
+  // Level hover: all nodes on the hovered DAG level — dashed like direct hover
+  if (levelHoveredNodeIds && levelHoveredNodeIds.has(nodeId)) return { color: nodeColor, dashed: true };
 
   // Deps/dependants of hovered node
   if (hoverNodeId) {
