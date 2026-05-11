@@ -157,7 +157,7 @@ function buildOrUpdateSim(cfg: SimConfig, cold: boolean): void {
   }
   s.force(
     "collide",
-    forceCollide<WorkerNode>((n) => n.radius).strength(0.5).iterations(2),
+    forceCollide<WorkerNode>((n) => n.radius).strength(cfg.dagMode ? 0.15 : 0.5).iterations(2),
   );
 
   if (cold) {
