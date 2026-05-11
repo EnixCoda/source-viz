@@ -34,7 +34,7 @@ export function ListOfNodeList({
       <OrderedList>
         {sorted.map((nodes, index) => (
           <ListItem key={nodes.join()}>
-            <NodeList nodes={nodes} listProps={{ maxHeight: undefined }} {...getProps?.(index)} />
+            <NodeList nodes={nodes} maxHeight={Infinity} {...getProps?.(index)} />
           </ListItem>
         ))}
       </OrderedList>

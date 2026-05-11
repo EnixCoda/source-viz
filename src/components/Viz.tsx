@@ -1,4 +1,4 @@
-import { Accordion, Box, Button, Divider, HStack, Heading, IconButton, ModalBody, Select, Text, VStack } from "@chakra-ui/react";
+import { Accordion, Box, Button, ButtonGroup, Divider, HStack, Heading, IconButton, ModalBody, Select, Text, Tooltip, VStack } from "@chakra-ui/react";
 import { ChevronLeftIcon, ChevronRightIcon } from "@chakra-ui/icons";
 import * as React from "react";
 import { useWindowSize } from "react-use";
@@ -18,6 +18,7 @@ import { carry } from "../utils/general";
 import { GraphMode, filterGraphData, prepareGraphData } from "../utils/graphData";
 import { ColorByMode } from "../utils/graphDataMappers";
 import { EdgeStyleMode } from "../lib/graph-viz";
+import { ActiveFilter, ActiveFiltersBar } from "./ActiveFiltersBar";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { ExportButton } from "./ExportButton";
 import { FindPathToNode } from "./FindPathToNode";
@@ -32,6 +33,7 @@ import { NodeList } from "./NodeList";
 import { NodesFilter } from "./NodesFilter";
 import { OpenInVSCode, SettingsOfOpenInVSCode } from "./OpenInVSCode";
 import { EntriesTable } from "./Scan/EntriesTable";
+import { StatusBar } from "./StatusBar";
 import { ArrowBackIcon, RepeatIcon } from "@chakra-ui/icons";
 
 export function Viz({
@@ -61,14 +63,14 @@ export function Viz({
   const allNodes = React.useMemo(() => [...data.nodes.keys()].sort(), [data.nodes]);
 
   // Excludes
-  const [excludeNodesFilterInputView, excludeNodesFilterRegExp] = useRegExpInputView({
+  const [excludeNodesFilterInputView, excludeNodesFilterRegExp, excludeNodesFilterInput, resetExcludeNodesFilter] = useRegExpInputView({
     helperText: "Nodes match this regex will be excluded",
   });
   const excludedNodesFromInput = React.useMemo(
     () => (excludeNodesFilterRegExp ? allNodes.filter((dep) => dep.match(excludeNodesFilterRegExp)) : []),
     [excludeNodesFilterRegExp, allNodes]
   );
-  const [excludedNodes, toggleExcludeNode] = useSet<string>();
+  const [excludedNodes, toggleExcludeNode, , clearExcludedNodes] = useSet<string>();
   const allExcludedNodes = React.useMemo(
     () => new Set([...excludedNodesFromInput, ...excludedNodes]),
     [excludedNodesFromInput, excludedNodes]
@@ -79,7 +81,7 @@ export function Viz({
   );
 
   // Restrictions
-  const [restrictRootInputView, restrictRootsRegExp] = useRegExpInputView({
+  const [restrictRootInputView, restrictRootsRegExp, restrictRootsInput, resetRestrictRoots] = useRegExpInputView({
     inputProps: { placeholder: "Filter nodes with RegExp" },
     helperText: "Only nodes match this regex will be regarded as roots.",
   });
@@ -90,7 +92,7 @@ export function Viz({
       ),
     [nonExcludedNodes, restrictRootsRegExp]
   );
-  const [restrictLeavesInputView, restrictLeavesRegExp] = useRegExpInputView({
+  const [restrictLeavesInputView, restrictLeavesRegExp, restrictLeavesInput, resetRestrictLeaves] = useRegExpInputView({
     inputProps: { placeholder: "Filter nodes with RegExp" },
     helperText: "Only nodes match this regex will be regarded as leave.",
   });
@@ -416,20 +418,94 @@ export function Viz({
     [entries, renderedNodesSet]
   );
 
+  // Active filters chip bar
+  const activeFilters = React.useMemo<ActiveFilter[]>(() => {
+    const list: ActiveFilter[] = [];
+    if (excludeNodesFilterInput) {
+      list.push({
+        id: "exclude-regex",
+        label: "exclude",
+        value: excludeNodesFilterInput,
+        tooltip: `Regex-excluded ${excludedNodesFromInput.length} nodes`,
+        onRemove: resetExcludeNodesFilter,
+      });
+    }
+    if (restrictRootsInput) {
+      list.push({
+        id: "roots-regex",
+        label: "roots",
+        value: restrictRootsInput,
+        tooltip: "Restrict roots regex",
+        onRemove: resetRestrictRoots,
+      });
+    }
+    if (restrictLeavesInput) {
+      list.push({
+        id: "leaves-regex",
+        label: "leaves",
+        value: restrictLeavesInput,
+        tooltip: "Restrict leaves regex",
+        onRemove: resetRestrictLeaves,
+      });
+    }
+    if (excludedNodes.length > 0) {
+      list.push({
+        id: "manual-excludes",
+        label: "−nodes",
+        value: String(excludedNodes.length),
+        tooltip: `${excludedNodes.length} manually excluded node(s)`,
+        onRemove: clearExcludedNodes,
+      });
+    }
+    if (graphMode && graphMode !== "dag") {
+      list.push({ id: "mode", label: "mode", value: graphMode, onRemove: () => setGraphMode("dag") });
+    }
+    if (separateAsyncImports) {
+      list.push({ id: "async-cut", label: "async", value: "cut", tooltip: "Async imports excluded from graph" });
+    }
+    return list;
+  }, [
+    excludeNodesFilterInput,
+    excludedNodesFromInput.length,
+    resetExcludeNodesFilter,
+    restrictRootsInput,
+    resetRestrictRoots,
+    restrictLeavesInput,
+    resetRestrictLeaves,
+    excludedNodes.length,
+    clearExcludedNodes,
+    graphMode,
+    setGraphMode,
+    separateAsyncImports,
+  ]);
+
+  const clearAllFilters = React.useCallback(() => {
+    resetExcludeNodesFilter();
+    resetRestrictRoots();
+    resetRestrictLeaves();
+    clearExcludedNodes();
+    setGraphMode("dag");
+  }, [resetExcludeNodesFilter, resetRestrictRoots, resetRestrictLeaves, clearExcludedNodes, setGraphMode]);
+
   return (
     <HStack display="inline-flex" alignItems="stretch" spacing={0} maxHeight="100%" height="100vh">
       <VStack alignItems="stretch" height="100vh" width={width} spacing={0}>
-        <HStack justifyContent="space-between" padding={2}>
-          <HStack>
-            <Button onClick={onBack} aria-label={"Back"}>
-              <ArrowBackIcon />
-            </Button>
-            <Button onClick={onRescan} aria-label={"Re-scan"}>
-              <RepeatIcon />
-            </Button>
-          </HStack>
-          {vizModeView}
+        <HStack justifyContent="space-between" px={2} py={1} flexShrink={0}>
+          <ButtonGroup size="xs" variant="ghost" spacing={0.5}>
+            <Tooltip label="Back" hasArrow openDelay={300}>
+              <IconButton aria-label="Back" icon={<ArrowBackIcon />} onClick={onBack} />
+            </Tooltip>
+            {onRescan && (
+              <Tooltip label="Re-scan project" hasArrow openDelay={300}>
+                <IconButton aria-label="Re-scan" icon={<RepeatIcon />} onClick={onRescan} />
+              </Tooltip>
+            )}
+          </ButtonGroup>
+          <Box transform="scale(0.85)" transformOrigin="right center">
+            {vizModeView}
+          </Box>
         </HStack>
+        <ActiveFiltersBar filters={activeFilters} onClearAll={clearAllFilters} />
         <Divider height="auto" />
         <Box
           ref={vizContainerRef}
@@ -577,6 +653,16 @@ export function Viz({
             </Box>
           )}
         </Box>
+        <StatusBar
+          totalFiles={data.nodes.size}
+          renderedNodes={graphData.nodes.length}
+          renderedEdges={graphData.links.length}
+          cycles={graphData.cycles.length}
+          selected={selectedNodes.size}
+          graphMode={graphMode ?? "dag"}
+          asyncCutoff={separateAsyncImports}
+          layoutStale={layoutStale && vizMode === "graph"}
+        />
       </VStack>
       <HorizontalResizeHandler onPointerDown={onPointerDown} />
       <VStack alignItems="stretch" height="100vh" flex={1} minW={0} overflow="auto">
@@ -751,7 +837,15 @@ export function Viz({
           </CollapsibleSection>
           <CollapsibleSection label={`Entry points`}>
             <VStack alignItems="flex-start">
-              <Text>These files import others but are not imported by anything — they are entry points or roots of the graph.</Text>
+              <Tooltip
+                label="Files that import others but are not imported by anything — entry points / roots of the graph."
+                hasArrow
+                placement="top-start"
+              >
+                <Text fontSize="xs" color="gray.500" cursor="help" textDecoration="underline" textDecorationStyle="dotted">
+                  What are entry points?
+                </Text>
+              </Tooltip>
               {restrictRootInputView}
               <FormSwitch
                 label="Hide nodes not rendered as entry point"
@@ -773,9 +867,15 @@ export function Viz({
           </CollapsibleSection>
           <CollapsibleSection label={`Leaf files`}>
             <VStack alignItems="flex-start">
-              <Text>
-                These files are imported by others but import nothing themselves — utilities, types, constants, or 3rd party packages.
-              </Text>
+              <Tooltip
+                label="Files imported by others but importing nothing — utilities, types, constants, or 3rd party packages."
+                hasArrow
+                placement="top-start"
+              >
+                <Text fontSize="xs" color="gray.500" cursor="help" textDecoration="underline" textDecorationStyle="dotted">
+                  What are leaf files?
+                </Text>
+              </Tooltip>
               {restrictLeavesInputView}
               <FormSwitch
                 label="Hide nodes not rendered as leaf"
