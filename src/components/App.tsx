@@ -1,12 +1,12 @@
 import { Icon } from "@chakra-ui/icons";
-import { Button, Heading, HStack, Link, Text, VStack } from "@chakra-ui/react";
+import { Box, Button, Heading, HStack, Link, Text, VStack } from "@chakra-ui/react";
 import * as React from "react";
 import { AiFillGithub } from "react-icons/ai";
 import { MetaFilter } from "../services";
 import { DependencyEntry } from "../services/serializers";
 import { FSLoadFilesButton } from "./FSLoadFilesButton";
 import { LoadDataButton } from "./LoadDataButton";
-import { PrivacyOnboarding, PRIVACY_ACK_KEY } from "./PrivacyOnboarding";
+import { PrivacyPanel } from "./PrivacyPanel";
 import { defaultExcludes, defaultIncludes } from "./Scan/filterDefaults";
 import { Filter } from "./Scan/Filter";
 import { Scanning } from "./Scan/Scanning";
@@ -34,9 +34,6 @@ function AppWithHeader({ children }: React.PropsWithChildren<object>) {
 export function App() {
   type State =
     | {
-        state: "onboarding";
-      }
-    | {
         state: "initial";
       }
     | {
@@ -61,15 +58,9 @@ export function App() {
         sources?: Record<string, string>;
       };
 
-  const [status, dispatch] = React.useReducer(
-    (_: State, newState: State): State => newState,
-    undefined,
-    (): State => {
-      const acknowledged =
-        typeof window !== "undefined" && window.localStorage.getItem(PRIVACY_ACK_KEY) === "1";
-      return acknowledged ? { state: "initial" } : { state: "onboarding" };
-    }
-  );
+  const [status, dispatch] = React.useReducer((_: State, newState: State): State => newState, {
+    state: "initial",
+  });
 
   const liveHandle = status.state === "viz" ? status.fs.handle : null;
   const memorySources = status.state === "restored-viz" ? status.sources ?? null : null;
@@ -80,79 +71,79 @@ export function App() {
   }, [liveHandle, memorySources]);
 
   switch (status.state) {
-    case "onboarding":
-      return (
-        <AppWithHeader>
-          <PrivacyOnboarding onAcknowledge={() => dispatch({ state: "initial" })} />
-        </AppWithHeader>
-      );
-
     case "initial":
       return (
         <AppWithHeader>
-          <VStack padding={2} gap={4} alignItems="flex-start">
-            <Text>Source viz can help to analyze dependency relationship between JS files.</Text>
-            <VStack alignItems="flex-start">
-              <FSLoadFilesButton
-                buttonProps={{ colorScheme: "green" }}
-                onLoad={(fs) =>
-                  dispatch({
-                    state: "filtering",
-                    fs,
-                    filter: {
-                      includes: defaultIncludes,
-                      excludes: defaultExcludes,
-                    },
-                  })
-                }
-              >
-                Scan local project
-              </FSLoadFilesButton>
-              <Text fontSize="sm">
-                Please select the root folder of a project to ensure the best coverage, generally it is the directory
-                where the package.json file is at.
-              </Text>
-            </VStack>
-            <VStack alignItems="flex-start">
-              <LoadDataButton
-                buttonProps={{ variant: "solid" }}
-                onLoad={(data) =>
-                  dispatch({
-                    state: "restored-viz",
-                    data,
-                  })
-                }
-              />
-              <Text fontSize="sm">Or resume with the data you exported before.</Text>
-            </VStack>
-            <VStack alignItems="flex-start">
-              <Button
-                variant="outline"
-                colorScheme="blue"
-                onClick={async () => {
-                  try {
-                    const resp = await fetch("demo-data.json");
-                    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-                    const data: DependencyEntry[] = await resp.json();
-                    let sources: Record<string, string> | undefined;
-                    try {
-                      const srcResp = await fetch("demo-sources.json");
-                      if (srcResp.ok) sources = await srcResp.json();
-                    } catch {
-                      // sources are optional — investigator just won't be available
+          <Box padding={4} overflowY="auto">
+            <HStack alignItems="flex-start" spacing={6} flexWrap="wrap">
+              <VStack padding={0} gap={4} alignItems="flex-start" flex="1" minW="320px">
+                <Text>Source viz can help to analyze dependency relationship between JS files.</Text>
+                <VStack alignItems="flex-start">
+                  <FSLoadFilesButton
+                    buttonProps={{ colorScheme: "green" }}
+                    onLoad={(fs) =>
+                      dispatch({
+                        state: "filtering",
+                        fs,
+                        filter: {
+                          includes: defaultIncludes,
+                          excludes: defaultExcludes,
+                        },
+                      })
                     }
-                    dispatch({ state: "restored-viz", data, sources });
-                  } catch (err) {
-                    console.error("Failed to load demo data:", err);
-                    alert("Demo data is not available. Run `npm run generate-demo` first.");
-                  }
-                }}
-              >
-                Try Demo
-              </Button>
-              <Text fontSize="sm">See source-viz visualizing its own source code.</Text>
-            </VStack>
-          </VStack>
+                  >
+                    Scan local project
+                  </FSLoadFilesButton>
+                  <Text fontSize="sm">
+                    Please select the root folder of a project to ensure the best coverage, generally it is the directory
+                    where the package.json file is at.
+                  </Text>
+                </VStack>
+                <VStack alignItems="flex-start">
+                  <LoadDataButton
+                    buttonProps={{ variant: "solid" }}
+                    onLoad={(data) =>
+                      dispatch({
+                        state: "restored-viz",
+                        data,
+                      })
+                    }
+                  />
+                  <Text fontSize="sm">Or resume with the data you exported before.</Text>
+                </VStack>
+                <VStack alignItems="flex-start">
+                  <Button
+                    variant="outline"
+                    colorScheme="blue"
+                    onClick={async () => {
+                      try {
+                        const resp = await fetch("demo-data.json");
+                        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                        const data: DependencyEntry[] = await resp.json();
+                        let sources: Record<string, string> | undefined;
+                        try {
+                          const srcResp = await fetch("demo-sources.json");
+                          if (srcResp.ok) sources = await srcResp.json();
+                        } catch {
+                          // sources are optional — investigator just won't be available
+                        }
+                        dispatch({ state: "restored-viz", data, sources });
+                      } catch (err) {
+                        console.error("Failed to load demo data:", err);
+                        alert("Demo data is not available. Run `npm run generate-demo` first.");
+                      }
+                    }}
+                  >
+                    Try Demo
+                  </Button>
+                  <Text fontSize="sm">See source-viz visualizing its own source code.</Text>
+                </VStack>
+              </VStack>
+              <Box flex="1" minW="320px" maxW="640px">
+                <PrivacyPanel />
+              </Box>
+            </HStack>
+          </Box>
         </AppWithHeader>
       );
 
