@@ -52,7 +52,7 @@ export function EntriesTable({
   });
 
   return (
-    <Box ref={parentRef} overflow="auto" maxHeight="70vh">
+    <Box ref={parentRef} overflow="auto" height="100%">
       <Table size="sm" {...tableProps}>
         <Thead position="sticky" top={0} bg="white" zIndex={1}>
           <Tr>

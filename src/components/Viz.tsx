@@ -422,7 +422,7 @@ export function Viz({
           {vizModeView}
         </HStack>
         <Divider height="auto" />
-        <Box ref={vizContainerRef} flex={1} overflowY="auto" position="relative">
+        <Box ref={vizContainerRef} flex={1} overflow={vizMode === "table" ? "hidden" : "auto"} position="relative">
           <div ref={ref} style={{ display: vizMode === "table" ? "none" : undefined }} />
           {layoutStale && vizMode === "graph" && (
             <Button
