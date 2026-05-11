@@ -1,5 +1,6 @@
 import { Badge, Box, HStack, Text, VStack } from "@chakra-ui/react";
 import * as React from "react";
+import { MarqueeText } from "./MarqueeText";
 
 const CARD_WIDTH = 280;
 const VIEWPORT_PAD = 10;
@@ -57,9 +58,9 @@ export function NodeHoverCard({
       fontSize="xs"
     >
       <VStack alignItems="stretch" spacing={1}>
-        <Text fontFamily="mono" wordBreak="break-word" fontSize="xs" fontWeight="semibold">
-          {nodeId.length > 60 ? "…" + nodeId.slice(-59) : nodeId}
-        </Text>
+        <MarqueeText fontFamily="mono" fontSize="xs" fontWeight="semibold">
+          {nodeId}
+        </MarqueeText>
         <HStack spacing={1}>
           <Badge fontSize="0.65em" colorScheme="purple">in:{inCount}</Badge>
           <Badge fontSize="0.65em" colorScheme="teal">out:{outCount}</Badge>
@@ -71,9 +72,9 @@ export function NodeHoverCard({
               Imported by
             </Text>
             {importedByPreview.slice(0, 3).map((p) => (
-              <Text key={p} fontFamily="mono" fontSize="xs" color="gray.700" noOfLines={1}>
+              <MarqueeText key={p} fontFamily="mono" fontSize="xs" color="gray.700">
                 {p}
-              </Text>
+              </MarqueeText>
             ))}
             {importedByPreview.length > 3 && (
               <Text fontSize="xs" color="gray.400">
@@ -88,9 +89,9 @@ export function NodeHoverCard({
               Imports
             </Text>
             {importsPreview.slice(0, 3).map((p) => (
-              <Text key={p} fontFamily="mono" fontSize="xs" color="gray.700" noOfLines={1}>
+              <MarqueeText key={p} fontFamily="mono" fontSize="xs" color="gray.700">
                 {p}
-              </Text>
+              </MarqueeText>
             ))}
             {importsPreview.length > 3 && (
               <Text fontSize="xs" color="gray.400">
