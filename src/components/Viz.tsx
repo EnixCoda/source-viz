@@ -752,7 +752,7 @@ export function Viz({
   }, [graphRef, paletteOpen, selectedNodes, toggleExcludeNode, setGroupByDir]);
 
   return (
-    <HStack display="inline-flex" alignItems="stretch" spacing={0} maxHeight="100%" height="100vh">
+    <HStack alignItems="stretch" spacing={0} maxHeight="100%" height="100vh" width="100%">
       <VStack alignItems="stretch" height="100vh" width={width} spacing={0}>
         <HStack justifyContent="space-between" px={2} py={1} flexShrink={0}>
           <ButtonGroup size="xs" variant="ghost" spacing={0.5}>
