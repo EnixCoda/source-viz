@@ -6,6 +6,7 @@ import { MetaFilter } from "../services";
 import { DependencyEntry } from "../services/serializers";
 import { FSLoadFilesButton } from "./FSLoadFilesButton";
 import { LoadDataButton } from "./LoadDataButton";
+import { PrivacyOnboarding, PRIVACY_ACK_KEY } from "./PrivacyOnboarding";
 import { defaultExcludes, defaultIncludes } from "./Scan/filterDefaults";
 import { Filter } from "./Scan/Filter";
 import { Scanning } from "./Scan/Scanning";
@@ -33,6 +34,9 @@ function AppWithHeader({ children }: React.PropsWithChildren<object>) {
 export function App() {
   type State =
     | {
+        state: "onboarding";
+      }
+    | {
         state: "initial";
       }
     | {
@@ -57,9 +61,15 @@ export function App() {
         sources?: Record<string, string>;
       };
 
-  const [status, dispatch] = React.useReducer((_: State, newState: State): State => newState, {
-    state: "initial",
-  });
+  const [status, dispatch] = React.useReducer(
+    (_: State, newState: State): State => newState,
+    undefined,
+    (): State => {
+      const acknowledged =
+        typeof window !== "undefined" && window.localStorage.getItem(PRIVACY_ACK_KEY) === "1";
+      return acknowledged ? { state: "initial" } : { state: "onboarding" };
+    }
+  );
 
   const liveHandle = status.state === "viz" ? status.fs.handle : null;
   const memorySources = status.state === "restored-viz" ? status.sources ?? null : null;
@@ -70,6 +80,13 @@ export function App() {
   }, [liveHandle, memorySources]);
 
   switch (status.state) {
+    case "onboarding":
+      return (
+        <AppWithHeader>
+          <PrivacyOnboarding onAcknowledge={() => dispatch({ state: "initial" })} />
+        </AppWithHeader>
+      );
+
     case "initial":
       return (
         <AppWithHeader>
@@ -135,9 +152,6 @@ export function App() {
               </Button>
               <Text fontSize="sm">See source-viz visualizing its own source code.</Text>
             </VStack>
-            <Text as="em" fontSize="sm">
-              Note: either way, no files will be uploaded to remote server, all of them are processed locally.
-            </Text>
           </VStack>
         </AppWithHeader>
       );

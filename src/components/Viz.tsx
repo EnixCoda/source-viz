@@ -213,6 +213,11 @@ export function Viz({
       max: 5,
     },
   });
+  const [autoFitOnFocusView, autoFitOnFocus] = useCheckboxView({
+    label: "Auto-fit viewport on focus",
+    defaultValue: false,
+    helperText: "When focus changes, fit selected node + its neighbors into view.",
+  });
   const fixFontSize = false;
   const [fontSizeView, fontSize = 12] = useNumberInputView({
     label: "Font Size",
@@ -461,6 +466,24 @@ export function Viz({
       setHistoryOffset(idx >= 0 ? idx : 0);
     }
   }, [selectedNodes, nodeSelectionHistory, historyOffset]);
+
+  // Auto-fit viewport on focus change: include selection + 1-hop neighbors.
+  React.useEffect(() => {
+    if (!autoFitOnFocus || selectedNodes.size === 0) return;
+    const targets = new Set<string>();
+    for (const id of selectedNodes) {
+      targets.add(id);
+      const deps = data.dependencyMap.get(id);
+      if (deps) for (const d of deps) targets.add(d);
+      const dependants = data.dependantMap.get(id);
+      if (dependants) for (const d of dependants) targets.add(d);
+    }
+    // Defer to next frame so any pending data/layout updates settle first.
+    const handle = requestAnimationFrame(() => {
+      graphRef.current?.fitToNodeIds(targets, { maxScale: 1.5, padding: 60 });
+    });
+    return () => cancelAnimationFrame(handle);
+  }, [selectedNodes, autoFitOnFocus, data.dependencyMap, data.dependantMap, graphRef]);
 
   // The in-views
   const [inViewView, inView, setInView] = useSwitchView({
@@ -1172,6 +1195,7 @@ export function Viz({
                           {separateAsyncImportsView}
                           {groupByDirView}
                           {groupByDir && groupDepthView}
+                          {autoFitOnFocusView}
                         </VStack>
                       )}
                     </VStack>

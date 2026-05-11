@@ -663,6 +663,13 @@ export class GraphViz {
     this.fitToNodes();
   }
 
+  /** Fit a subset of nodes (by id) into the viewport with an animated zoom. */
+  public fitToNodeIds(ids: Iterable<string>, opts?: { maxScale?: number; padding?: number }): void {
+    const idSet = ids instanceof Set ? ids : new Set(ids);
+    if (idSet.size === 0) return;
+    this.fitToNodes((n) => idSet.has(n.id), opts);
+  }
+
   /** Reset zoom/pan to identity (1:1 centered). */
   public resetView(): void {
     if (!this.zoomBehavior) return;
@@ -708,10 +715,12 @@ export class GraphViz {
     };
   }
 
-  private fitToNodes(): void {
+  private fitToNodes(filter?: (n: typeof this.nodes[number]) => boolean, opts?: { maxScale?: number; padding?: number }): void {
     if (!this.nodes.length || !this.zoomBehavior) return;
+    const candidates = filter ? this.nodes.filter(filter) : this.nodes;
+    if (!candidates.length) return;
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    for (const node of this.nodes) {
+    for (const node of candidates) {
       const x = node.x ?? 0, y = node.y ?? 0;
       const hw = (node._width ?? 60) / 2, hh = (node._height ?? 20) / 2;
       if (x - hw < minX) minX = x - hw;
@@ -719,11 +728,12 @@ export class GraphViz {
       if (x + hw > maxX) maxX = x + hw;
       if (y + hh > maxY) maxY = y + hh;
     }
-    const padding = 40;
+    const padding = opts?.padding ?? 40;
+    const maxScale = opts?.maxScale ?? 1;
     const bw = maxX - minX + padding * 2;
     const bh = maxY - minY + padding * 2;
     const { width, height } = this.options;
-    const scale = Math.min(width / bw, height / bh, 1); // never zoom in past 1:1
+    const scale = Math.min(width / bw, height / bh, maxScale);
     const tx = width / 2 - scale * ((minX + maxX) / 2);
     const ty = height / 2 - scale * ((minY + maxY) / 2);
     const target = zoomIdentity.translate(tx, ty).scale(scale);
