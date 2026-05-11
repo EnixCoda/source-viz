@@ -1,4 +1,4 @@
-import { Box, Button, ButtonGroup, Divider, HStack, Heading, IconButton, Text, Tooltip, VStack } from "@chakra-ui/react";
+import { Box, ButtonGroup, Divider, HStack, Heading, IconButton, Text, Tooltip, VStack } from "@chakra-ui/react";
 import { ChevronRightIcon } from "@chakra-ui/icons";
 import {
   SearchIcon,
@@ -27,6 +27,7 @@ import { GraphMode, filterGraphData, prepareGraphData } from "../utils/graphData
 import { ColorByMode } from "../utils/graphDataMappers";
 import { EdgeStyleMode } from "../lib/graph-viz";
 import { ActiveFilter, ActiveFiltersBar } from "./ActiveFiltersBar";
+import { CommandPalette, PaletteAction } from "./CommandPalette";
 import { DockDef, DockId, DockRail } from "./DockRail";
 import { ExportButton } from "./ExportButton";
 import { FormSwitch } from "./FormSwitch";
@@ -34,12 +35,15 @@ import { HorizontalResizeHandler } from "./HorizontalResizeHandler";
 import { InvestigatePanel } from "./UsageInvestigator/InvestigatePanel";
 import { InvestigatorFs } from "../lib/usage-investigator";
 import { ListOfNodeList } from "./ListOfNodeList";
+import { Minimap } from "./Minimap";
+import { NodeHoverCard } from "./NodeHoverCard";
 import { NodeInspector } from "./NodeInspector";
 import { NodeList } from "./NodeList";
 import { NodesFilter } from "./NodesFilter";
 import { SettingsOfOpenInVSCode } from "./OpenInVSCode";
 import { EntriesTable } from "./Scan/EntriesTable";
 import { StatusBar } from "./StatusBar";
+import { ZoomHUD } from "./ZoomHUD";
 import { ArrowBackIcon, RepeatIcon } from "@chakra-ui/icons";
 
 const DOCK_LABELS: Record<string, string> = {
@@ -194,7 +198,7 @@ export function Viz({
     },
   });
 
-  const [vizModeView, vizMode] = useRadioGroupView(
+  const [vizModeView, vizMode, setVizMode] = useRadioGroupView(
     "Viz Mode",
     [
       { value: "graph", label: "Graph" },
@@ -295,6 +299,11 @@ export function Viz({
     };
   }, [contextMenu]);
 
+  // Hover state for the hover card (canvas → screen coords)
+  const [hover, setHover] = React.useState<{ nodeId: string; x: number; y: number } | null>(null);
+  // Zoom state mirrored from GraphViz for the HUD
+  const [zoom, setZoom] = React.useState(1);
+
   const graphCallbacks = React.useMemo<GraphCallbacks>(() => ({
     onNodeClick: (id, multi) => {
       closeContextMenu();
@@ -334,11 +343,14 @@ export function Viz({
     onBackgroundContextMenu: (screenX, screenY) => {
       setContextMenu({ x: screenX, y: screenY, nodeId: null });
     },
-    onNodeHover: (id) => setHoveredNodeId(id),
-    onZoomChange: (k) => setZoomScale(k),
+    onNodeHover: (nodeId, screenX, screenY) => {
+      if (nodeId) setHover({ nodeId, x: screenX, y: screenY });
+      else setHover(null);
+    },
+    onZoomChange: (z) => setZoom(z),
   }), [closeContextMenu]);
 
-  const [ref, render, rebuildLayout] = useGraph<HTMLDivElement>(
+  const [ref, render, rebuildLayout, graphRef] = useGraph<HTMLDivElement>(
     {
       data,
       fixFontSize,
@@ -528,6 +540,93 @@ export function Viz({
     setGraphMode("dag");
   }, [resetExcludeNodesFilter, resetRestrictRoots, resetRestrictLeaves, clearExcludedNodes, setGraphMode]);
 
+  // Command palette + keyboard shortcuts
+  const [paletteOpen, setPaletteOpen] = React.useState(false);
+
+  const paletteActions = React.useMemo<PaletteAction[]>(() => {
+    const actions: PaletteAction[] = [
+      { id: "fit", label: "Fit graph to view", group: "action", hint: "f", run: () => graphRef.current?.fitToView() },
+      { id: "reset", label: "Reset zoom", group: "action", run: () => graphRef.current?.resetView() },
+      { id: "zoom-in", label: "Zoom in", group: "action", run: () => graphRef.current?.zoomBy(1.4) },
+      { id: "zoom-out", label: "Zoom out", group: "action", run: () => graphRef.current?.zoomBy(1 / 1.4) },
+      { id: "screenshot", label: "Take screenshot", group: "action", run: () => {
+          const url = graphRef.current?.toDataURL();
+          if (!url) return;
+          const a = document.createElement("a");
+          a.href = url; a.download = `source-viz-${Date.now()}.png`; a.click();
+        } },
+      { id: "rebuild", label: "Rebuild layout", group: "action", run: handleRebuildLayout },
+      { id: "clear-selection", label: "Clear selection", group: "action", run: () => setSelectedNodes(new Set()) },
+      { id: "clear-excludes", label: "Clear manual excludes", group: "action", run: () => clearExcludedNodes() },
+      { id: "clear-filters", label: "Clear all filters", group: "action", run: clearAllFilters },
+      { id: "dock-inspector", label: "Open: Inspector", group: "action", run: () => setDockId("inspector") },
+      { id: "dock-cycles", label: "Open: Cycles", group: "action", hint: `${graphData.cycles.length}`, run: () => setDockId("cycles") },
+      { id: "dock-filters", label: "Open: Filters", group: "action", run: () => setDockId("filters") },
+      { id: "dock-roots", label: "Open: Entry points", group: "action", run: () => setDockId("roots") },
+      { id: "dock-leaves", label: "Open: Leaf files", group: "action", run: () => setDockId("leaves") },
+      { id: "dock-settings", label: "Open: Settings", group: "action", run: () => setDockId("settings") },
+      { id: "dock-lookup", label: "Open: Look up", group: "action", run: () => setDockId("lookup") },
+      { id: "mode-graph", label: "View: Graph only", group: "action", run: () => setVizMode("graph") },
+      { id: "mode-table", label: "View: Table only", group: "action", run: () => setVizMode("table") },
+      { id: "mode-split", label: "View: Split (graph + table)", group: "action", run: () => setVizMode("split") },
+    ];
+    // Node actions: pick & focus
+    for (const n of allNodes) {
+      actions.push({
+        id: `node:${n}`,
+        label: n,
+        group: "node",
+        keywords: n,
+        run: () => {
+          setSelectedNode(n);
+          setDockId("inspector");
+        },
+      });
+    }
+    return actions;
+  }, [graphRef, handleRebuildLayout, clearExcludedNodes, clearAllFilters, graphData.cycles.length, allNodes, setSelectedNode, setVizMode]);
+
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const inEditable =
+        !!target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
+
+      // Cmd/Ctrl+K — always opens palette, even from inputs
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen((p) => !p);
+        return;
+      }
+
+      if (inEditable) return;
+
+      if (e.key === "Escape") {
+        if (paletteOpen) return;
+        setSelectedNodes(new Set());
+        setContextMenu(null);
+      } else if (e.key === "f") {
+        e.preventDefault();
+        graphRef.current?.fitToView();
+      } else if (e.key === "r") {
+        e.preventDefault();
+        graphRef.current?.resetView();
+      } else if (e.key === "i") {
+        e.preventDefault();
+        setDockId("inspector");
+      } else if (e.key === "e" && selectedNodes.size > 0) {
+        e.preventDefault();
+        selectedNodes.forEach((id) => toggleExcludeNode(id));
+        setSelectedNodes(new Set());
+      } else if (e.key === "/") {
+        e.preventDefault();
+        setPaletteOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [graphRef, paletteOpen, selectedNodes, toggleExcludeNode]);
+
   return (
     <HStack display="inline-flex" alignItems="stretch" spacing={0} maxHeight="100%" height="100vh">
       <VStack alignItems="stretch" height="100vh" width={width} spacing={0}>
@@ -556,20 +655,39 @@ export function Viz({
             position="relative"
           >
             <div ref={ref} style={{ flex: 1, minHeight: 0 }} />
-            {layoutStale && vizMode !== "table" && (
-              <Button
-                position="absolute"
-                top={2}
-                right={2}
-                zIndex={5}
-                size="sm"
-                colorScheme="blue"
-                leftIcon={<RepeatIcon />}
-                onClick={handleRebuildLayout}
-                aria-label="Rebuild DAG layout"
-              >
-                Rebuild layout
-              </Button>
+            {vizMode !== "table" && (
+              <>
+                <ZoomHUD
+                  zoom={zoom}
+                  onZoomIn={() => graphRef.current?.zoomBy(1.4)}
+                  onZoomOut={() => graphRef.current?.zoomBy(1 / 1.4)}
+                  onFit={() => graphRef.current?.fitToView()}
+                  onReset={() => graphRef.current?.resetView()}
+                  onScreenshot={() => {
+                    const url = graphRef.current?.toDataURL();
+                    if (!url) return;
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `source-viz-${Date.now()}.png`;
+                    a.click();
+                  }}
+                  onRebuildLayout={graphMode === "dag" ? handleRebuildLayout : undefined}
+                  layoutStale={layoutStale}
+                />
+                <Minimap graphRef={graphRef} refreshKey={graphData.nodes.length + selectedNodes.size} />
+                {hover && !contextMenu && (
+                  <NodeHoverCard
+                    nodeId={hover.nodeId}
+                    screenX={hover.x}
+                    screenY={hover.y}
+                    inCount={data.dependantMap.get(hover.nodeId)?.size ?? 0}
+                    outCount={data.dependencyMap.get(hover.nodeId)?.size ?? 0}
+                    onCycle={graphData.cycles.some((c) => c.includes(hover.nodeId))}
+                    importsPreview={[...(data.dependencyMap.get(hover.nodeId) ?? [])].slice(0, 5)}
+                    importedByPreview={[...(data.dependantMap.get(hover.nodeId) ?? [])].slice(0, 5)}
+                  />
+                )}
+              </>
             )}
           </Box>
           {(vizMode === "table" || vizMode === "split") && (
@@ -883,6 +1001,7 @@ export function Viz({
         onFocusFile={(file) => setSelectedNode(file)}
         onNavigate={(file, symbol) => setInvestigateTarget({ file, symbol })}
       />
+      <CommandPalette isOpen={paletteOpen} onClose={() => setPaletteOpen(false)} actions={paletteActions} />
     </HStack>
   );
 }

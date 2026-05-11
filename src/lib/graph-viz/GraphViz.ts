@@ -310,7 +310,7 @@ export class GraphViz {
         // Any user-initiated pan/zoom cancels the initial auto-fit tracking.
         if (event.sourceEvent) this.autoFitActive = false;
         this.transform = event.transform;
-        this.options.onZoomChange?.(this.transform.k);
+        this.options.onZoomChange?.(event.transform.k);
         this.scheduleRender();
       });
 
@@ -365,7 +365,7 @@ export class GraphViz {
       if (changed) {
         this.hoverNodeId = newHoverId;
         this.hoveredDagLevel = newLevelHover;
-        this.options.onNodeHover?.(newHoverId);
+        this.options.onNodeHover?.(newHoverId, event.clientX, event.clientY);
         this.canvas.style.cursor = newHoverId || newLevelHover != null ? "pointer" : "grab";
         this.scheduleRender();
       }
@@ -376,7 +376,7 @@ export class GraphViz {
       if (changed) {
         this.hoverNodeId = null;
         this.hoveredDagLevel = null;
-        this.options.onNodeHover?.(null);
+        this.options.onNodeHover?.(null, 0, 0);
         this.canvas.style.cursor = "grab";
         this.scheduleRender();
       }
@@ -645,6 +645,56 @@ export class GraphViz {
       transfer,
     );
     console.log(`[sim] postMessage ${canReuse ? "(update)" : "(init)"}: ${(performance.now() - t0).toFixed(1)}ms`);
+  }
+
+  /** Fit all nodes into the viewport with an animated zoom transition. */
+  public fitToView(): void {
+    this.fitToNodes();
+  }
+
+  /** Reset zoom/pan to identity (1:1 centered). */
+  public resetView(): void {
+    if (!this.zoomBehavior) return;
+    const centered = zoomIdentity.translate(this.options.width / 2, this.options.height / 2);
+    select(this.canvas)
+      .transition()
+      .duration(400)
+      .ease(easeCubicOut)
+      .call(this.zoomBehavior.transform, centered);
+  }
+
+  /** Programmatically zoom by a factor about the viewport centre. */
+  public zoomBy(factor: number): void {
+    if (!this.zoomBehavior) return;
+    select(this.canvas).transition().duration(200).call(this.zoomBehavior.scaleBy, factor);
+  }
+
+  /** Current zoom scale (1 = native). */
+  public getZoom(): number {
+    return this.transform.k;
+  }
+
+  /** Export the current canvas frame as a PNG data URL. */
+  public toDataURL(): string {
+    return this.canvas.toDataURL("image/png");
+  }
+
+  /** Read-only snapshot of node positions for overview rendering (minimap). */
+  public getNodePositions(): { id: string; x: number; y: number }[] {
+    return this.nodes
+      .filter((n) => n.x != null && n.y != null)
+      .map((n) => ({ id: n.id, x: n.x as number, y: n.y as number }));
+  }
+
+  /** Current world-space viewport rectangle, for minimap overlays. */
+  public getViewportRect(): { x: number; y: number; width: number; height: number } {
+    const t = this.transform;
+    return {
+      x: -t.x / t.k,
+      y: -t.y / t.k,
+      width: this.options.width / t.k,
+      height: this.options.height / t.k,
+    };
   }
 
   private fitToNodes(): void {

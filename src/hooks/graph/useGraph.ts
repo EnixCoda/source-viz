@@ -12,8 +12,8 @@ export interface GraphCallbacks {
   onBackgroundClick?: () => void;
   onNodeContextMenu?: (nodeId: string, screenX: number, screenY: number) => void;
   onBackgroundContextMenu?: (screenX: number, screenY: number) => void;
-  onNodeHover?: (nodeId: string | null) => void;
-  onZoomChange?: (k: number) => void;
+  onNodeHover?: (nodeId: string | null, screenX: number, screenY: number) => void;
+  onZoomChange?: (zoom: number) => void;
 }
 
 export function useGraph<E extends HTMLElement>(
@@ -117,6 +117,12 @@ export function useGraph<E extends HTMLElement>(
       onBackgroundContextMenu: (screenX, screenY) => {
         callbacksRef.current.onBackgroundContextMenu?.(screenX, screenY);
       },
+      onNodeHover: (nodeId, screenX, screenY) => {
+        callbacksRef.current.onNodeHover?.(nodeId, screenX, screenY);
+      },
+      onZoomChange: (z) => {
+        callbacksRef.current.onZoomChange?.(z);
+      },
     });
 
     graphRef.current = graph;
@@ -168,5 +174,5 @@ export function useGraph<E extends HTMLElement>(
     graphRef.current?.rebuildLayout();
   }, []);
 
-  return [ref, render, rebuildLayout] as const;
+  return [ref, render, rebuildLayout, graphRef] as const;
 }
