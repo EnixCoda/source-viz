@@ -48,7 +48,7 @@ export function NodeInspector({
   kindMap: Map<string, DependencyKind>;
   nodeSelectionHistory: string[];
   historyOffset: number;
-  setHistoryOffset: (fn: (o: number) => number) => void;
+  setHistoryOffset: React.Dispatch<React.SetStateAction<number>>;
   setSelectedNode: (id: string | null) => void;
   setSelectedNodes: (s: Set<string>) => void;
   allExcludedNodes: Set<string>;
@@ -119,7 +119,14 @@ export function NodeInspector({
             size="xs"
             variant="ghost"
             isDisabled={historyOffset >= nodeSelectionHistory.length - 1}
-            onClick={() => setHistoryOffset((o) => o + 1)}
+            onClick={() => {
+              const newOffset = historyOffset + 1;
+              const target = nodeSelectionHistory[newOffset];
+              if (target) {
+                setHistoryOffset(newOffset);
+                setSelectedNode(target);
+              }
+            }}
           />
         </Tooltip>
         <Tooltip label="Next selection" hasArrow>
@@ -129,15 +136,26 @@ export function NodeInspector({
             size="xs"
             variant="ghost"
             isDisabled={historyOffset <= 0}
-            onClick={() => setHistoryOffset((o) => o - 1)}
+            onClick={() => {
+              const newOffset = historyOffset - 1;
+              const target = nodeSelectionHistory[newOffset];
+              if (target) {
+                setHistoryOffset(newOffset);
+                setSelectedNode(target);
+              }
+            }}
           />
         </Tooltip>
         <Select
             size="xs"
             value={displayedNode ?? ""}
             onChange={(e) => {
-              const idx = nodeSelectionHistory.indexOf(e.target.value);
-              setHistoryOffset(() => (idx >= 0 ? idx : 0));
+              const target = e.target.value;
+              const idx = nodeSelectionHistory.indexOf(target);
+              if (idx >= 0) {
+                setHistoryOffset(idx);
+                setSelectedNode(target);
+              }
             }}
           >
             {nodeSelectionHistory.length === 0 ? (

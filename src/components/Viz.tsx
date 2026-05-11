@@ -438,17 +438,29 @@ export function Viz({
 
   const [nodeSelectionHistory, setNodeSelectionHistory] = React.useState<string[]>([]);
   React.useEffect(() => {
-    if (selectedNodes.size > 0) {
-      setNodeSelectionHistory((history) => {
-        const newNodes = [...selectedNodes].filter((n) => !history.includes(n));
-        return [...newNodes, ...history.filter((n) => !selectedNodes.has(n))];
-      });
-    }
+    if (selectedNodes.size === 0) return;
+    setNodeSelectionHistory((history) => {
+      const newNodes = [...selectedNodes].filter((n) => !history.includes(n));
+      if (newNodes.length === 0) return history;
+      return [...newNodes, ...history];
+    });
   }, [selectedNodes]);
 
   // Cursor for prev/next navigation through history without mutating it
   const [historyOffset, setHistoryOffset] = React.useState(0);
-  React.useEffect(() => { setHistoryOffset(0); }, [selectedNodes]);
+  React.useEffect(() => {
+    if (selectedNodes.size !== 1) {
+      setHistoryOffset(0);
+      return;
+    }
+    const current = [...selectedNodes][0];
+    // Only reset offset when the selection doesn't already match the history cursor
+    // (i.e., selection came from outside the inspector's prev/next/select).
+    if (nodeSelectionHistory[historyOffset] !== current) {
+      const idx = nodeSelectionHistory.indexOf(current);
+      setHistoryOffset(idx >= 0 ? idx : 0);
+    }
+  }, [selectedNodes, nodeSelectionHistory, historyOffset]);
 
   // The in-views
   const [inViewView, inView, setInView] = useSwitchView({
