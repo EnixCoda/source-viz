@@ -24,6 +24,7 @@ import { useSwitchView } from "../hooks/view/useSwitchView";
 import { DependencyEntry } from "../services/serializers";
 import { carry } from "../utils/general";
 import { GraphMode, filterGraphData, prepareGraphData } from "../utils/graphData";
+import { clusterGraphData, isClusterId } from "../utils/clusterGraphData";
 import {
   PersistedView,
   addSavedView,
@@ -197,6 +198,21 @@ export function Viz({
     label: "Cut-off async imports",
     defaultValue: false,
   });
+  const [groupByDirView, groupByDir, setGroupByDir] = useCheckboxView({
+    label: "Group by directory (semantic zoom)",
+    defaultValue: false,
+    helperText: "Collapse files into folder clusters. Click a cluster to drill in.",
+  });
+  const [groupDepthView, groupDepth = 1, setGroupDepth] = useNumberInputView({
+    label: "Group depth",
+    defaultValue: 1,
+    inputProps: {
+      keepWithinRange: true,
+      clampValueOnBlur: true,
+      min: 1,
+      max: 5,
+    },
+  });
   const fixFontSize = false;
   const [fontSizeView, fontSize = 12] = useNumberInputView({
     label: "Font Size",
@@ -267,6 +283,26 @@ export function Viz({
     return set;
   }, [graphData.cycles]);
 
+  // Semantic-zoom collapse: optionally roll up files into folder clusters.
+  const clusteredGraphData = React.useMemo(() => {
+    if (!groupByDir) return null;
+    const t0 = performance.now();
+    const result = clusterGraphData({ nodes: graphData.nodes, links: graphData.links }, groupDepth);
+    console.log(`[Viz] clusterGraphData: ${(performance.now() - t0).toFixed(1)}ms, depth=${groupDepth}, nodes=${result.nodes.length}, links=${result.links.length}`);
+    return result;
+  }, [groupByDir, groupDepth, graphData.nodes, graphData.links]);
+
+  const displayedGraphData = React.useMemo(() => (
+    clusteredGraphData
+      ? { nodes: clusteredGraphData.nodes, links: clusteredGraphData.links, cycles: [] as string[][] }
+      : graphData
+  ), [clusteredGraphData, graphData]);
+
+  const clusterChildrenRef = React.useRef<Map<string, string[]> | null>(null);
+  React.useEffect(() => {
+    clusterChildrenRef.current = clusteredGraphData?.childrenMap ?? null;
+  }, [clusteredGraphData]);
+
   // Multi-select state
   const [selectedNodes, setSelectedNodes] = React.useState<Set<string>>(new Set());
   const selectedNode = selectedNodes.size === 1 ? [...selectedNodes][0] : null;
@@ -317,6 +353,13 @@ export function Viz({
   const graphCallbacks = React.useMemo<GraphCallbacks>(() => ({
     onNodeClick: (id, multi) => {
       closeContextMenu();
+      if (isClusterId(id)) {
+        // Drill into a cluster: turn off grouping and surface the children.
+        const children = clusterChildrenRef.current?.get(id) ?? [];
+        setGroupByDir(false);
+        if (children.length > 0) setSelectedNodes(new Set(children));
+        return;
+      }
       if (multi) {
         setSelectedNodes((prev) => {
           const next = new Set(prev);
@@ -358,7 +401,7 @@ export function Viz({
       else setHover(null);
     },
     onZoomChange: (z) => setZoom(z),
-  }), [closeContextMenu]);
+  }), [closeContextMenu, setGroupByDir]);
 
   const [ref, render, rebuildLayout, graphRef] = useGraph<HTMLDivElement>(
     {
@@ -379,15 +422,15 @@ export function Viz({
   );
 
   const [layoutStale, setLayoutStale] = React.useState(false);
-  const prevGraphDataRef = React.useRef<typeof graphData | null>(null);
+  const prevGraphDataRef = React.useRef<typeof displayedGraphData | null>(null);
   React.useEffect(() => {
-    render?.(graphData);
+    render?.(displayedGraphData);
     const isInitial = prevGraphDataRef.current === null;
-    prevGraphDataRef.current = graphData;
+    prevGraphDataRef.current = displayedGraphData;
     if (!isInitial && graphMode === "dag") {
       setLayoutStale(true);
     }
-  }, [render, graphData, graphMode]);
+  }, [render, displayedGraphData, graphMode]);
 
   React.useEffect(() => {
     // Reset stale flag when DAG mode is turned off (no DAG layout to rebuild)
@@ -562,7 +605,9 @@ export function Viz({
     if (typeof v.leavesRegex === "string") setRestrictLeaves(v.leavesRegex);
     if (Array.isArray(v.excludedNodes)) setExcludedNodes(v.excludedNodes);
     if (v.graphMode) setGraphMode(v.graphMode as GraphMode);
-  }, [setVizMode, setExcludeNodesFilter, setRestrictRoots, setRestrictLeaves, setExcludedNodes, setGraphMode]);
+    if (typeof v.groupByDir === "boolean") setGroupByDir(v.groupByDir);
+    if (typeof v.groupDepth === "number" && v.groupDepth >= 1) setGroupDepth(v.groupDepth);
+  }, [setVizMode, setExcludeNodesFilter, setRestrictRoots, setRestrictLeaves, setExcludedNodes, setGraphMode, setGroupByDir, setGroupDepth]);
 
   // Restore on dataset change
   const restoredSigRef = React.useRef<string | null>(null);
@@ -590,7 +635,9 @@ export function Viz({
     leavesRegex: restrictLeavesInput,
     excludedNodes: [...excludedNodes],
     graphMode,
-  }), [preferredSize, vizMode, dockId, excludeNodesFilterInput, restrictRootsInput, restrictLeavesInput, excludedNodes, graphMode]);
+    groupByDir,
+    groupDepth,
+  }), [preferredSize, vizMode, dockId, excludeNodesFilterInput, restrictRootsInput, restrictLeavesInput, excludedNodes, graphMode, groupByDir, groupDepth]);
 
   // Debounced auto-save
   React.useEffect(() => {
@@ -642,6 +689,7 @@ export function Viz({
       { id: "mode-graph", label: "View: Graph only", group: "action", run: () => setVizMode("graph") },
       { id: "mode-table", label: "View: Table only", group: "action", run: () => setVizMode("table") },
       { id: "mode-split", label: "View: Split (graph + table)", group: "action", run: () => setVizMode("split") },
+      { id: "group-toggle", label: groupByDir ? "Group by directory: OFF" : "Group by directory: ON", group: "action", hint: "g", run: () => setGroupByDir(!groupByDir) },
     ];
     // Node actions: pick & focus
     for (const n of allNodes) {
@@ -657,7 +705,7 @@ export function Viz({
       });
     }
     return actions;
-  }, [graphRef, handleRebuildLayout, clearExcludedNodes, clearAllFilters, graphData.cycles.length, allNodes, setSelectedNode, setVizMode]);
+  }, [graphRef, handleRebuildLayout, clearExcludedNodes, clearAllFilters, graphData.cycles.length, allNodes, setSelectedNode, setVizMode, groupByDir, setGroupByDir]);
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -694,11 +742,14 @@ export function Viz({
       } else if (e.key === "/") {
         e.preventDefault();
         setPaletteOpen(true);
+      } else if (e.key === "g") {
+        e.preventDefault();
+        setGroupByDir((v) => !v);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [graphRef, paletteOpen, selectedNodes, toggleExcludeNode]);
+  }, [graphRef, paletteOpen, selectedNodes, toggleExcludeNode, setGroupByDir]);
 
   return (
     <HStack display="inline-flex" alignItems="stretch" spacing={0} maxHeight="100%" height="100vh">
@@ -747,7 +798,7 @@ export function Viz({
                   onRebuildLayout={graphMode === "dag" ? handleRebuildLayout : undefined}
                   layoutStale={layoutStale}
                 />
-                <Minimap graphRef={graphRef} refreshKey={graphData.nodes.length + selectedNodes.size} />
+                <Minimap graphRef={graphRef} refreshKey={displayedGraphData.nodes.length + selectedNodes.size} />
                 {hover && !contextMenu && (
                   <NodeHoverCard
                     nodeId={hover.nodeId}
@@ -873,8 +924,8 @@ export function Viz({
         </Box>
         <StatusBar
           totalFiles={data.nodes.size}
-          renderedNodes={graphData.nodes.length}
-          renderedEdges={graphData.links.length}
+          renderedNodes={displayedGraphData.nodes.length}
+          renderedEdges={displayedGraphData.links.length}
           cycles={graphData.cycles.length}
           selected={selectedNodes.size}
           graphMode={graphMode ?? "dag"}
@@ -1059,6 +1110,8 @@ export function Viz({
                         {edgeStyleView}
                         {fontSizeView}
                         {separateAsyncImportsView}
+                        {groupByDirView}
+                        {groupByDir && groupDepthView}
                       </VStack>
                     )}
                   </VStack>

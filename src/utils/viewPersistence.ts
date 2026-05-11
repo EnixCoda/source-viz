@@ -9,6 +9,8 @@ export type PersistedView = {
   leavesRegex?: string;
   excludedNodes?: string[];
   graphMode?: string;
+  groupByDir?: boolean;
+  groupDepth?: number;
 };
 
 export type PersistedDoc = {

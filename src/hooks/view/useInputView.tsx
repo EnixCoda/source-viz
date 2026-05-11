@@ -37,7 +37,7 @@ export function useNumberInputView({
   inputProps,
   ...formControlViewProps
 }: UseNumberInputViewConfig = {}) {
-  const [inputView, inputValue] = useView(defaultValue, (state, setState) => (
+  const [inputView, inputValue, setInputValue] = useView(defaultValue, (state, setState) => (
     <FormControlView {...formControlViewProps}>
       <NumberInput {...inputProps} value={state} onChange={(_, valueNumber) => setState(valueNumber)}>
         <NumberInputField />
@@ -49,5 +49,5 @@ export function useNumberInputView({
     </FormControlView>
   ));
 
-  return [inputView, inputValue] as const;
+  return [inputView, inputValue, setInputValue] as const;
 }
