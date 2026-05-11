@@ -132,22 +132,24 @@ export function NodeInspector({
             onClick={() => setHistoryOffset((o) => o - 1)}
           />
         </Tooltip>
-        {nodeSelectionHistory.length > 1 && (
-          <Select
+        <Select
             size="xs"
-            value={displayedNode}
+            value={displayedNode ?? ""}
             onChange={(e) => {
               const idx = nodeSelectionHistory.indexOf(e.target.value);
               setHistoryOffset(() => (idx >= 0 ? idx : 0));
             }}
           >
-            {nodeSelectionHistory.map((node) => (
-              <option key={node} value={node}>
-                {node}
-              </option>
-            ))}
+            {nodeSelectionHistory.length === 0 ? (
+              <option value="" disabled>No history</option>
+            ) : (
+              nodeSelectionHistory.map((node) => (
+                <option key={node} value={node}>
+                  {node}
+                </option>
+              ))
+            )}
           </Select>
-        )}
       </HStack>
 
       <Box px={2}>
