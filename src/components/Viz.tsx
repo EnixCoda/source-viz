@@ -1,4 +1,4 @@
-import { Box, ButtonGroup, Divider, HStack, Heading, IconButton, Text, Tooltip, VStack } from "@chakra-ui/react";
+import { Box, Button, ButtonGroup, Divider, HStack, Heading, IconButton, Text, Tooltip, VStack } from "@chakra-ui/react";
 import { ChevronRightIcon } from "@chakra-ui/icons";
 import {
   SearchIcon,
@@ -24,6 +24,15 @@ import { useSwitchView } from "../hooks/view/useSwitchView";
 import { DependencyEntry } from "../services/serializers";
 import { carry } from "../utils/general";
 import { GraphMode, filterGraphData, prepareGraphData } from "../utils/graphData";
+import {
+  PersistedView,
+  addSavedView,
+  datasetSignature,
+  listSavedViews,
+  loadLastView,
+  removeSavedView,
+  saveLastView,
+} from "../utils/viewPersistence";
 import { ColorByMode } from "../utils/graphDataMappers";
 import { EdgeStyleMode } from "../lib/graph-viz";
 import { ActiveFilter, ActiveFiltersBar } from "./ActiveFiltersBar";
@@ -83,14 +92,14 @@ export function Viz({
   const allNodes = React.useMemo(() => [...data.nodes.keys()].sort(), [data.nodes]);
 
   // Excludes
-  const [excludeNodesFilterInputView, excludeNodesFilterRegExp, excludeNodesFilterInput, resetExcludeNodesFilter] = useRegExpInputView({
+  const [excludeNodesFilterInputView, excludeNodesFilterRegExp, excludeNodesFilterInput, resetExcludeNodesFilter, setExcludeNodesFilter] = useRegExpInputView({
     helperText: "Nodes match this regex will be excluded",
   });
   const excludedNodesFromInput = React.useMemo(
     () => (excludeNodesFilterRegExp ? allNodes.filter((dep) => dep.match(excludeNodesFilterRegExp)) : []),
     [excludeNodesFilterRegExp, allNodes]
   );
-  const [excludedNodes, toggleExcludeNode, , clearExcludedNodes] = useSet<string>();
+  const [excludedNodes, toggleExcludeNode, , clearExcludedNodes, setExcludedNodes] = useSet<string>();
   const allExcludedNodes = React.useMemo(
     () => new Set([...excludedNodesFromInput, ...excludedNodes]),
     [excludedNodesFromInput, excludedNodes]
@@ -101,7 +110,7 @@ export function Viz({
   );
 
   // Restrictions
-  const [restrictRootInputView, restrictRootsRegExp, restrictRootsInput, resetRestrictRoots] = useRegExpInputView({
+  const [restrictRootInputView, restrictRootsRegExp, restrictRootsInput, resetRestrictRoots, setRestrictRoots] = useRegExpInputView({
     inputProps: { placeholder: "Filter nodes with RegExp" },
     helperText: "Only nodes match this regex will be regarded as roots.",
   });
@@ -112,7 +121,7 @@ export function Viz({
       ),
     [nonExcludedNodes, restrictRootsRegExp]
   );
-  const [restrictLeavesInputView, restrictLeavesRegExp, restrictLeavesInput, resetRestrictLeaves] = useRegExpInputView({
+  const [restrictLeavesInputView, restrictLeavesRegExp, restrictLeavesInput, resetRestrictLeaves, setRestrictLeaves] = useRegExpInputView({
     inputProps: { placeholder: "Filter nodes with RegExp" },
     helperText: "Only nodes match this regex will be regarded as leave.",
   });
@@ -539,6 +548,69 @@ export function Viz({
     clearExcludedNodes();
     setGraphMode("dag");
   }, [resetExcludeNodesFilter, resetRestrictRoots, resetRestrictLeaves, clearExcludedNodes, setGraphMode]);
+
+  // ── Persistence ─────────────────────────────────────────────────────────
+  const datasetSig = React.useMemo(() => datasetSignature(entries), [entries]);
+
+  const restoreView = React.useCallback((v: PersistedView) => {
+    if (v.panelWidth && v.panelWidth > 100) setSize([v.panelWidth, window.innerHeight]);
+    if (v.vizMode) setVizMode(v.vizMode);
+    if (v.dockId !== undefined) setDockId(v.dockId as DockId | null);
+    if (typeof v.excludeRegex === "string") setExcludeNodesFilter(v.excludeRegex);
+    if (typeof v.rootsRegex === "string") setRestrictRoots(v.rootsRegex);
+    if (typeof v.leavesRegex === "string") setRestrictLeaves(v.leavesRegex);
+    if (Array.isArray(v.excludedNodes)) setExcludedNodes(v.excludedNodes);
+    if (v.graphMode) setGraphMode(v.graphMode as GraphMode);
+  }, [setVizMode, setExcludeNodesFilter, setRestrictRoots, setRestrictLeaves, setExcludedNodes, setGraphMode]);
+
+  // Restore on dataset change
+  const restoredSigRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (restoredSigRef.current === datasetSig) return;
+    restoredSigRef.current = datasetSig;
+    const v = loadLastView(datasetSig);
+    if (Object.keys(v).length > 0) restoreView(v);
+  }, [datasetSig, restoreView]);
+
+  // Saved-views state, refreshed lazily
+  const [savedViews, setSavedViews] = React.useState<{ name: string; createdAt: number; view: PersistedView }[]>(
+    () => listSavedViews(datasetSig)
+  );
+  React.useEffect(() => {
+    setSavedViews(listSavedViews(datasetSig));
+  }, [datasetSig]);
+
+  const currentView = React.useMemo<PersistedView>(() => ({
+    panelWidth: preferredSize[0],
+    vizMode,
+    dockId,
+    excludeRegex: excludeNodesFilterInput,
+    rootsRegex: restrictRootsInput,
+    leavesRegex: restrictLeavesInput,
+    excludedNodes: [...excludedNodes],
+    graphMode,
+  }), [preferredSize, vizMode, dockId, excludeNodesFilterInput, restrictRootsInput, restrictLeavesInput, excludedNodes, graphMode]);
+
+  // Debounced auto-save
+  React.useEffect(() => {
+    const id = window.setTimeout(() => saveLastView(datasetSig, currentView), 400);
+    return () => window.clearTimeout(id);
+  }, [datasetSig, currentView]);
+
+  const saveCurrentAsView = React.useCallback((name: string) => {
+    const list = addSavedView(datasetSig, name, currentView);
+    setSavedViews(list);
+  }, [datasetSig, currentView]);
+
+  const deleteSavedView = React.useCallback((name: string) => {
+    const list = removeSavedView(datasetSig, name);
+    setSavedViews(list);
+  }, [datasetSig]);
+
+  const applySavedView = React.useCallback((name: string) => {
+    const found = savedViews.find((v) => v.name === name);
+    if (found) restoreView(found.view);
+  }, [savedViews, restoreView]);
 
   // Command palette + keyboard shortcuts
   const [paletteOpen, setPaletteOpen] = React.useState(false);
@@ -971,6 +1043,12 @@ export function Viz({
                       <SettingsOfOpenInVSCode />
                       <ExportButton data={entries} />
                     </VStack>
+                    <SavedViewsSection
+                      views={savedViews}
+                      onSave={saveCurrentAsView}
+                      onApply={applySavedView}
+                      onDelete={deleteSavedView}
+                    />
                     {vizMode !== "table" && (
                       <VStack alignItems="stretch" spacing={1}>
                         <Heading as="h3" size="xs" color="gray.600">Graph</Heading>
@@ -1036,3 +1114,85 @@ function ContextMenuItem({
     </Box>
   );
 }
+
+function SavedViewsSection({
+  views,
+  onSave,
+  onApply,
+  onDelete,
+}: {
+  views: { name: string; createdAt: number; view: PersistedView }[];
+  onSave: (name: string) => void;
+  onApply: (name: string) => void;
+  onDelete: (name: string) => void;
+}) {
+  const [name, setName] = React.useState("");
+  return (
+    <VStack alignItems="stretch" spacing={1}>
+      <Heading as="h3" size="xs" color="gray.600">Saved views</Heading>
+      <HStack spacing={1}>
+        <Box
+          as="input"
+          value={name}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
+          placeholder="View name…"
+          flex={1}
+          px={2}
+          py={1}
+          fontSize="sm"
+          border="1px solid"
+          borderColor="gray.300"
+          borderRadius="md"
+          _focus={{ borderColor: "blue.400", outline: "none" }}
+          onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+            if (e.key === "Enter" && name.trim()) {
+              onSave(name.trim());
+              setName("");
+            }
+          }}
+        />
+        <Button
+          size="xs"
+          colorScheme="blue"
+          variant="outline"
+          isDisabled={!name.trim()}
+          onClick={() => {
+            onSave(name.trim());
+            setName("");
+          }}
+        >
+          Save
+        </Button>
+      </HStack>
+      {views.length === 0 ? (
+        <Text fontSize="xs" color="gray.400">No saved views yet. Save the current filters & layout.</Text>
+      ) : (
+        <VStack alignItems="stretch" spacing={0.5}>
+          {views.map((v) => (
+            <HStack key={v.name} spacing={1} px={2} py={1} _hover={{ bg: "gray.50" }} borderRadius="sm">
+              <Box
+                as="button"
+                flex={1}
+                textAlign="left"
+                fontSize="sm"
+                noOfLines={1}
+                title={`Saved ${new Date(v.createdAt).toLocaleString()}`}
+                onClick={() => onApply(v.name)}
+              >
+                {v.name}
+              </Box>
+              <IconButton
+                aria-label={`Delete ${v.name}`}
+                size="xs"
+                variant="ghost"
+                icon={<Text fontSize="md">×</Text>}
+                onClick={() => onDelete(v.name)}
+              />
+            </HStack>
+          ))}
+        </VStack>
+      )}
+    </VStack>
+  );
+}
+

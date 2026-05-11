@@ -10,5 +10,5 @@ export function useSet<T>(initialValue: T[] = []) {
   }, []);
   const clear = React.useCallback(() => setValues([]), []);
 
-  return [values, toggle, remove, clear] as const;
+  return [values, toggle, remove, clear, setValues] as const;
 }

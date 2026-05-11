@@ -23,7 +23,7 @@ export function useRegExpInputView(config: UseInputViewConfig = {}) {
 
   const reset = React.useCallback(() => setInputValue(""), [setInputValue]);
 
-  return [view, lastValidRegExp, inputValue, reset] as const;
+  return [view, lastValidRegExp, inputValue, reset, setInputValue] as const;
 }
 
 function getRegExp(input: string) {
