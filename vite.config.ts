@@ -13,6 +13,10 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       includeAssets: ["icon.svg"],
+      devOptions: {
+        enabled: true,
+        type: "module",
+      },
       manifest: {
         name: "Source Viz",
         short_name: "Source Viz",
