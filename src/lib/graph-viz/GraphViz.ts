@@ -32,10 +32,8 @@ export class GraphViz {
   private lastAppliedDagMode: import("./types").DagMode | null | undefined = null;
   /** Bumped on each init/update postMessage; ticks with stale gen are discarded. */
   private simGeneration = 0;
-  /** True until the first simulation converges; triggers auto fit-to-bounds. */
-  private needsFitAfterFirstSim = false;
-  /** Counts ticks received from the current generation for deferred fit. */
-  private firstSimTickCount = 0;
+  /** True while the initial fit-to-view should track the simulation each tick. */
+  private autoFitActive = false;
 
   constructor(container: HTMLElement, options: GraphVizOptions) {
     this.container = container;
@@ -158,8 +156,7 @@ export class GraphViz {
       if (this.zoomBehavior) {
         select(this.canvas).call(this.zoomBehavior.transform, centered);
       }
-      this.needsFitAfterFirstSim = true;
-      this.firstSimTickCount = 0;
+      this.autoFitActive = true;
     }
 
     // Layout-changing transitions (entering/leaving DAG) need extra energy
@@ -310,6 +307,8 @@ export class GraphViz {
         return true;
       })
       .on("zoom", (event) => {
+        // Any user-initiated pan/zoom cancels the initial auto-fit tracking.
+        if (event.sourceEvent) this.autoFitActive = false;
         this.transform = event.transform;
         this.scheduleRender();
       });
@@ -594,18 +593,18 @@ export class GraphViz {
             ns[i].x = pos[i * 2];
             ns[i].y = pos[i * 2 + 1];
           }
-          // Fit viewport after a few ticks of the first simulation so nodes
-          // have spread enough for a meaningful bounding box, but the user
-          // isn't left watching zoom=1 for the full simulation duration.
-          if (this.needsFitAfterFirstSim) {
-            this.firstSimTickCount++;
-            if (this.firstSimTickCount >= 3) {
-              this.needsFitAfterFirstSim = false;
-              this.fitToNodes();
-            }
+          // While the layout is settling on first load, refit on every tick so
+          // the camera continuously zooms out to keep the spreading graph in
+          // view (instead of snapping once at the end).
+          if (this.autoFitActive) {
+            this.fitToNodes();
           }
           this.scheduleRender();
         } else if (msg.type === "end") {
+          if (this.autoFitActive) {
+            this.fitToNodes();
+            this.autoFitActive = false;
+          }
           this.scheduleRender();
         }
       };
@@ -637,9 +636,9 @@ export class GraphViz {
         useLink: !dagMode,
         useCharge: !dagMode,
         useCenter: !dagMode,
-        alphaDecay: dagMode ? 0.02 : 0.0228,
-        alphaMin: dagMode ? 0.05 : 0.0001,
-        velocityDecay: dagMode ? 0.4 : 0.6,
+        alphaDecay: dagMode ? 0.005 : 0.008,
+        alphaMin: dagMode ? 0.001 : 0.0001,
+        velocityDecay: dagMode ? 0.3 : 0.4,
         generation: this.simGeneration,
       },
       transfer,
@@ -665,13 +664,23 @@ export class GraphViz {
     const scale = Math.min(width / bw, height / bh, 1); // never zoom in past 1:1
     const tx = width / 2 - scale * ((minX + maxX) / 2);
     const ty = height / 2 - scale * ((minY + maxY) / 2);
-    const t = zoomIdentity.translate(tx, ty).scale(scale);
-    this.transform = t;
-    select(this.canvas)
-      .transition()
-      .duration(600)
-      .ease(easeCubicOut)
-      .call(this.zoomBehavior.transform, t);
+    const target = zoomIdentity.translate(tx, ty).scale(scale);
+
+    // When auto-fit tracks the running simulation, apply the new transform
+    // directly: the bounding box already changes smoothly tick-to-tick, and
+    // a per-tick d3 transition would constantly interrupt itself and stutter.
+    // For one-shot fits (e.g. user-triggered "fit to view"), animate.
+    if (this.autoFitActive) {
+      this.transform = target;
+      select(this.canvas).call(this.zoomBehavior.transform, target);
+    } else {
+      this.transform = target;
+      select(this.canvas)
+        .transition()
+        .duration(600)
+        .ease(easeCubicOut)
+        .call(this.zoomBehavior.transform, target);
+    }
   }
 
   private stopSimulation(): void {
