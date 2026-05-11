@@ -7,6 +7,9 @@ import { demoDataPlugin } from "./scripts/vite-plugin-demo-data";
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react(), demoDataPlugin()],
+  worker: {
+    format: "es",
+  },
   test: {
     environment: "happy-dom",
     exclude: ["**/node_modules/**", "**/dist/**", "**/dist-cli/**"],
