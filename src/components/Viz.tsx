@@ -256,7 +256,8 @@ export function Viz({
   }, [windowSize.width]);
   const [width] = useClampedSize(preferredSize, sizeLimit);
 
-  const [vizContainerRef, vizContainerSize] = useObserveElementSize();
+  const [vizContainerRef] = useObserveElementSize();
+  const [graphCanvasRef, graphCanvasSize] = useObserveElementSize();
 
   const graphData = React.useMemo(() => {
     const t0 = performance.now();
@@ -408,8 +409,8 @@ export function Viz({
       data,
       fixFontSize,
       fontSize,
-      width: vizContainerSize?.width || 0,
-      height: vizContainerSize?.height || 0,
+      width: graphCanvasSize?.width || 0,
+      height: graphCanvasSize?.height || 0,
       enableDagMode: graphMode === "dag",
       colorBy,
       edgeStyle,
@@ -818,6 +819,7 @@ export function Viz({
         <Divider height="auto" />
         <Box ref={vizContainerRef} flex={1} overflow="hidden" position="relative" minH={0} display="flex" flexDirection="column">
           <Box
+            ref={graphCanvasRef}
             display={vizMode === "table" ? "none" : "flex"}
             flexDirection="column"
             flex={vizMode === "split" ? "0 0 60%" : 1}
