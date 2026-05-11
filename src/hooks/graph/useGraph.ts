@@ -12,6 +12,8 @@ export interface GraphCallbacks {
   onBackgroundClick?: () => void;
   onNodeContextMenu?: (nodeId: string, screenX: number, screenY: number) => void;
   onBackgroundContextMenu?: (screenX: number, screenY: number) => void;
+  onNodeHover?: (nodeId: string | null) => void;
+  onZoomChange?: (k: number) => void;
 }
 
 export function useGraph<E extends HTMLElement>(
@@ -99,6 +101,12 @@ export function useGraph<E extends HTMLElement>(
       onLevelClick: (nodeIds, event) => {
         const isMulti = event.metaKey || event.ctrlKey;
         callbacksRef.current.onLevelClick?.(nodeIds, isMulti);
+      },
+      onNodeHover: (id) => {
+        callbacksRef.current.onNodeHover?.(id);
+      },
+      onZoomChange: (k) => {
+        callbacksRef.current.onZoomChange?.(k);
       },
       onBackgroundClick: () => {
         callbacksRef.current.onBackgroundClick?.();

@@ -67,6 +67,7 @@ export interface GraphVizOptions {
   // Callbacks
   onNodeClick?: (nodeId: string, event: { metaKey: boolean; ctrlKey: boolean }) => void;
   onNodeHover?: (nodeId: string | null) => void;
+  onZoomChange?: (k: number) => void;
   onBackgroundClick?: () => void;
   onLevelClick?: (nodeIds: string[], event: { metaKey: boolean; ctrlKey: boolean }) => void;
   onNodeContextMenu?: (nodeId: string, screenX: number, screenY: number) => void;

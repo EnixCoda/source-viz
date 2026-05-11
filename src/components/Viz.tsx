@@ -251,6 +251,13 @@ export function Viz({
 
   const closeContextMenu = React.useCallback(() => setContextMenu(null), []);
 
+  // Hover tooltip state
+  const [hoveredNodeId, setHoveredNodeId] = React.useState<string | null>(null);
+  const [zoomScale, setZoomScale] = React.useState(1);
+  const [mousePos, setMousePos] = React.useState({ x: 0, y: 0 });
+  // Show tooltip when text is too small to read comfortably (zoom < 0.6)
+  const showTooltip = hoveredNodeId !== null && zoomScale < 0.6;
+
   // Usage investigator state
   const [investigateTarget, setInvestigateTarget] = React.useState<{ file: string; symbol?: string | null } | null>(null);
   const [highlightedFiles, setHighlightedFiles] = React.useState<Set<string> | null>(null);
@@ -308,6 +315,8 @@ export function Viz({
     onBackgroundContextMenu: (screenX, screenY) => {
       setContextMenu({ x: screenX, y: screenY, nodeId: null });
     },
+    onNodeHover: (id) => setHoveredNodeId(id),
+    onZoomChange: (k) => setZoomScale(k),
   }), [closeContextMenu]);
 
   const [ref, render, rebuildLayout] = useGraph<HTMLDivElement>(
@@ -422,8 +431,37 @@ export function Viz({
           {vizModeView}
         </HStack>
         <Divider height="auto" />
-        <Box ref={vizContainerRef} flex={1} overflow={vizMode === "table" ? "hidden" : "auto"} position="relative">
+        <Box
+          ref={vizContainerRef}
+          flex={1}
+          overflow={vizMode === "table" ? "hidden" : "auto"}
+          position="relative"
+          onMouseMove={(e) => {
+            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+            setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+          }}
+        >
           <div ref={ref} style={{ display: vizMode === "table" ? "none" : undefined }} />
+          {showTooltip && (
+            <Box
+              position="absolute"
+              left={mousePos.x + 14}
+              top={mousePos.y - 8}
+              pointerEvents="none"
+              zIndex={20}
+              bg="gray.700"
+              color="white"
+              borderRadius="md"
+              px={2}
+              py={1}
+              fontSize="xs"
+              maxWidth="320px"
+              wordBreak="break-all"
+              boxShadow="md"
+            >
+              {hoveredNodeId}
+            </Box>
+          )}
           {layoutStale && vizMode === "graph" && (
             <Button
               position="absolute"

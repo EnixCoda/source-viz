@@ -310,6 +310,7 @@ export class GraphViz {
         // Any user-initiated pan/zoom cancels the initial auto-fit tracking.
         if (event.sourceEvent) this.autoFitActive = false;
         this.transform = event.transform;
+        this.options.onZoomChange?.(this.transform.k);
         this.scheduleRender();
       });
 
