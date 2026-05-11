@@ -816,11 +816,12 @@ export function Viz({
         </HStack>
         <ActiveFiltersBar filters={activeFilters} onClearAll={clearAllFilters} />
         <Divider height="auto" />
-        <Box ref={vizContainerRef} flex={1} overflowY="auto" position="relative" minH={0}>
+        <Box ref={vizContainerRef} flex={1} overflow="hidden" position="relative" minH={0} display="flex" flexDirection="column">
           <Box
             display={vizMode === "table" ? "none" : "flex"}
             flexDirection="column"
-            height={vizMode === "split" ? "60%" : "100%"}
+            flex={vizMode === "split" ? "0 0 60%" : 1}
+            minH={0}
             position="relative"
           >
             <div ref={ref} style={{ flex: 1, minHeight: 0 }} />
@@ -862,7 +863,7 @@ export function Viz({
           {(vizMode === "table" || vizMode === "split") && (
             <Box
               flex={vizMode === "split" ? "0 0 40%" : 1}
-              height={vizMode === "split" ? "40%" : "100%"}
+              minH={0}
               overflowY="auto"
               borderTop={vizMode === "split" ? "1px solid" : undefined}
               borderColor="gray.200"
