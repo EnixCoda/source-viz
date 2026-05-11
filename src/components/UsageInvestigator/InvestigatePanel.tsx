@@ -12,6 +12,7 @@ import {
   VStack,
 } from "@chakra-ui/react";
 import * as React from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   createInvestigator,
   Investigator,
@@ -214,51 +215,115 @@ export function InvestigatePanel(props: Props) {
               {hopGroups.length === 0 && !running && (
                 <Text fontSize="sm" color="gray.500">No usages found.</Text>
               )}
-              {hopGroups.map(([hop, group]) => (
-                <Box key={hop} mb={3}>
-                  <Text fontSize="xs" color="gray.600" mb={1}>
-                    Hop {hop} {hop === 0 ? "(origin)" : `· ${group.length} hit${group.length === 1 ? "" : "s"}`}
-                  </Text>
-                  <VStack alignItems="stretch" spacing={1}>
-                    {group.map((h, i) => (
-                      <HStack
-                        key={`${h.file}::${h.symbol}::${i}`}
-                        spacing={2}
-                        px={2}
-                        py={1}
-                        borderRadius="sm"
-                        _hover={{ bg: "gray.100", cursor: "pointer" }}
-                        onClick={() => onFocusFile(h.file)}
-                      >
-                        <Badge colorScheme={KIND_BADGE[h.kind].color} fontSize="0.6em">
-                          {KIND_BADGE[h.kind].label}
-                        </Badge>
-                        <Box minW={0} flex={1}>
-                          <Text fontSize="sm" fontWeight="medium" isTruncated>{h.symbol}</Text>
-                          <MonoText fontSize="xs" color="gray.500" isTruncated>{h.file}</MonoText>
-                        </Box>
-                        {(h.kind === "re-export" || h.kind === "wrapper") && (
-                          <IconButton
-                            aria-label={`Investigate ${h.file}`}
-                            icon={<Text fontSize="xs">🔍</Text>}
-                            size="xs"
-                            variant="ghost"
-                            title="Investigate this file's exports"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onNavigate(h.file, h.symbol);
-                            }}
-                          />
-                        )}
-                      </HStack>
-                    ))}
-                  </VStack>
-                </Box>
-              ))}
+              <VirtualHitList
+                hopGroups={hopGroups}
+                onFocusFile={onFocusFile}
+                onNavigate={onNavigate}
+              />
             </Box>
           </VStack>
         )}
       </Box>
     </VStack>
+  );
+}
+
+type FlatHitRow =
+  | { type: "header"; hop: number; count: number }
+  | { type: "hit"; hit: UsageHit };
+
+const HIT_ROW_HEIGHT = 48;
+const HEADER_ROW_HEIGHT = 24;
+
+function VirtualHitList({
+  hopGroups,
+  onFocusFile,
+  onNavigate,
+}: {
+  hopGroups: [number, UsageHit[]][];
+  onFocusFile: (file: string) => void;
+  onNavigate: (file: string, symbol?: string) => void;
+}) {
+  const flatRows = React.useMemo<FlatHitRow[]>(() => {
+    const rows: FlatHitRow[] = [];
+    for (const [hop, group] of hopGroups) {
+      rows.push({ type: "header", hop, count: group.length });
+      for (const hit of group) rows.push({ type: "hit", hit });
+    }
+    return rows;
+  }, [hopGroups]);
+
+  const parentRef = React.useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: flatRows.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: (i) => flatRows[i].type === "header" ? HEADER_ROW_HEIGHT : HIT_ROW_HEIGHT,
+    overscan: 10,
+  });
+
+  if (flatRows.length === 0) return null;
+
+  return (
+    <Box ref={parentRef} overflow="auto" maxHeight="60vh">
+      <Box style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
+        {virtualizer.getVirtualItems().map((vItem) => {
+          const row = flatRows[vItem.index];
+          if (row.type === "header") {
+            return (
+              <Box
+                key={vItem.key}
+                position="absolute"
+                top={0}
+                left={0}
+                width="100%"
+                style={{ height: vItem.size, transform: `translateY(${vItem.start}px)` }}
+              >
+                <Text fontSize="xs" color="gray.600" mt={2}>
+                  Hop {row.hop} {row.hop === 0 ? "(origin)" : `· ${row.count} hit${row.count === 1 ? "" : "s"}`}
+                </Text>
+              </Box>
+            );
+          }
+          const h = row.hit;
+          return (
+            <HStack
+              key={vItem.key}
+              position="absolute"
+              top={0}
+              left={0}
+              width="100%"
+              spacing={2}
+              px={2}
+              py={1}
+              borderRadius="sm"
+              _hover={{ bg: "gray.100", cursor: "pointer" }}
+              onClick={() => onFocusFile(h.file)}
+              style={{ height: vItem.size, transform: `translateY(${vItem.start}px)` }}
+            >
+              <Badge colorScheme={KIND_BADGE[h.kind].color} fontSize="0.6em">
+                {KIND_BADGE[h.kind].label}
+              </Badge>
+              <Box minW={0} flex={1}>
+                <Text fontSize="sm" fontWeight="medium" isTruncated>{h.symbol}</Text>
+                <MonoText fontSize="xs" color="gray.500" isTruncated>{h.file}</MonoText>
+              </Box>
+              {(h.kind === "re-export" || h.kind === "wrapper") && (
+                <IconButton
+                  aria-label={`Investigate ${h.file}`}
+                  icon={<Text fontSize="xs">🔍</Text>}
+                  size="xs"
+                  variant="ghost"
+                  title="Investigate this file's exports"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onNavigate(h.file, h.symbol);
+                  }}
+                />
+              )}
+            </HStack>
+          );
+        })}
+      </Box>
+    </Box>
   );
 }
