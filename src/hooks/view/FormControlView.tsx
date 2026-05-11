@@ -30,7 +30,7 @@ export function FormControlView({
   putLabelBehind,
   children,
 }: React.PropsWithChildren<FormControlViewProps>) {
-  const labelElement = label && <FormLabel marginBottom={row ? 0 : undefined}>{label}</FormLabel>;
+  const labelElement = label && <FormLabel fontSize="sm" marginBottom={row ? 0 : 1}>{label}</FormLabel>;
 
   return (
     <FormControl
