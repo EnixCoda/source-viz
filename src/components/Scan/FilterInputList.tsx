@@ -1,6 +1,6 @@
 import { SmallCloseIcon } from "@chakra-ui/icons";
 import { Box, IconButton, Input, InputGroup, InputRightElement, Tooltip, VStack, useCallbackRef } from "@chakra-ui/react";
-import { IIFC } from "react-iifc";
+import { IIFC } from "../IIFC";
 import { safeRegExp } from "../../utils/general";
 
 const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
