@@ -72,7 +72,7 @@ export function NodeHoverCard({
               Imported by
             </Text>
             {importedByPreview.slice(0, 3).map((p) => (
-              <MarqueeText key={p} fontFamily="mono" fontSize="xs" color="gray.700">
+              <MarqueeText key={p} fontFamily="mono" fontSize="xs" color="gray.700" width="100%">
                 {p}
               </MarqueeText>
             ))}
@@ -89,7 +89,7 @@ export function NodeHoverCard({
               Imports
             </Text>
             {importsPreview.slice(0, 3).map((p) => (
-              <MarqueeText key={p} fontFamily="mono" fontSize="xs" color="gray.700">
+              <MarqueeText key={p} fontFamily="mono" fontSize="xs" color="gray.700" width="100%">
                 {p}
               </MarqueeText>
             ))}
