@@ -321,13 +321,6 @@ export function Viz({
 
   const closeContextMenu = React.useCallback(() => setContextMenu(null), []);
 
-  // Hover tooltip state
-  const [hoveredNodeId, setHoveredNodeId] = React.useState<string | null>(null);
-  const [zoomScale, setZoomScale] = React.useState(1);
-  const [mousePos, setMousePos] = React.useState({ x: 0, y: 0 });
-  // Show tooltip when text is too small to read comfortably (zoom < 0.6)
-  const showTooltip = hoveredNodeId !== null && zoomScale < 0.6;
-
   // Usage investigator state
   const [investigateTarget, setInvestigateTarget] = React.useState<{ file: string; symbol?: string | null } | null>(null);
   const [highlightedFiles, setHighlightedFiles] = React.useState<Set<string> | null>(null);

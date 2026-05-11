@@ -102,21 +102,6 @@ export function useGraph<E extends HTMLElement>(
         const isMulti = event.metaKey || event.ctrlKey;
         callbacksRef.current.onLevelClick?.(nodeIds, isMulti);
       },
-      onNodeHover: (id) => {
-        callbacksRef.current.onNodeHover?.(id);
-      },
-      onZoomChange: (k) => {
-        callbacksRef.current.onZoomChange?.(k);
-      },
-      onBackgroundClick: () => {
-        callbacksRef.current.onBackgroundClick?.();
-      },
-      onNodeContextMenu: (nodeId, screenX, screenY) => {
-        callbacksRef.current.onNodeContextMenu?.(nodeId, screenX, screenY);
-      },
-      onBackgroundContextMenu: (screenX, screenY) => {
-        callbacksRef.current.onBackgroundContextMenu?.(screenX, screenY);
-      },
       onNodeHover: (nodeId, screenX, screenY) => {
         callbacksRef.current.onNodeHover?.(nodeId, screenX, screenY);
       },
