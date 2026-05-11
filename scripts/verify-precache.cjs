@@ -14,8 +14,12 @@ if (!fs.existsSync(sw)) {
 }
 
 const swContent = fs.readFileSync(sw, "utf8");
-const urlMatches = swContent.match(/"url":\s*"([^"]+)"/g) || [];
-const precachedUrls = new Set(urlMatches.map((m) => m.replace(/"url":\s*"/, "").replace(/"$/, "")));
+// Workbox emits entries like `{url:"path",revision:"..."}` (minified, no quotes around keys)
+// or `{"url":"path","revision":"..."}` depending on the bundler.
+const urlMatches = swContent.match(/\{(?:"url"|url):\s*"([^"]+)"/g) || [];
+const precachedUrls = new Set(
+  urlMatches.map((m) => m.replace(/^\{(?:"url"|url):\s*"/, "").replace(/"$/, ""))
+);
 
 function walk(dir, results) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
