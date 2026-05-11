@@ -3,7 +3,10 @@ import { DependencyEntry } from "../services/serializers";
 export type PersistedView = {
   panelWidth?: number;
   vizMode?: "graph" | "table" | "split";
+  /** @deprecated use openDockIds */
   dockId?: string | null;
+  openDockIds?: string[];
+  pinnedDockIds?: string[];
   excludeRegex?: string;
   rootsRegex?: string;
   leavesRegex?: string;

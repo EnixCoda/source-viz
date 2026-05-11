@@ -12,12 +12,12 @@ export type DockDef = {
 
 export function DockRail({
   docks,
-  activeId,
+  activeIds,
   onChange,
 }: {
   docks: DockDef[];
-  activeId: DockId | null;
-  onChange: (id: DockId | null) => void;
+  activeIds: ReadonlySet<DockId>;
+  onChange: (id: DockId) => void;
 }) {
   return (
     <VStack
@@ -33,7 +33,7 @@ export function DockRail({
       alignItems="center"
     >
       {docks.map((d) => {
-        const isActive = d.id === activeId;
+        const isActive = activeIds.has(d.id);
         return (
           <Box key={d.id} position="relative">
             <Tooltip label={d.label} placement="left" hasArrow openDelay={300}>
@@ -43,7 +43,7 @@ export function DockRail({
                 size="sm"
                 variant={isActive ? "solid" : "ghost"}
                 colorScheme={isActive ? "blue" : "gray"}
-                onClick={() => onChange(isActive ? null : d.id)}
+                onClick={() => onChange(d.id)}
               />
             </Tooltip>
             {d.badge != null && d.badge !== 0 && d.badge !== "" && (
