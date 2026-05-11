@@ -1,5 +1,13 @@
-import { Accordion, Box, Button, ButtonGroup, Divider, HStack, Heading, IconButton, ModalBody, Select, Text, Tooltip, VStack } from "@chakra-ui/react";
-import { ChevronLeftIcon, ChevronRightIcon } from "@chakra-ui/icons";
+import { Box, Button, ButtonGroup, Divider, HStack, Heading, IconButton, Text, Tooltip, VStack } from "@chakra-ui/react";
+import { ChevronRightIcon } from "@chakra-ui/icons";
+import {
+  SearchIcon,
+  InfoOutlineIcon,
+  SettingsIcon,
+  ViewIcon,
+  RepeatClockIcon,
+  StarIcon,
+} from "@chakra-ui/icons";
 import * as React from "react";
 import { useWindowSize } from "react-use";
 import { useGraph, GraphCallbacks } from "../hooks/graph/useGraph";
@@ -19,22 +27,30 @@ import { GraphMode, filterGraphData, prepareGraphData } from "../utils/graphData
 import { ColorByMode } from "../utils/graphDataMappers";
 import { EdgeStyleMode } from "../lib/graph-viz";
 import { ActiveFilter, ActiveFiltersBar } from "./ActiveFiltersBar";
-import { CollapsibleSection } from "./CollapsibleSection";
+import { DockDef, DockId, DockRail } from "./DockRail";
 import { ExportButton } from "./ExportButton";
-import { FindPathToNode } from "./FindPathToNode";
 import { FormSwitch } from "./FormSwitch";
 import { HorizontalResizeHandler } from "./HorizontalResizeHandler";
 import { InvestigatePanel } from "./UsageInvestigator/InvestigatePanel";
 import { InvestigatorFs } from "../lib/usage-investigator";
 import { ListOfNodeList } from "./ListOfNodeList";
-import { ModalButton } from "./ModalButton";
-import { MonoText } from "./MonoText";
+import { NodeInspector } from "./NodeInspector";
 import { NodeList } from "./NodeList";
 import { NodesFilter } from "./NodesFilter";
-import { OpenInVSCode, SettingsOfOpenInVSCode } from "./OpenInVSCode";
+import { SettingsOfOpenInVSCode } from "./OpenInVSCode";
 import { EntriesTable } from "./Scan/EntriesTable";
 import { StatusBar } from "./StatusBar";
 import { ArrowBackIcon, RepeatIcon } from "@chakra-ui/icons";
+
+const DOCK_LABELS: Record<string, string> = {
+  inspector: "Inspector",
+  roots: "Entry points",
+  leaves: "Leaf files",
+  filters: "Filters",
+  lookup: "Look up",
+  cycles: "Cycles",
+  settings: "Settings",
+};
 
 export function Viz({
   entries,
@@ -181,8 +197,9 @@ export function Viz({
   const [vizModeView, vizMode] = useRadioGroupView(
     "Viz Mode",
     [
-      { value: "table", label: "Table" },
       { value: "graph", label: "Graph" },
+      { value: "table", label: "Table" },
+      { value: "split", label: "Split" },
     ],
     {
       defaultValue: "graph",
@@ -418,6 +435,30 @@ export function Viz({
     [entries, renderedNodesSet]
   );
 
+  // Dock state
+  const [dockId, setDockId] = React.useState<DockId | null>("inspector");
+  // Auto-open inspector when a new selection happens
+  React.useEffect(() => {
+    if (selectedNodes.size > 0 && dockId === null) {
+      setDockId("inspector");
+    }
+    // intentionally not depending on dockId
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedNodes]);
+
+  const dockDefs = React.useMemo<DockDef[]>(
+    () => [
+      { id: "inspector", label: "Inspector", icon: <InfoOutlineIcon />, badge: selectedNodes.size || undefined },
+      { id: "lookup", label: "Look up nodes", icon: <SearchIcon /> },
+      { id: "roots", label: "Entry points", icon: <StarIcon /> },
+      { id: "leaves", label: "Leaf files", icon: <ViewIcon /> },
+      { id: "filters", label: "Filters & exclusions", icon: <RepeatClockIcon />, badge: excludedNodes.length || undefined },
+      { id: "cycles", label: "Cycles", icon: <RepeatIcon />, badge: graphData.cycles.length || undefined },
+      { id: "settings", label: "Settings", icon: <SettingsIcon /> },
+    ],
+    [selectedNodes.size, excludedNodes.length, graphData.cycles.length]
+  );
+
   // Active filters chip bar
   const activeFilters = React.useMemo<ActiveFilter[]>(() => {
     const list: ActiveFilter[] = [];
@@ -507,54 +548,40 @@ export function Viz({
         </HStack>
         <ActiveFiltersBar filters={activeFilters} onClearAll={clearAllFilters} />
         <Divider height="auto" />
-        <Box
-          ref={vizContainerRef}
-          flex={1}
-          overflow={vizMode === "table" ? "hidden" : "auto"}
-          position="relative"
-          onMouseMove={(e) => {
-            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-            setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-          }}
-        >
-          <div ref={ref} style={{ display: vizMode === "table" ? "none" : undefined }} />
-          {showTooltip && (
+        <Box ref={vizContainerRef} flex={1} overflowY="auto" position="relative" minH={0}>
+          <Box
+            display={vizMode === "table" ? "none" : "flex"}
+            flexDirection="column"
+            height={vizMode === "split" ? "60%" : "100%"}
+            position="relative"
+          >
+            <div ref={ref} style={{ flex: 1, minHeight: 0 }} />
+            {layoutStale && vizMode !== "table" && (
+              <Button
+                position="absolute"
+                top={2}
+                right={2}
+                zIndex={5}
+                size="sm"
+                colorScheme="blue"
+                leftIcon={<RepeatIcon />}
+                onClick={handleRebuildLayout}
+                aria-label="Rebuild DAG layout"
+              >
+                Rebuild layout
+              </Button>
+            )}
+          </Box>
+          {(vizMode === "table" || vizMode === "split") && (
             <Box
-              position="absolute"
-              left={mousePos.x + 14}
-              top={mousePos.y - 8}
-              pointerEvents="none"
-              zIndex={20}
-              bg="gray.700"
-              color="white"
-              borderRadius="md"
-              px={2}
-              py={1}
-              fontSize="xs"
-              maxWidth="320px"
-              wordBreak="break-all"
-              boxShadow="md"
+              flex={vizMode === "split" ? "0 0 40%" : 1}
+              height={vizMode === "split" ? "40%" : "100%"}
+              overflowY="auto"
+              borderTop={vizMode === "split" ? "1px solid" : undefined}
+              borderColor="gray.200"
             >
-              {hoveredNodeId}
+              <EntriesTable entries={renderedEntries} onClickSelect={setSelectedNode} />
             </Box>
-          )}
-          {layoutStale && vizMode === "graph" && (
-            <Button
-              position="absolute"
-              top={2}
-              right={2}
-              zIndex={5}
-              size="sm"
-              colorScheme="blue"
-              leftIcon={<RepeatIcon />}
-              onClick={handleRebuildLayout}
-              aria-label="Rebuild DAG layout"
-            >
-              Rebuild layout
-            </Button>
-          )}
-          {vizMode === "table" && (
-            <EntriesTable entries={renderedEntries} onClickSelect={setSelectedNode} />
           )}
           {contextMenu && (
             <Box
@@ -661,278 +688,189 @@ export function Viz({
           selected={selectedNodes.size}
           graphMode={graphMode ?? "dag"}
           asyncCutoff={separateAsyncImports}
-          layoutStale={layoutStale && vizMode === "graph"}
+          layoutStale={layoutStale && vizMode !== "table"}
         />
       </VStack>
       <HorizontalResizeHandler onPointerDown={onPointerDown} />
-      <VStack alignItems="stretch" height="100vh" flex={1} minW={0} overflow="auto">
-        <Accordion defaultIndex={[0]} minW={0} allowToggle>
-          <CollapsibleSection label={`General Settings`}>
-            <VStack alignItems="stretch">
-              <div>
-                <SettingsOfOpenInVSCode />
-              </div>
-              <div>
-                <ExportButton data={entries} />
-              </div>
-            </VStack>
-          </CollapsibleSection>
-          {vizMode === "graph" && (
-            <CollapsibleSection label={`Graph Settings`}>
-              <VStack alignItems="stretch">
-                <div>{graphModeView}</div>
-                {graphMode === "cycles-only" && (
-                  <div>
-                    <ModalButton
-                      title={"Cycles"}
-                      renderTrigger={({ onOpen }) => <Button onClick={onOpen}>Review cycles list</Button>}
-                    >
-                      {() => (
-                        <ModalBody>
-                          <Text>There are {graphData.cycles.length} in total.</Text>
-                          <ListOfNodeList
-                            containerProps={{ maxHeight: 600 }}
-                            lists={graphData.cycles}
-                            getProps={() => ({
-                              mapProps: (id) => ({ onSelect: () => setSelectedNode(id) }),
-                            })}
-                          />
-                        </ModalBody>
-                      )}
-                    </ModalButton>
-                  </div>
-                )}
-                <div>{colorByView}</div>
-                <div>{edgeStyleView}</div>
-                <div>{fontSizeView}</div>
-                <div>{separateAsyncImportsView}</div>
-              </VStack>
-            </CollapsibleSection>
-          )}
-          <CollapsibleSection label={`Selected Node${selectedNodes.size > 1 ? `s (${selectedNodes.size})` : ""}`}>
-            {selectedNodes.size > 1 ? (
-              <VStack alignItems="flex-start">
-                <Text fontSize="sm" color="gray.600">{selectedNodes.size} nodes selected (Ctrl/Cmd+click to toggle)</Text>
-                <Button size="sm" onClick={() => setSelectedNodes(new Set())}>Clear selection</Button>
-                <Button size="sm" colorScheme="red" variant="outline" onClick={() => {
-                  selectedNodes.forEach((id) => {
-                    if (!allExcludedNodes.has(id)) toggleExcludeNode(id);
-                  });
-                  setSelectedNodes(new Set());
-                }}>
-                  Exclude all selected
-                </Button>
-                <NodeList
-                  nodes={[...selectedNodes]}
-                  kindMap={kindMap}
-                  mapProps={(id) => ({
-                    onSelect: () => setSelectedNode(id),
-                    onExclude: () => toggleExcludeNode(id),
-                  })}
+      <HStack alignItems="stretch" height="100vh" flex={1} minW={0} spacing={0}>
+        <Box flex={1} minW={0} overflow="hidden" display="flex" flexDirection="column">
+          {dockId && (
+            <>
+              <HStack
+                px={2}
+                py={1}
+                bg="gray.50"
+                borderBottom="1px solid"
+                borderColor="gray.200"
+                flexShrink={0}
+                justifyContent="space-between"
+              >
+                <Heading as="h2" size="xs" color="gray.700">
+                  {DOCK_LABELS[dockId] ?? dockId}
+                </Heading>
+                <IconButton
+                  size="xs"
+                  variant="ghost"
+                  aria-label="Close panel"
+                  icon={<ChevronRightIcon />}
+                  onClick={() => setDockId(null)}
                 />
-              </VStack>
-            ) : selectedNode ? (
-              (() => {
-                const displayedNode = nodeSelectionHistory[historyOffset] ?? selectedNode;
-                return (
-                <VStack alignItems="flex-start">
-                  <HStack width="100%" justifyContent="space-between" alignItems="center">
-                    <IconButton
-                      aria-label="Previous node"
-                      icon={<ChevronLeftIcon />}
-                      size="xs"
-                      variant="ghost"
-                      isDisabled={historyOffset >= nodeSelectionHistory.length - 1}
-                      onClick={() => setHistoryOffset((o) => o + 1)}
-                    />
-                    <Heading as="h3" size="sm" flex={1} textAlign="center">
-                      Recently selected nodes
-                    </Heading>
-                    <IconButton
-                      aria-label="Next node"
-                      icon={<ChevronRightIcon />}
-                      size="xs"
-                      variant="ghost"
-                      isDisabled={historyOffset <= 0}
-                      onClick={() => setHistoryOffset((o) => o - 1)}
-                    />
-                  </HStack>
-                  <Select
-                    value={displayedNode}
-                    onChange={(e) => {
-                      const idx = nodeSelectionHistory.indexOf(e.target.value);
-                      setHistoryOffset(idx >= 0 ? idx : 0);
-                    }}
-                    size="sm"
-                  >
-                    {nodeSelectionHistory.map((node) => (
-                      <option key={node} value={node}>
-                        {node}
-                      </option>
-                    ))}
-                  </Select>
-
-                  <Heading as="h3" size="sm">
-                    Path
-                  </Heading>
-                  <MonoText wordBreak="break-word" fontSize="xs">{displayedNode}</MonoText>
-                  <div>
-                    <OpenInVSCode layout="text" path={displayedNode} size="xs" />
-                  </div>
-
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    isDisabled={!investigatorFs}
-                    title={!investigatorFs ? "Source files are not available for this dataset" : undefined}
-                    onClick={() => setInvestigateTarget({ file: displayedNode })}
-                  >
-                    Investigate exports…
-                  </Button>
-
-                  <Heading as="h3" size="sm">
-                    Imports
-                  </Heading>
-                  <NodeList
-                    nodes={carry(data.dependencyMap.get(displayedNode), (set) =>
-                      set ? renderedNodes.filter((id) => set.has(id)) : []
-                    )}
-                    kindMap={kindMap}
-                    mapProps={(id) => ({
-                      onSelect: () => setSelectedNode(id),
-                      onInvestigate: investigatorFs ? () => setInvestigateTarget({ file: id }) : undefined,
-                    })}
-                  />
-                  <Heading as="h3" size="sm">
-                    Imported by
-                  </Heading>
-                  <NodeList
-                    nodes={carry(data.dependantMap.get(displayedNode), (set) =>
-                      set ? renderedNodes.filter((id) => set.has(id)) : []
-                    )}
-                    kindMap={kindMap}
-                    mapProps={(id) => ({
-                      onSelect: () => setSelectedNode(id),
-                      onInvestigate: investigatorFs ? () => setInvestigateTarget({ file: id }) : undefined,
-                    })}
-                  />
-                  <FindPathToNode
-                    nodes={renderedNodes}
+              </HStack>
+              <Box flex={1} overflow="auto" minH={0} px={2} py={2}>
+                {dockId === "inspector" && (
+                  <NodeInspector
+                    selectedNodes={selectedNodes}
+                    selectedNode={selectedNode}
                     data={data}
-                    selectedNode={displayedNode}
-                    setSelectedNode={setSelectedNode}
+                    renderedNodes={renderedNodes}
+                    kindMap={kindMap}
                     nodeSelectionHistory={nodeSelectionHistory}
+                    historyOffset={historyOffset}
+                    setHistoryOffset={setHistoryOffset}
+                    setSelectedNode={setSelectedNode}
+                    setSelectedNodes={setSelectedNodes}
+                    allExcludedNodes={allExcludedNodes}
+                    toggleExcludeNode={toggleExcludeNode}
+                    investigatorFs={investigatorFs}
+                    setInvestigateTarget={setInvestigateTarget}
                   />
-                  <FormSwitch
-                    label="Exclude from viz"
-                    value={allExcludedNodes.has(displayedNode)}
-                    onChange={() => toggleExcludeNode(displayedNode)}
-                  />
-                </VStack>
-                );
-              })()
-            ) : (
-              <Text color="gray.500">No selection yet</Text>
-            )}
-          </CollapsibleSection>
-          <CollapsibleSection label={`Entry points`}>
-            <VStack alignItems="flex-start">
-              <Tooltip
-                label="Files that import others but are not imported by anything — entry points / roots of the graph."
-                hasArrow
-                placement="top-start"
-              >
-                <Text fontSize="xs" color="gray.500" cursor="help" textDecoration="underline" textDecorationStyle="dotted">
-                  What are entry points?
-                </Text>
-              </Tooltip>
-              {restrictRootInputView}
-              <FormSwitch
-                label="Hide nodes not rendered as entry point"
-                inputProps={{
-                  isDisabled: restrictRootsRegExp === null,
-                }}
-                value={restrictRootsRegExp === null || inView}
-                onChange={() => setInView(!inView)}
-              />
-              <NodeList
-                nodes={restrictRootsRegExp === null || inView ? rootsInView : [...restrictedRoots]}
-                kindMap={kindMap}
-                mapProps={(id) => ({
-                  onExclude: () => toggleExcludeNode(id),
-                  onSelect: () => setSelectedNode(id),
-                })}
-              />
-            </VStack>
-          </CollapsibleSection>
-          <CollapsibleSection label={`Leaf files`}>
-            <VStack alignItems="flex-start">
-              <Tooltip
-                label="Files imported by others but importing nothing — utilities, types, constants, or 3rd party packages."
-                hasArrow
-                placement="top-start"
-              >
-                <Text fontSize="xs" color="gray.500" cursor="help" textDecoration="underline" textDecorationStyle="dotted">
-                  What are leaf files?
-                </Text>
-              </Tooltip>
-              {restrictLeavesInputView}
-              <FormSwitch
-                label="Hide nodes not rendered as leaf"
-                inputProps={{
-                  isDisabled: restrictLeavesRegExp === null,
-                }}
-                value={restrictLeavesRegExp === null || inView}
-                onChange={() => setInView(!inView)}
-              />
-              <NodeList
-                nodes={restrictLeavesRegExp === null || inView ? leavesInView : [...restrictedLeaves]}
-                kindMap={kindMap}
-                mapProps={(id) => ({
-                  onExclude: () => toggleExcludeNode(id),
-                  onSelect: () => setSelectedNode(id),
-                })}
-              />
-            </VStack>
-          </CollapsibleSection>
-          <CollapsibleSection label={`Extra Filters`}>
-            <VStack alignItems="stretch">
-              <VStack alignItems="flex-start" as="section">
-                <Heading as="h3" size="sm">
-                  These nodes have been excluded
-                </Heading>
-                <NodeList
-                  nodes={excludedNodes}
-                  kindMap={kindMap}
-                  mapProps={(id) => ({
-                    onCancel: () => toggleExcludeNode(id),
-                  })}
-                />
-              </VStack>
-              <VStack alignItems="flex-start" as="section">
-                <Heading as="h3" size="sm">
-                  Exclude with regex
-                </Heading>
-                {excludeNodesFilterInputView}
-                <NodeList nodes={excludedNodesFromInput} />
-              </VStack>
-            </VStack>
-          </CollapsibleSection>
-          <CollapsibleSection label={`Look up nodes`}>
-            <VStack alignItems="stretch">
-              {inViewView}
-              <NodesFilter
-                nodes={inView ? renderedNodes : allNodes}
-                mapProps={(id) => ({
-                  onExclude: () => toggleExcludeNode(id),
-                  onSelect: () => setSelectedNode(id),
-                })}
-              />
-            </VStack>
-          </CollapsibleSection>
-          <Box height={360} />
-        </Accordion>
-      </VStack>
+                )}
+                {dockId === "roots" && (
+                  <VStack alignItems="flex-start" spacing={2}>
+                    <Tooltip
+                      label="Files that import others but are not imported by anything — entry points / roots of the graph."
+                      hasArrow
+                      placement="top-start"
+                    >
+                      <Text fontSize="xs" color="gray.500" cursor="help" textDecoration="underline" textDecorationStyle="dotted">
+                        What are entry points?
+                      </Text>
+                    </Tooltip>
+                    {restrictRootInputView}
+                    <FormSwitch
+                      label="Hide nodes not rendered as entry point"
+                      inputProps={{ isDisabled: restrictRootsRegExp === null }}
+                      value={restrictRootsRegExp === null || inView}
+                      onChange={() => setInView(!inView)}
+                    />
+                    <NodeList
+                      nodes={restrictRootsRegExp === null || inView ? rootsInView : [...restrictedRoots]}
+                      kindMap={kindMap}
+                      mapProps={(id) => ({
+                        onExclude: () => toggleExcludeNode(id),
+                        onSelect: () => setSelectedNode(id),
+                      })}
+                    />
+                  </VStack>
+                )}
+                {dockId === "leaves" && (
+                  <VStack alignItems="flex-start" spacing={2}>
+                    <Tooltip
+                      label="Files imported by others but importing nothing — utilities, types, constants, or 3rd party packages."
+                      hasArrow
+                      placement="top-start"
+                    >
+                      <Text fontSize="xs" color="gray.500" cursor="help" textDecoration="underline" textDecorationStyle="dotted">
+                        What are leaf files?
+                      </Text>
+                    </Tooltip>
+                    {restrictLeavesInputView}
+                    <FormSwitch
+                      label="Hide nodes not rendered as leaf"
+                      inputProps={{ isDisabled: restrictLeavesRegExp === null }}
+                      value={restrictLeavesRegExp === null || inView}
+                      onChange={() => setInView(!inView)}
+                    />
+                    <NodeList
+                      nodes={restrictLeavesRegExp === null || inView ? leavesInView : [...restrictedLeaves]}
+                      kindMap={kindMap}
+                      mapProps={(id) => ({
+                        onExclude: () => toggleExcludeNode(id),
+                        onSelect: () => setSelectedNode(id),
+                      })}
+                    />
+                  </VStack>
+                )}
+                {dockId === "filters" && (
+                  <VStack alignItems="stretch" spacing={3}>
+                    <VStack alignItems="flex-start" as="section" spacing={1}>
+                      <Heading as="h3" size="xs" color="gray.600">
+                        Manually excluded ({excludedNodes.length})
+                      </Heading>
+                      <NodeList
+                        nodes={excludedNodes}
+                        kindMap={kindMap}
+                        mapProps={(id) => ({
+                          onCancel: () => toggleExcludeNode(id),
+                        })}
+                      />
+                    </VStack>
+                    <VStack alignItems="flex-start" as="section" spacing={1}>
+                      <Heading as="h3" size="xs" color="gray.600">
+                        Exclude with regex ({excludedNodesFromInput.length})
+                      </Heading>
+                      {excludeNodesFilterInputView}
+                      <NodeList nodes={excludedNodesFromInput} />
+                    </VStack>
+                  </VStack>
+                )}
+                {dockId === "lookup" && (
+                  <VStack alignItems="stretch" spacing={2}>
+                    {inViewView}
+                    <NodesFilter
+                      nodes={inView ? renderedNodes : allNodes}
+                      mapProps={(id) => ({
+                        onExclude: () => toggleExcludeNode(id),
+                        onSelect: () => setSelectedNode(id),
+                      })}
+                    />
+                  </VStack>
+                )}
+                {dockId === "cycles" && (
+                  <VStack alignItems="stretch" spacing={2}>
+                    <Text fontSize="sm" color="gray.600">
+                      {graphData.cycles.length} cycle{graphData.cycles.length === 1 ? "" : "s"} detected.
+                    </Text>
+                    {graphData.cycles.length > 0 ? (
+                      <ListOfNodeList
+                        containerProps={{ maxHeight: "calc(100vh - 220px)" }}
+                        lists={graphData.cycles}
+                        getProps={() => ({
+                          mapProps: (id) => ({ onSelect: () => setSelectedNode(id) }),
+                        })}
+                      />
+                    ) : (
+                      <Text fontSize="sm" color="gray.400">
+                        No cycles in the current filter.
+                      </Text>
+                    )}
+                  </VStack>
+                )}
+                {dockId === "settings" && (
+                  <VStack alignItems="stretch" spacing={4}>
+                    <VStack alignItems="stretch" spacing={1}>
+                      <Heading as="h3" size="xs" color="gray.600">General</Heading>
+                      <SettingsOfOpenInVSCode />
+                      <ExportButton data={entries} />
+                    </VStack>
+                    {vizMode !== "table" && (
+                      <VStack alignItems="stretch" spacing={1}>
+                        <Heading as="h3" size="xs" color="gray.600">Graph</Heading>
+                        {graphModeView}
+                        {colorByView}
+                        {edgeStyleView}
+                        {fontSizeView}
+                        {separateAsyncImportsView}
+                      </VStack>
+                    )}
+                  </VStack>
+                )}
+              </Box>
+            </>
+          )}
+        </Box>
+        <DockRail docks={dockDefs} activeId={dockId} onChange={setDockId} />
+      </HStack>
       <InvestigatePanel
         isOpen={investigateTarget !== null}
         onClose={() => setInvestigateTarget(null)}
