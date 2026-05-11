@@ -1,6 +1,6 @@
 import { Button, HStack, List, ListItem, Spinner, Text } from "@chakra-ui/react";
 import * as React from "react";
-import { IIFC } from "../../IIFC";
+import { IIFC } from "react-iifc";
 import { Size2D, useResizeHandler } from "../../../hooks/useResizeHandler";
 import { MetaFilter } from "../../../services";
 import { carry, run } from "../../../utils/general";
