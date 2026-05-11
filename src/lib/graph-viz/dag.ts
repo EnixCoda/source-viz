@@ -59,11 +59,14 @@ function applyLinearLayout(
   for (const [level, group] of levelGroups) {
     const effectiveLevel = mode === "bu" || mode === "rl" ? maxLevel - level : level;
     const primaryPos = startOffset + effectiveLevel * levelDistance;
-    const spacing = secondarySize / (group.length + 1);
+    // Cap spacing so sparse levels don't over-spread across the full axis
+    const maxSpacing = 80;
+    const spacing = Math.min(secondarySize / (group.length + 1), maxSpacing);
+    const totalSpan = spacing * (group.length - 1);
 
     for (let i = 0; i < group.length; i++) {
       const node = group[i];
-      const secondaryPos = spacing * (i + 1) - secondarySize / 2;
+      const secondaryPos = -totalSpan / 2 + spacing * i;
       if (isHorizontal) {
         node.x = primaryPos - width / 2;
         node.y = secondaryPos;
