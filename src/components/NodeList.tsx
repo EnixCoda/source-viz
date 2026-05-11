@@ -13,6 +13,8 @@ export type NodeListProps = {
   order?: Order;
   maxHeight?: number;
   rowHeight?: number;
+  /** When true, the list grows to fill its flex container instead of capping at maxHeight */
+  fillContainer?: boolean;
 };
 
 const DEFAULT_MAX_HEIGHT = 360;
@@ -39,6 +41,7 @@ export function NodeList({
   order,
   maxHeight = DEFAULT_MAX_HEIGHT,
   rowHeight = DEFAULT_ROW_HEIGHT,
+  fillContainer = false,
 }: NodeListProps) {
   const sorted = useMemo(() => {
     if (!nodes) return;
@@ -56,8 +59,7 @@ export function NodeList({
         display="flex"
         flexDirection="column"
         py={1}
-        maxHeight={maxHeight}
-        overflowY="auto"
+        {...(fillContainer ? { flex: 1, overflowY: "auto" } : { maxHeight, overflowY: "auto" })}
         gap={0.5}
         {...listProps}
       >
@@ -70,16 +72,16 @@ export function NodeList({
     );
   }
 
-  const listHeight = Math.min(maxHeight, sorted.length * rowHeight + 4);
+  const listHeight = fillContainer ? undefined : Math.min(maxHeight, sorted.length * rowHeight + 4);
   const rowProps: RowProps = { sorted, kindMap, mapProps };
 
   return (
-    <Box width="100%" {...listProps}>
+    <Box width="100%" {...(fillContainer ? { flex: 1, overflowY: "auto" } : {})} {...listProps}>
       <List<RowProps>
         rowCount={sorted.length}
         rowHeight={rowHeight}
-        defaultHeight={listHeight}
-        style={{ height: listHeight, maxHeight }}
+        defaultHeight={listHeight ?? 600}
+        style={listHeight !== undefined ? { height: listHeight, maxHeight } : { height: sorted.length * rowHeight + 4 }}
         overscanCount={6}
         rowProps={rowProps}
         rowComponent={NodeListRow}

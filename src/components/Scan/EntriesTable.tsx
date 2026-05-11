@@ -52,54 +52,43 @@ export function EntriesTable({
   });
 
   return (
-    <Box ref={parentRef} overflow="auto" height="100%">
-      <Table size="sm" {...tableProps}>
-        <Thead position="sticky" top={0} bg="white" zIndex={1}>
-          <Tr>
-            <Th>File</Th>
-            <Th>Dependencies</Th>
-            {showImportType && (
-              <Th width="0%" whiteSpace="nowrap">
-                is async import
-              </Th>
-            )}
-          </Tr>
-        </Thead>
-        <Tbody>
-          <Tr style={{ height: virtualizer.getTotalSize() }}>
-            <Td colSpan={showImportType ? 3 : 2} p={0} border="none" style={{ position: "relative" }} />
-          </Tr>
-        </Tbody>
-      </Table>
-      {/* Overlay positioned rows — avoids table-layout issues with absolute positioning */}
-      <Box position="relative" mt={`-${virtualizer.getTotalSize()}px`} pointerEvents="none">
-        <Box style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
-          {virtualizer.getVirtualItems().map((vItem) => {
-            const row = flatRows[vItem.index];
-            const badge = kindBadge[row.kind];
-            return (
-              <Box
-                key={vItem.index}
-                position="absolute"
-                top={0}
-                left={0}
-                width="100%"
-                pointerEvents="auto"
-                display="flex"
-                alignItems="baseline"
-                px={4}
-                gap={4}
-                fontSize="sm"
-                borderBottom="1px solid"
-                borderColor="gray.100"
-                style={{
-                  height: vItem.size,
-                  transform: `translateY(${vItem.start}px)`,
-                }}
-              >
-                <Box flex="1" minW={0} isTruncated>
-                  {row.isFirstInFile && (
-                    onClickSelect ? (
+    <Table size="sm" {...tableProps}>
+      <Thead position="sticky" top={0} zIndex={1} bg="white">
+        <Tr>
+          <Th>File</Th>
+          <Th>Dependencies</Th>
+          {showImportType && (
+            <Th width="0%" whiteSpace="nowrap">
+              is async import
+            </Th>
+          )}
+        </Tr>
+      </Thead>
+      <Tbody>
+        {entries.map(([file, dependencies]) => (
+          <React.Fragment key={file}>
+            {dependencies.map(([dependency, isAsync, kind], index, arr) => {
+              const badge = kindBadge[kind];
+              return (
+                <Tr key={`${index}-${dependency}-${isAsync}`} verticalAlign="baseline">
+                  {index === 0 ? (
+                    <Td rowSpan={arr.length}>
+                      {onClickSelect ? (
+                        <MonoText
+                          as="button"
+                          textAlign="left"
+                          onClick={() => onClickSelect(dependency)}
+                          style={{ cursor: "pointer", textDecoration: "underline" }}
+                        >
+                          {file}
+                        </MonoText>
+                      ) : (
+                        <MonoText>{file}</MonoText>
+                      )}
+                    </Td>
+                  ) : null}
+                  <Td>
+                    {onClickSelect ? (
                       <MonoText
                         as="button"
                         textAlign="left"

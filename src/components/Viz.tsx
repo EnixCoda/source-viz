@@ -1,5 +1,5 @@
 import { Box, Button, ButtonGroup, Divider, HStack, Heading, IconButton, Text, Tooltip, VStack } from "@chakra-ui/react";
-import { ChevronRightIcon, LockIcon, UnlockIcon } from "@chakra-ui/icons";
+import { LockIcon, UnlockIcon } from "@chakra-ui/icons";
 import {
   SearchIcon,
   InfoOutlineIcon,
@@ -1011,16 +1011,9 @@ export function Viz({
                         onClick={() => togglePin(d.id)}
                       />
                     </Tooltip>
-                    <IconButton
-                      size="xs"
-                      variant="ghost"
-                      aria-label="Close panel"
-                      icon={<ChevronRightIcon />}
-                      onClick={() => closeDock(d.id)}
-                    />
                   </HStack>
                 </HStack>
-                <Box flex={1} overflow="auto" minH={0} px={2} py={2}>
+                <Box flex={1} overflow="auto" minH={0} px={2} py={2} display="flex" flexDirection="column">
                   {d.id === "inspector" && (
                     <NodeInspector
                       selectedNodes={selectedNodes}
@@ -1040,7 +1033,7 @@ export function Viz({
                     />
                   )}
                   {d.id === "roots" && (
-                  <VStack alignItems="flex-start" spacing={2}>
+                  <VStack alignItems="flex-start" spacing={2} height="100%" width="100%">
                     <Tooltip
                       label="Files that import others but are not imported by anything — entry points / roots of the graph."
                       hasArrow
@@ -1058,6 +1051,7 @@ export function Viz({
                       onChange={() => setInView(!inView)}
                     />
                     <NodeList
+                      fillContainer
                       nodes={restrictRootsRegExp === null || inView ? rootsInView : [...restrictedRoots]}
                       kindMap={kindMap}
                       mapProps={(id) => ({
@@ -1068,7 +1062,7 @@ export function Viz({
                   </VStack>
                 )}
                   {d.id === "leaves" && (
-                    <VStack alignItems="flex-start" spacing={2}>
+                    <VStack alignItems="flex-start" spacing={2} height="100%" width="100%">
                       <Tooltip
                         label="Files imported by others but importing nothing — utilities, types, constants, or 3rd party packages."
                         hasArrow
@@ -1086,6 +1080,7 @@ export function Viz({
                         onChange={() => setInView(!inView)}
                       />
                       <NodeList
+                        fillContainer
                         nodes={restrictLeavesRegExp === null || inView ? leavesInView : [...restrictedLeaves]}
                         kindMap={kindMap}
                         mapProps={(id) => ({
