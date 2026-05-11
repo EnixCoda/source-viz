@@ -185,53 +185,49 @@ export function App() {
       );
     case "viz":
       return (
-        <VStack alignItems="stretch" maxHeight="100vh" overflow="auto">
-          <Viz
-            entries={status.data}
-            investigatorFs={investigatorFs}
-            setData={(data) =>
-              dispatch({
-                state: "viz",
-                fs: status.fs,
-                filter: status.filter,
-                data,
-              })
-            }
-            onBack={() => {
-              dispatch({
-                state: "filtering",
-                fs: status.fs,
-                filter: status.filter,
-              });
-            }}
-            onRescan={() => {
-              dispatch({
-                state: "scanning",
-                fs: status.fs,
-                filter: status.filter,
-              });
-            }}
-          />
-        </VStack>
+        <Viz
+          entries={status.data}
+          investigatorFs={investigatorFs}
+          setData={(data) =>
+            dispatch({
+              state: "viz",
+              fs: status.fs,
+              filter: status.filter,
+              data,
+            })
+          }
+          onBack={() => {
+            dispatch({
+              state: "filtering",
+              fs: status.fs,
+              filter: status.filter,
+            });
+          }}
+          onRescan={() => {
+            dispatch({
+              state: "scanning",
+              fs: status.fs,
+              filter: status.filter,
+            });
+          }}
+        />
       );
     case "restored-viz":
       return (
-        <VStack alignItems="stretch" maxHeight="100vh" overflow="auto">
-          <Viz
-            entries={status.data}
-            investigatorFs={investigatorFs}
-            setData={(data) =>
-              dispatch({
-                state: "restored-viz",
-                data,
-                sources: status.sources,
-              })
-            }
-            onBack={() => {
-              dispatch({ state: "initial" });
-            }}
-          />
-        </VStack>
+        <Viz
+          entries={status.data}
+          investigatorFs={investigatorFs}
+          setData={(data) =>
+            dispatch({
+              state: "restored-viz",
+              data,
+              sources: status.sources,
+            })
+          }
+          onBack={() => {
+            dispatch({ state: "initial" });
+          }}
+        />
       );
     default:
       throw new Error("Invalid state");
