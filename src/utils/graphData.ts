@@ -42,11 +42,18 @@ export type PreparedData = ReturnType<typeof prepareGraphData>;
 
 type DAGPruneMode = "less leave" | "less roots";
 
+/** Deep-clone a Map<string, Set<string>> so mutations don't affect the source. */
+function cloneMapOfSets<K, V>(map: Map<K, Set<V>>): Map<K, Set<V>> {
+  const clone = new Map<K, Set<V>>();
+  for (const [key, set] of map) clone.set(key, new Set(set));
+  return clone;
+}
+
 export const filterGraphData = (
-  { dependantMap, dependencyMap, asyncRefMap, nodeKinds }: PreparedData,
+  { dependantMap: origDependantMap, dependencyMap: origDependencyMap, asyncRefMap, nodeKinds }: PreparedData,
   {
-    roots,
-    leave,
+    roots: origRoots,
+    leave: origLeave,
     excludes = new Set(),
     graphMode,
     dagPruneMode,
@@ -60,12 +67,18 @@ export const filterGraphData = (
     separateAsyncImports?: boolean;
   } = {}
 ) => {
+  // Clone mutable inputs so we never modify the shared PreparedData or caller Sets
+  const dependantMap = cloneMapOfSets(origDependantMap);
+  const dependencyMap = cloneMapOfSets(origDependencyMap);
+  const roots = origRoots ? new Set(origRoots) : undefined;
+  const leave = origLeave ? new Set(origLeave) : undefined;
+
   const preventCycle = graphMode === "dag";
 
   // Traverse through dependency map and dependent map starting from roots and leave to explore the graph
   const traverse = (startNodes: Set<NodeId>, togoMap: Map<NodeId, Set<NodeId>>) => {
     const traversedNodes = new Set<NodeId>();
-    const cycles: NodeId[][] = []; // Cycle edges are derived downstream (e.g. cycleLinks in Viz.tsx)
+    const cycles: NodeId[][] = [];
     const mergedNodesMap = new Map<NodeId, Set<NodeId>>();
 
     const stack: NodeId[] = [];
@@ -138,7 +151,8 @@ export const filterGraphData = (
     };
   };
 
-  // clean up roots, leave, dependantMap, dependencyMap with exclude
+  // Clean up roots, leave, dependantMap, dependencyMap with exclude.
+  // Safe to mutate — we're working on clones.
   if (excludes.size) {
     for (const group of [roots, leave]) {
       if (group) {
@@ -170,9 +184,6 @@ export const filterGraphData = (
   ];
 
   // Prune if both roots and leave are specified
-  // Example usage:
-  //   Check out all import statements of 'react'(as leaf) starting from 'src/page/Home.js'(as root)
-  // If there is a cycle in a fork branch, exclude it
   const nodes = new Set<NodeId>();
   if (traversedFromRoots && traversedFromLeave) {
     for (const node of traversedFromRoots.nodes) if (traversedFromLeave.nodes.has(node)) nodes.add(node);
@@ -181,31 +192,22 @@ export const filterGraphData = (
     for (const node of traversedFromLeave?.nodes || []) nodes.add(node);
   }
 
-  // remove cycles, either
-  // 1. duplicated
-  // 2. cycle not accessible from both roots and leave
   const allCycles: NodeId[][] = getAllCycles();
-
-  // remove duplicated cycles
   const cycles = deduplicateCycles(allCycles);
-
   const links = getLinks();
 
   if (preventCycle) {
-    // Remove links to prevent cycle to enable DAG rendering
-    // For example, if there was such cycle `a -> b -> c`.
-    // If `a` is root, and prune for less roots, output would be `a -> b -> c`.
-    // If `a` is leave, and prune for less leave, output would be `b -> c -> a`.
+    // Remove back-edges to break cycles for DAG rendering.
     allCycles.forEach((cycle) => {
       cycle.forEach((node, index) => {
         if (roots && (dagPruneMode === "less roots" || !dagPruneMode)) {
           if (roots.has(node)) {
-            const last = cycle[(index === 0 ? cycle.length : index) - 1];
-            safeMapGet(links, last, () => new Set()).delete(node);
+            const prev = cycle[(index - 1 + cycle.length) % cycle.length];
+            safeMapGet(links, prev, () => new Set()).delete(node);
           }
         } else if (leave && (dagPruneMode === "less leave" || !dagPruneMode)) {
           if (leave.has(node)) {
-            const next = cycle[(index === cycle.length ? 0 : index) + 1];
+            const next = cycle[(index + 1) % cycle.length];
             safeMapGet(links, node, () => new Set()).delete(next);
           }
         }
@@ -219,8 +221,6 @@ export const filterGraphData = (
       if (!cycleNodes.has(node)) nodes.delete(node);
     }
 
-    // links
-    // graphData.links.filter(({ source, target }) => nodes.some((node) => node.id === source) && nodes.some((node) => node.id === target))
     for (const [source, targets] of links.entries()) {
       if (nodes.has(source)) {
         for (const target of targets) {
@@ -252,9 +252,6 @@ export const filterGraphData = (
       dependencyMap.get(node)?.forEach((dependency) => {
         if (nodes.has(dependency)) safeMapGet(links, node, () => new Set()).add(dependency);
       });
-      dependantMap.get(node)?.forEach((dependant) => {
-        if (nodes.has(dependant)) safeMapGet(links, dependant, () => new Set()).add(node);
-      });
     }
     return links;
   }
@@ -273,15 +270,21 @@ export const filterGraphData = (
     return allCycles;
   }
 };
+
 function deduplicateCycles(allCycles: string[][]) {
-  const separator = "|";
   const orderedCycles = allCycles.map((cycle) => {
     const headOfCycle = cycle.reduce((earliest, item) => (earliest < item ? earliest : item));
     const indexOfHead = cycle.indexOf(headOfCycle);
     return indexOfHead === 0 ? cycle : cycle.slice(indexOfHead).concat(cycle.slice(0, indexOfHead));
   });
-  const cycles = Array.from(new Set(orderedCycles.map((cycle) => cycle.join(separator)))).map((cycle) =>
-    cycle.split(separator)
-  );
+  const seen = new Set<string>();
+  const cycles: string[][] = [];
+  for (const cycle of orderedCycles) {
+    const key = JSON.stringify(cycle);
+    if (!seen.has(key)) {
+      seen.add(key);
+      cycles.push(cycle);
+    }
+  }
   return cycles;
 }
