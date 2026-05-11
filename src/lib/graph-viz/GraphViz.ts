@@ -1,5 +1,6 @@
 import { select } from "d3";
 import { zoom as d3Zoom, zoomIdentity, type ZoomBehavior, type ZoomTransform } from "d3";
+import { easeCubicOut } from "d3";
 import { applyDagLayout } from "./dag";
 import { hitTestNode } from "./hit-test";
 import { applyNodeColors, computeEdgeImportance, computeModuleColors, renderFrame } from "./renderer";
@@ -666,7 +667,11 @@ export class GraphViz {
     const ty = height / 2 - scale * ((minY + maxY) / 2);
     const t = zoomIdentity.translate(tx, ty).scale(scale);
     this.transform = t;
-    select(this.canvas).call(this.zoomBehavior.transform, t);
+    select(this.canvas)
+      .transition()
+      .duration(600)
+      .ease(easeCubicOut)
+      .call(this.zoomBehavior.transform, t);
   }
 
   private stopSimulation(): void {
