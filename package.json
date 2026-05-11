@@ -22,6 +22,7 @@
   "engines": {
     "node": ">=18"
   },
+  "packageManager": "pnpm@10.33.0",
   "main": "src/index.ts",
   "type": "module",
   "scripts": {
@@ -50,9 +51,15 @@
     "@react-hook/resize-observer": "^1.2.6",
     "@types/babel__traverse": "^7.20.1",
     "@types/d3": "^7.4.0",
+    "@types/d3-force": "^3.0.10",
+    "@types/d3-interpolate": "^3.0.4",
+    "@types/d3-scale-chromatic": "^3.1.0",
     "@types/path-browserify": "^1.0.2",
     "commander": "^14.0.3",
     "d3": "^7.9.0",
+    "d3-force": "^3.0.0",
+    "d3-interpolate": "^3.0.1",
+    "d3-scale-chromatic": "^3.1.0",
     "framer-motion": "^12.38.0",
     "oxc-parser": "^0.129.0",
     "path-browserify": "^1.0.1",
