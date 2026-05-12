@@ -236,6 +236,7 @@ export const filterGraphData = (
 
   return {
     cycles,
+    suggestedCuts: computeSuggestedCuts(cycles),
     nodes: [...nodes.values()].map((id) => ({ id, kind: nodeKinds.get(id) ?? ("local" as DependencyKind) })),
     links: w(
       [...links.entries()]
@@ -287,4 +288,48 @@ function deduplicateCycles(allCycles: string[][]) {
     }
   }
   return cycles;
+}
+
+export type SuggestedCut = {
+  source: NodeId;
+  target: NodeId;
+  cycleCount: number;
+  cycleIndices: number[];
+};
+
+/**
+ * Rank edges by how many cycles each one belongs to. Cutting top-ranked edges
+ * breaks the most cycles per removal. For each cycle, every consecutive pair
+ * (including wrap-around) is an edge participating in that cycle.
+ */
+export function computeSuggestedCuts(cycles: NodeId[][]): SuggestedCut[] {
+  const counts = new Map<string, { source: NodeId; target: NodeId; cycleIndices: number[] }>();
+  cycles.forEach((cycle, cycleIdx) => {
+    if (cycle.length < 2) return;
+    for (let i = 0; i < cycle.length; i++) {
+      const source = cycle[i];
+      const target = cycle[(i + 1) % cycle.length];
+      const key = JSON.stringify([source, target]);
+      const entry = counts.get(key);
+      if (entry) entry.cycleIndices.push(cycleIdx);
+      else counts.set(key, { source, target, cycleIndices: [cycleIdx] });
+    }
+  });
+  return [...counts.values()]
+    .map((e) => ({ ...e, cycleCount: e.cycleIndices.length }))
+    .sort((a, b) => b.cycleCount - a.cycleCount || (a.source + a.target).localeCompare(b.source + b.target));
+}
+
+/** Fan-in (number of importers) per node id. */
+export function computeFanIn(dependantMap: Map<NodeId, Set<NodeId>>): Map<NodeId, number> {
+  const out = new Map<NodeId, number>();
+  for (const [id, set] of dependantMap) out.set(id, set.size);
+  return out;
+}
+
+/** Fan-out (number of imports) per node id. */
+export function computeFanOut(dependencyMap: Map<NodeId, Set<NodeId>>): Map<NodeId, number> {
+  const out = new Map<NodeId, number>();
+  for (const [id, set] of dependencyMap) out.set(id, set.size);
+  return out;
 }

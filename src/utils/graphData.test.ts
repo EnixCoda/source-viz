@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { prepareGraphData, filterGraphData } from "./graphData";
+import { prepareGraphData, filterGraphData, computeSuggestedCuts, computeFanIn, computeFanOut } from "./graphData";
 import { DependencyEntry } from "../services/serializers";
 
 // Helper: build entries [file, [[dep, isAsync, kind], ...]]
@@ -148,5 +148,39 @@ describe("filterGraphData", () => {
     });
     const ids = new Set(result.nodes.map((n) => n.id));
     expect(ids.has("b")).toBe(false);
+  });
+});
+
+describe("computeSuggestedCuts", () => {
+  it("ranks edges by number of cycles they participate in", () => {
+    // Two cycles share edge b → a: [a,b] and [a,b,c]
+    const cycles = [
+      ["a", "b"],
+      ["a", "b", "c"],
+    ];
+    const cuts = computeSuggestedCuts(cycles);
+    // a→b appears in both cycles
+    const top = cuts[0];
+    expect(top.cycleCount).toBe(2);
+    expect(top.cycleIndices.sort()).toEqual([0, 1]);
+  });
+
+  it("returns empty list when no cycles", () => {
+    expect(computeSuggestedCuts([])).toEqual([]);
+  });
+});
+
+describe("computeFanIn / computeFanOut", () => {
+  it("counts dependants and dependencies", () => {
+    const prepared = prepareGraphData([
+      entry("a", [["b"], ["c"]]),
+      entry("b", [["c"]]),
+    ]);
+    const fanIn = computeFanIn(prepared.dependantMap);
+    const fanOut = computeFanOut(prepared.dependencyMap);
+    expect(fanIn.get("c")).toBe(2);
+    expect(fanIn.get("b")).toBe(1);
+    expect(fanOut.get("a")).toBe(2);
+    expect(fanOut.get("b")).toBe(1);
   });
 });
