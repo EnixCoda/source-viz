@@ -322,6 +322,7 @@ function renderLinks(
 
     const isAsync = asyncLinks?.has(`${source.id}->${target.id}`);
     const isCycleEdge = cycleLinks?.has(`${source.id}->${target.id}`);
+    const isHighlightedEdge = options.highlightedEdges?.has(`${source.id}->${target.id}`);
 
     const sourceColor = (source as RenderNode)._color ?? (source as RenderNode)._moduleColor ?? "#888";
     const targetColor = (target as RenderNode)._color ?? (target as RenderNode)._moduleColor ?? "#888";
@@ -340,6 +341,13 @@ function renderLinks(
       strokeColor = "#ff4444";
       arrowColor = "#ff4444";
       cycleHighlight = true;
+    }
+
+    if (isHighlightedEdge) {
+      strokeColor = "#ff8800";
+      arrowColor = "#ff8800";
+      cycleHighlight = true;
+      lineWidth = Math.max(lineWidth, 3 / globalScale);
     }
 
     ctx.globalAlpha = cycleHighlight ? Math.min(1, effectiveAlpha * 2.5) : effectiveAlpha;

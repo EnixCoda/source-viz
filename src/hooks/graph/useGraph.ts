@@ -28,6 +28,7 @@ export function useGraph<E extends HTMLElement>(
     colorBy = "color-by-module",
     edgeStyle = "flat",
     cycleLinks,
+    highlightedEdges,
     selectedNodeIds,
     contextMenuNodeId,
     highlightedNodeIds,
@@ -43,6 +44,7 @@ export function useGraph<E extends HTMLElement>(
     colorBy?: ColorByMode;
     edgeStyle?: EdgeStyleMode;
     cycleLinks?: Set<string>;
+    highlightedEdges?: Set<string>;
     selectedNodeIds?: Set<string>;
     highlightedNodeIds?: Set<string>;
     contextMenuNodeId?: string | null;
@@ -90,6 +92,7 @@ export function useGraph<E extends HTMLElement>(
       arrowLength: 4,
       asyncLinks,
       cycleLinks,
+      highlightedEdges,
       selectedNodeIds,
       highlightedNodeIds,
       dependencyMap: data.dependencyMap,
@@ -136,6 +139,7 @@ export function useGraph<E extends HTMLElement>(
       arrowLength: 4,
       asyncLinks,
       cycleLinks,
+      highlightedEdges,
       selectedNodeIds,
       contextMenuNodeId,
       highlightedNodeIds,
@@ -144,7 +148,7 @@ export function useGraph<E extends HTMLElement>(
     });
   }, [
     width, height, enableDagMode, dagMode, fontSize, fixFontSize,
-    colorBy, edgeStyle, asyncLinks, cycleLinks, selectedNodeIds, contextMenuNodeId,
+    colorBy, edgeStyle, asyncLinks, cycleLinks, highlightedEdges, selectedNodeIds, contextMenuNodeId,
     highlightedNodeIds,
     data.dependencyMap, data.dependantMap,
   ]);

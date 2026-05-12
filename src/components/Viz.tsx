@@ -1,4 +1,4 @@
-import { Box, Button, ButtonGroup, Divider, HStack, Heading, IconButton, Text, Tooltip, VStack } from "@chakra-ui/react";
+import { Box, Button, ButtonGroup, Divider, HStack, Heading, IconButton, Tab, TabList, TabPanel, TabPanels, Tabs, Text, Tooltip, VStack } from "@chakra-ui/react";
 import { LockIcon, UnlockIcon } from "@chakra-ui/icons";
 import {
   SearchIcon,
@@ -7,6 +7,7 @@ import {
   ViewIcon,
   RepeatClockIcon,
   StarIcon,
+  TriangleUpIcon,
 } from "@chakra-ui/icons";
 import * as React from "react";
 import { useWindowSize } from "react-use";
@@ -23,7 +24,7 @@ import { useSelectView } from "../hooks/view/useSelectView";
 import { useSwitchView } from "../hooks/view/useSwitchView";
 import { DependencyEntry } from "../services/serializers";
 import { carry } from "../utils/general";
-import { GraphMode, filterGraphData, prepareGraphData } from "../utils/graphData";
+import { GraphMode, filterGraphData, prepareGraphData, computeFanIn, computeFanOut } from "../utils/graphData";
 import { clusterGraphData, isClusterId } from "../utils/clusterGraphData";
 import {
   PersistedView,
@@ -50,6 +51,8 @@ import { Minimap } from "./Minimap";
 import { NodeHoverCard } from "./NodeHoverCard";
 import { NodeInspector } from "./NodeInspector";
 import { NodeList } from "./NodeList";
+import { Hotspots } from "./Hotspots";
+import { SuggestedCuts } from "./SuggestedCuts";
 import { NodesFilter } from "./NodesFilter";
 import { SettingsOfOpenInVSCode } from "./OpenInVSCode";
 import { EntriesTable } from "./Scan/EntriesTable";
@@ -64,6 +67,7 @@ const DOCK_LABELS: Record<string, string> = {
   leaves: "Leaf files",
   filters: "Filters",
   lookup: "Look up",
+  hotspots: "Hotspots",
   cycles: "Cycles",
   settings: "Settings",
 };
@@ -330,7 +334,20 @@ export function Viz({
   // Usage investigator state
   const [investigateTarget, setInvestigateTarget] = React.useState<{ file: string; symbol?: string | null } | null>(null);
   const [highlightedFiles, setHighlightedFiles] = React.useState<Set<string> | null>(null);
+  const [highlightedEdges, setHighlightedEdges] = React.useState<Set<string> | null>(null);
   const knownFiles = React.useMemo(() => new Set(data.nodes.keys()), [data.nodes]);
+
+  const fanInMap = React.useMemo(() => computeFanIn(data.dependantMap), [data.dependantMap]);
+  const fanOutMap = React.useMemo(() => computeFanOut(data.dependencyMap), [data.dependencyMap]);
+
+  const handleHoverHighlightNode = React.useCallback((id: string) => {
+    const nbrs = new Set<string>([id]);
+    const ins = data.dependantMap.get(id);
+    const outs = data.dependencyMap.get(id);
+    if (ins) for (const v of ins) nbrs.add(v);
+    if (outs) for (const v of outs) nbrs.add(v);
+    setHighlightedFiles(nbrs);
+  }, [data.dependantMap, data.dependencyMap]);
 
   // Close context menu on scroll or click outside
   React.useEffect(() => {
@@ -414,12 +431,25 @@ export function Viz({
       colorBy,
       edgeStyle,
       cycleLinks,
+      highlightedEdges: highlightedEdges ?? undefined,
       selectedNodeIds: selectedNodes.size > 0 ? selectedNodes : undefined,
       contextMenuNodeId: contextMenu?.nodeId ?? null,
       highlightedNodeIds: highlightedFiles ?? undefined,
       callbacks: graphCallbacks,
     }
   );
+
+  const focusFileInGraph = React.useCallback((id: string) => {
+    setSelectedNode(id);
+    graphRef.current?.focusNode(id);
+  }, [setSelectedNode, graphRef]);
+
+  const highlightEdgeBetween = React.useCallback((source: string, target: string) => {
+    setHighlightedEdges(new Set([`${source}->${target}`]));
+  }, []);
+
+  const clearHighlightedEdges = React.useCallback(() => setHighlightedEdges(null), []);
+
 
   const [layoutStale, setLayoutStale] = React.useState(false);
   const prevGraphDataRef = React.useRef<typeof displayedGraphData | null>(null);
@@ -583,6 +613,7 @@ export function Viz({
     () => [
       { id: "inspector", label: "Inspector", icon: <InfoOutlineIcon />, badge: selectedNodes.size || undefined },
       { id: "lookup", label: "Look up nodes", icon: <SearchIcon /> },
+      { id: "hotspots", label: "Hotspots (fan-in/out)", icon: <TriangleUpIcon /> },
       { id: "roots", label: "Entry points", icon: <StarIcon /> },
       { id: "leaves", label: "Leaf files", icon: <ViewIcon /> },
       { id: "filters", label: "Filters & exclusions", icon: <RepeatClockIcon />, badge: excludedNodes.length || undefined },
@@ -761,6 +792,7 @@ export function Viz({
       { id: "dock-leaves", label: "Open: Leaf files", group: "action", run: () => openDock("leaves") },
       { id: "dock-settings", label: "Open: Settings", group: "action", run: () => openDock("settings") },
       { id: "dock-lookup", label: "Open: Look up", group: "action", run: () => openDock("lookup") },
+      { id: "dock-hotspots", label: "Open: Hotspots", group: "action", run: () => openDock("hotspots") },
       { id: "mode-graph", label: "View: Graph only", group: "action", run: () => setVizMode("graph") },
       { id: "mode-table", label: "View: Table only", group: "action", run: () => setVizMode("table") },
       { id: "mode-split", label: "View: Split (graph + table)", group: "action", run: () => setVizMode("split") },
@@ -1151,30 +1183,67 @@ export function Viz({
                     </VStack>
                   )}
                   {d.id === "lookup" && (
-                    <VStack alignItems="stretch" spacing={2}>
+                    <VStack alignItems="stretch" spacing={2} flex={1} minH={0}>
                       {inViewView}
+                      <Hotspots
+                        entries={inView ? renderedNodes : allNodes}
+                        fanInMap={fanInMap}
+                        fanOutMap={fanOutMap}
+                        onFocus={focusFileInGraph}
+                        onHover={handleHoverHighlightNode}
+                        onLeave={() => setHighlightedFiles(null)}
+                      />
                       <NodesFilter
                         nodes={inView ? renderedNodes : allNodes}
                         mapProps={(id) => ({
                           onExclude: () => toggleExcludeNode(id),
-                          onSelect: () => setSelectedNode(id),
+                          onSelect: () => focusFileInGraph(id),
                         })}
                       />
                     </VStack>
                   )}
+                  {d.id === "hotspots" && (
+                    <Hotspots
+                      entries={allNodes}
+                      fanInMap={fanInMap}
+                      fanOutMap={fanOutMap}
+                      onFocus={focusFileInGraph}
+                      onHover={handleHoverHighlightNode}
+                      onLeave={() => setHighlightedFiles(null)}
+                    />
+                  )}
                   {d.id === "cycles" && (
-                    <VStack alignItems="stretch" spacing={2}>
+                    <VStack alignItems="stretch" spacing={2} flex={1} minH={0}>
                       <Text fontSize="sm" color="gray.600">
                         {graphData.cycles.length} cycle{graphData.cycles.length === 1 ? "" : "s"} detected.
                       </Text>
                       {graphData.cycles.length > 0 ? (
-                        <ListOfNodeList
-                          containerProps={{ maxHeight: "calc(100vh - 220px)" }}
-                          lists={graphData.cycles}
-                          getProps={() => ({
-                            mapProps: (id) => ({ onSelect: () => setSelectedNode(id) }),
-                          })}
-                        />
+                        <Tabs size="sm" variant="line" isLazy flex={1} display="flex" flexDirection="column" minH={0}>
+                          <TabList>
+                            <Tab>Cycles</Tab>
+                            <Tab>Suggested cuts ({graphData.suggestedCuts.length})</Tab>
+                          </TabList>
+                          <TabPanels flex={1} minH={0} overflow="hidden">
+                            <TabPanel px={0} py={2} height="100%" overflowY="auto">
+                              <ListOfNodeList
+                                containerProps={{ maxHeight: "calc(100vh - 280px)" }}
+                                lists={graphData.cycles}
+                                getProps={() => ({
+                                  mapProps: (id) => ({ onSelect: () => focusFileInGraph(id) }),
+                                })}
+                              />
+                            </TabPanel>
+                            <TabPanel px={0} py={2} height="100%" display="flex" flexDirection="column" minH={0}>
+                              <SuggestedCuts
+                                cuts={graphData.suggestedCuts}
+                                cycles={graphData.cycles}
+                                onHighlightEdge={highlightEdgeBetween}
+                                onClearHighlight={clearHighlightedEdges}
+                                onFocusNode={focusFileInGraph}
+                              />
+                            </TabPanel>
+                          </TabPanels>
+                        </Tabs>
                       ) : (
                         <Text fontSize="sm" color="gray.400">
                           No cycles in the current filter.

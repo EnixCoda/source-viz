@@ -52,6 +52,8 @@ export interface GraphVizOptions {
   arrowLength?: number;
   asyncLinks?: Set<string>; // set of "source->target" keys for dashed rendering
   cycleLinks?: Set<string>; // set of "source->target" keys that form cycles
+  /** Edges to highlight prominently (e.g. suggested cuts). Keys: "source->target". */
+  highlightedEdges?: Set<string>;
 
   // Behavior
 

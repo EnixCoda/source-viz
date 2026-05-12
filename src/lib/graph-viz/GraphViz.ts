@@ -670,6 +670,24 @@ export class GraphViz {
     this.fitToNodes((n) => idSet.has(n.id), opts);
   }
 
+  /** Pan + zoom the camera to focus a single node, smoothly. */
+  public focusNode(id: string, opts?: { scale?: number; duration?: number }): void {
+    if (!this.zoomBehavior) return;
+    const node = this.nodes.find((n) => n.id === id);
+    if (!node || node.x == null || node.y == null) return;
+    const targetScale = Math.max(this.transform.k, opts?.scale ?? 1.2);
+    const { width, height } = this.options;
+    const tx = width / 2 - targetScale * node.x;
+    const ty = height / 2 - targetScale * node.y;
+    const target = zoomIdentity.translate(tx, ty).scale(targetScale);
+    this.transform = target;
+    select(this.canvas)
+      .transition()
+      .duration(opts?.duration ?? 500)
+      .ease(easeCubicOut)
+      .call(this.zoomBehavior.transform, target);
+  }
+
   /** Reset zoom/pan to identity (1:1 centered). */
   public resetView(): void {
     if (!this.zoomBehavior) return;
