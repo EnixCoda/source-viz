@@ -777,7 +777,9 @@ export class GraphViz {
     if (this.simulationWorker) {
       try {
         this.simulationWorker.postMessage({ type: "stop" });
-      } catch {}
+      } catch {
+        // ignore errors when stopping a worker that may already be terminated
+      }
       this.simulationWorker.terminate();
       this.simulationWorker = null;
     }

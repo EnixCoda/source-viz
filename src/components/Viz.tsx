@@ -90,12 +90,7 @@ export function Viz({
    */
   investigatorFs?: InvestigatorFs | null;
 }) {
-  const data = React.useMemo(() => {
-    const t0 = performance.now();
-    const result = prepareGraphData(entries);
-    console.log(`[Viz] prepareGraphData: ${(performance.now() - t0).toFixed(1)}ms, nodes=${result.nodes.size}`);
-    return result;
-  }, [entries]);
+  const data = React.useMemo(() => prepareGraphData(entries), [entries]);
   const allNodes = React.useMemo(() => [...data.nodes.keys()].sort(), [data.nodes]);
 
   // Excludes
@@ -269,18 +264,13 @@ export function Viz({
   const [vizContainerRef] = useObserveElementSize();
   const [graphCanvasRef, graphCanvasSize] = useObserveElementSize();
 
-  const graphData = React.useMemo(() => {
-    const t0 = performance.now();
-    const result = filterGraphData(data, {
+  const graphData = React.useMemo(() => filterGraphData(data, {
       roots: restrictedRoots,
       leave: restrictedLeaves,
       excludes: allExcludedNodes,
       graphMode,
       separateAsyncImports,
-    });
-    console.log(`[Viz] filterGraphData: ${(performance.now() - t0).toFixed(1)}ms, nodes=${result.nodes.length}, links=${result.links.length}, cycles=${result.cycles.length}`);
-    return result;
-  }, [data, restrictedRoots, restrictedLeaves, graphMode, allExcludedNodes, separateAsyncImports]);
+    }), [data, restrictedRoots, restrictedLeaves, graphMode, allExcludedNodes, separateAsyncImports]);
 
   const cycleLinks = React.useMemo(() => {
     const set = new Set<string>();

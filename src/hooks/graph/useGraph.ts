@@ -71,7 +71,7 @@ export function useGraph<E extends HTMLElement>(
 
   // Keep callbacks ref-stable so GraphViz constructor doesn't re-create on every render
   const callbacksRef = React.useRef(callbacks);
-  callbacksRef.current = callbacks;
+  React.useLayoutEffect(() => { callbacksRef.current = callbacks; });
 
   // Initialize GraphViz instance
   const hasSize = width > 0 && height > 0;

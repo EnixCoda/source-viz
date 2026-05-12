@@ -29,7 +29,7 @@ function openDB(): Promise<IDBDatabase> {
   });
 }
 
-function tx<T>(mode: IDBTransactionMode, fn: (store: IDBObjectStore) => IDBRequest<T> | Promise<T>): Promise<T> {
+function tx<T>(mode: "readonly" | "readwrite" | "versionchange", fn: (store: IDBObjectStore) => IDBRequest<T> | Promise<T>): Promise<T> {
   return openDB().then(
     (db) =>
       new Promise<T>((resolve, reject) => {
@@ -103,8 +103,8 @@ export async function forgetProject(id: string): Promise<void> {
 export type HandlePermission = "granted" | "prompt" | "denied" | "unsupported";
 
 type PermissionCapableHandle = FileSystemDirectoryHandle & {
-  queryPermission?: (descriptor: { mode: "read" | "readwrite" }) => Promise<PermissionState>;
-  requestPermission?: (descriptor: { mode: "read" | "readwrite" }) => Promise<PermissionState>;
+  queryPermission?: (descriptor: { mode: "read" | "readwrite" }) => Promise<"granted" | "prompt" | "denied">;
+  requestPermission?: (descriptor: { mode: "read" | "readwrite" }) => Promise<"granted" | "prompt" | "denied">;
 };
 
 export async function queryHandlePermission(
