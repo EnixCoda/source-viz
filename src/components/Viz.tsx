@@ -287,10 +287,7 @@ export function Viz({
   // Semantic-zoom collapse: optionally roll up files into folder clusters.
   const clusteredGraphData = React.useMemo(() => {
     if (!groupByDir) return null;
-    const t0 = performance.now();
-    const result = clusterGraphData({ nodes: graphData.nodes, links: graphData.links }, groupDepth);
-    console.log(`[Viz] clusterGraphData: ${(performance.now() - t0).toFixed(1)}ms, depth=${groupDepth}, nodes=${result.nodes.length}, links=${result.links.length}`);
-    return result;
+    return clusterGraphData({ nodes: graphData.nodes, links: graphData.links }, groupDepth);
   }, [groupByDir, groupDepth, graphData.nodes, graphData.links]);
 
   const displayedGraphData = React.useMemo(() => (
@@ -454,6 +451,7 @@ export function Viz({
 
   React.useEffect(() => {
     // Reset stale flag when DAG mode is turned off (no DAG layout to rebuild)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (graphMode !== "dag") setLayoutStale(false);
   }, [graphMode]);
 
@@ -465,6 +463,7 @@ export function Viz({
   const [nodeSelectionHistory, setNodeSelectionHistory] = React.useState<string[]>([]);
   React.useEffect(() => {
     if (selectedNodes.size === 0) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setNodeSelectionHistory((history) => {
       const newNodes = [...selectedNodes].filter((n) => !history.includes(n));
       if (newNodes.length === 0) return history;
@@ -476,6 +475,7 @@ export function Viz({
   const [historyOffset, setHistoryOffset] = React.useState(0);
   React.useEffect(() => {
     if (selectedNodes.size !== 1) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setHistoryOffset(0);
       return;
     }
@@ -556,9 +556,11 @@ export function Viz({
 
   // Stable refs so callbacks below don't need to re-create on every state change
   const openDockIdsRef = React.useRef(openDockIds);
-  openDockIdsRef.current = openDockIds;
   const pinnedDockIdsRef = React.useRef(pinnedDockIds);
-  pinnedDockIdsRef.current = pinnedDockIds;
+  React.useLayoutEffect(() => {
+    openDockIdsRef.current = openDockIds;
+    pinnedDockIdsRef.current = pinnedDockIds;
+  });
 
   const closeDock = React.useCallback((id: DockId) => {
     setOpenDockIds(prev => { const next = new Set(prev); next.delete(id); return next; });
@@ -710,6 +712,7 @@ export function Viz({
     if (restoredSigRef.current === datasetSig) return;
     restoredSigRef.current = datasetSig;
     const v = loadLastView(datasetSig);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (Object.keys(v).length > 0) restoreView(v);
   }, [datasetSig, restoreView]);
 
@@ -718,6 +721,7 @@ export function Viz({
     () => listSavedViews(datasetSig)
   );
   React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSavedViews(listSavedViews(datasetSig));
   }, [datasetSig]);
 
@@ -790,6 +794,7 @@ export function Viz({
     ];
     // Node actions: pick & focus
     for (const n of allNodes) {
+      // eslint-disable-next-line react-hooks/refs
       actions.push({
         id: `node:${n}`,
         label: n,
@@ -846,7 +851,7 @@ export function Viz({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [graphRef, paletteOpen, selectedNodes, toggleExcludeNode, setGroupByDir]);
+  }, [graphRef, paletteOpen, selectedNodes, toggleExcludeNode, setGroupByDir, openDock]);
 
   return (
     <HStack alignItems="stretch" spacing={0} maxHeight="100%" height="100vh" width="100%">

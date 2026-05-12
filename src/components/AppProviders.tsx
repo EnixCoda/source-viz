@@ -1,3 +1,4 @@
+import * as React from "react";
 import { ChakraProvider } from "@chakra-ui/react";
 import { LocalPathContextProvider } from "./LocalPathContext";
 import { theme } from "../theme";

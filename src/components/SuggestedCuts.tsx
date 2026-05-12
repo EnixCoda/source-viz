@@ -23,6 +23,7 @@ export function SuggestedCuts({
   const [expandedIdx, setExpandedIdx] = React.useState<number | null>(null);
 
   const parentRef = React.useRef<HTMLDivElement>(null);
+  // eslint-disable-next-line react-hooks/incompatible-library
   const virtualizer = useVirtualizer({
     count: cuts.length,
     getScrollElement: () => parentRef.current,

@@ -14,10 +14,12 @@ export function useRegExpInputView(config: UseInputViewConfig = {}) {
   const [lastValidRegExp, setLastValidRegExp] = React.useState<RegExp | null>(null);
   React.useEffect(() => {
     // preserve value on regExp become invalid
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (regExp !== false) setLastValidRegExp(regExp);
   }, [regExp]);
 
   React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsInvalid(regExp === false);
   }, [regExp]);
 

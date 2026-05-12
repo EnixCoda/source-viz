@@ -7,7 +7,6 @@
  * lightweight recursive AST walk.
  */
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyNode = Record<string, any>;
 
 /** Extract the string value from a Literal or plain TemplateLiteral node. */

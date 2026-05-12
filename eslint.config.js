@@ -6,7 +6,7 @@ import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 
 export default [
-  { ignores: ["dist/**", "dev-dist/**", "node_modules/**"] },
+  { ignores: ["dist/**", "dev-dist/**", "node_modules/**", "dist-cli/**"] },
   {
     files: ["**/*.{ts,tsx}"],
     languageOptions: {
@@ -24,7 +24,21 @@ export default [
       ...tsPlugin.configs.recommended.rules,
       ...reactHooks.configs.recommended.rules,
       "@typescript-eslint/no-explicit-any": "off",
+      "no-undef": "off",
+      "@typescript-eslint/no-unused-vars": ["error", {
+        "varsIgnorePattern": "^_",
+        "argsIgnorePattern": "^_",
+        "caughtErrorsIgnorePattern": "^_",
+      }],
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
     },
+  },
+  {
+    files: ["cli/**/*.ts", "scripts/**/*.{ts,cjs}", "bench/**/*.ts"],
+    languageOptions: { globals: { ...globals.node } },
+  },
+  {
+    files: ["src/types.ts"],
+    rules: { "@typescript-eslint/no-unused-vars": "off" },
   },
 ];

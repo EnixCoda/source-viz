@@ -88,7 +88,6 @@ export function InvestigatePanel(props: Props) {
         if (!alive) return;
         const parse = (filename: string, source: string) => {
           const r = oxc.parseSync(filename, source, { sourceType: "unambiguous" });
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           return { program: r.program as any, module: r.module as any };
         };
         const inv = createInvestigator({ fs, knownFiles, dependencyMap, resolveAlias, parse });
@@ -103,6 +102,7 @@ export function InvestigatePanel(props: Props) {
   React.useEffect(() => {
     if (!isOpen || !investigator || !file) return;
     let alive = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setExports(null);
     investigator.listExports(file).then((list) => {
       if (!alive) return;
@@ -120,6 +120,7 @@ export function InvestigatePanel(props: Props) {
 
   React.useEffect(() => {
     if (!isOpen || !investigator || !file || !symbol) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setHits([]);
       return;
     }
@@ -320,6 +321,7 @@ function VirtualHitList({
   }, [hopGroups]);
 
   const parentRef = React.useRef<HTMLDivElement>(null);
+  // eslint-disable-next-line react-hooks/incompatible-library
   const virtualizer = useVirtualizer({
     count: flatRows.length,
     getScrollElement: () => parentRef.current,

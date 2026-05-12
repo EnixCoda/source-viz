@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-/* eslint-disable @typescript-eslint/no-require-imports */
 // Sanity check: every cacheable file in dist/ is referenced by the SW precache
 // manifest. Helps catch cases where a new asset type slips past globPatterns.
 const fs = require("node:fs");

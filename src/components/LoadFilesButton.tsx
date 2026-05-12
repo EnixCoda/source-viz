@@ -1,5 +1,5 @@
+import * as React from "react";
 import { Button, ButtonProps } from "@chakra-ui/react";
-import { useRef } from "react";
 
 export function LoadFilesButton({
   onLoad,
@@ -13,7 +13,7 @@ export function LoadFilesButton({
   multiple?: boolean;
   children?: ButtonProps["children"];
 } & Pick<React.InputHTMLAttributes<HTMLInputElement>, "accept">) {
-  const inputRef = useRef<HTMLInputElement | null>(null);
+  const inputRef = React.useRef<HTMLInputElement | null>(null);
   return (
     <>
       <Button

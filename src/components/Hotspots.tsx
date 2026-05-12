@@ -54,6 +54,7 @@ export function Hotspots({
   const max = ranked[0]?.score ?? 1;
 
   const parentRef = React.useRef<HTMLDivElement>(null);
+  // eslint-disable-next-line react-hooks/incompatible-library
   const virtualizer = useVirtualizer({
     count: ranked.length,
     getScrollElement: () => parentRef.current,

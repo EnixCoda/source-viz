@@ -18,7 +18,6 @@
  * shadow an imported name, which is rare in practice.
  */
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyNode = Record<string, any>;
 
 export type ImportBinding =

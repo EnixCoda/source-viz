@@ -53,7 +53,7 @@ export const entryParsers: Record<SupportExts, (source: string) => DependencyEnt
       if (!result.success) throw new Error();
       return result.data;
     } catch (err) {
-      throw new Error("Invalid JSON content for entries");
+      throw new Error("Invalid JSON content for entries", { cause: err });
     }
   },
 };

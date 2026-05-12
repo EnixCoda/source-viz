@@ -139,6 +139,7 @@ export function RecentProjects({
 }
 
 /** Helper used by FSLoadFilesButton callers to also persist the handle. */
+// eslint-disable-next-line react-refresh/only-export-components
 export async function persistOpenedHandle(handle: FileSystemDirectoryHandle): Promise<void> {
   await rememberProject(handle);
 }

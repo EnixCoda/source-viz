@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-// @ts-expect-error
+// @ts-expect-error — oxc-parser/src-js/wasm.js is not exposed in the package types
 import * as oxc from "oxc-parser/src-js/wasm.js";
 import { analyzeFile, type FileSymbols, type Parser } from "../parseSymbols";
 import { resolveExport } from "../resolve";

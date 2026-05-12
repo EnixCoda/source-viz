@@ -33,10 +33,7 @@ import { applyDagLayout } from "../src/lib/graph-viz/dag";
 import { applyNodeColors, computeEdgeImportance, computeModuleColors } from "../src/lib/graph-viz/renderer";
 import {
   forceSimulation,
-  forceLink,
-  forceManyBody,
   forceCollide,
-  type SimulationLinkDatum,
 } from "d3-force";
 
 function time<T>(label: string, fn: () => T): T {

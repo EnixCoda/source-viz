@@ -2,7 +2,6 @@ import { Switch, SwitchProps } from "@chakra-ui/react";
 import { FormControlView, UseFormControlConfig } from "../hooks/view/FormControlView";
 
 export function FormSwitch({
-  defaultValue = false,
   inputProps,
   value,
   onChange,

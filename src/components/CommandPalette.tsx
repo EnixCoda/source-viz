@@ -59,6 +59,7 @@ export function CommandPalette({
 
   React.useEffect(() => {
     if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setQuery("");
       setActiveIdx(0);
       // Focus after the modal animation
@@ -80,6 +81,7 @@ export function CommandPalette({
   }, [actions, query]);
 
   React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (activeIdx >= filtered.length) setActiveIdx(0);
   }, [filtered, activeIdx]);
 
