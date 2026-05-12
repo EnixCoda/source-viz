@@ -137,3 +137,4 @@ npm
 public/demo-data.json
 dist-cli/
 public/demo-sources.json
+dev-dist/
