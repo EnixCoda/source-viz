@@ -6,6 +6,7 @@ import {
   Heading,
   HStack,
   IconButton,
+  Input,
   Select,
   Spinner,
   Text,
@@ -58,6 +59,24 @@ export function InvestigatePanel(props: Props) {
   const [hits, setHits] = React.useState<UsageHit[]>([]);
   const [running, setRunning] = React.useState(false);
   const [highlight, setHighlight] = React.useState(true);
+  const [pathFilter, setPathFilter] = React.useState("");
+
+  const matchPath = React.useCallback((path: string) => {
+    const f = pathFilter.trim();
+    if (!f) return true;
+    if (f.includes("*")) {
+      const re = new RegExp(
+        "^" + f.split("*").map((s) => s.replace(/[.+?^${}()|[\]\\]/g, "\\$&")).join(".*") + "$"
+      );
+      return re.test(path);
+    }
+    return path.toLowerCase().includes(f.toLowerCase());
+  }, [pathFilter]);
+
+  const filteredHits = React.useMemo(
+    () => (pathFilter.trim() ? hits.filter((h) => matchPath(h.file)) : hits),
+    [hits, pathFilter, matchPath]
+  );
 
   React.useEffect(() => {
     if (!isOpen || !fs) return;
@@ -138,19 +157,19 @@ export function InvestigatePanel(props: Props) {
       return;
     }
     const set = new Set<string>();
-    for (const h of hits) set.add(h.file);
+    for (const h of filteredHits) set.add(h.file);
     onHighlightedFilesChange(set);
-  }, [isOpen, highlight, hits, onHighlightedFilesChange]);
+  }, [isOpen, highlight, filteredHits, onHighlightedFilesChange]);
 
   const hopGroups = React.useMemo(() => {
     const groups = new Map<number, UsageHit[]>();
-    for (const h of hits) {
+    for (const h of filteredHits) {
       let g = groups.get(h.hop);
       if (!g) { g = []; groups.set(h.hop, g); }
       g.push(h);
     }
     return [...groups.entries()].sort(([a], [b]) => a - b);
-  }, [hits]);
+  }, [filteredHits]);
 
   if (!isOpen) return null;
 
@@ -208,8 +227,19 @@ export function InvestigatePanel(props: Props) {
                 {highlight ? "Hide highlight" : "Show on graph"}
               </Button>
               {running && <Spinner size="xs" />}
-              <Text fontSize="xs" color="gray.500">{hits.length} hits</Text>
+              <Text fontSize="xs" color="gray.500">
+                {hits.length} hits{pathFilter.trim() ? ` (${filteredHits.length} matching filter)` : ""}
+              </Text>
             </HStack>
+
+            <Box>
+              <Input
+                size="xs"
+                placeholder="Filter results by path (e.g. /pages/ or *.page.tsx)"
+                value={pathFilter}
+                onChange={(e) => setPathFilter(e.target.value)}
+              />
+            </Box>
 
             <Box>
               {hopGroups.length === 0 && !running && (
@@ -219,6 +249,8 @@ export function InvestigatePanel(props: Props) {
                 hopGroups={hopGroups}
                 onFocusFile={onFocusFile}
                 onNavigate={onNavigate}
+                originFile={file}
+                dependencyMap={dependencyMap}
               />
             </Box>
           </VStack>
@@ -239,11 +271,45 @@ function VirtualHitList({
   hopGroups,
   onFocusFile,
   onNavigate,
+  originFile,
+  dependencyMap,
 }: {
   hopGroups: [number, UsageHit[]][];
   onFocusFile: (file: string) => void;
   onNavigate: (file: string, symbol?: string) => void;
+  originFile: string | null;
+  dependencyMap: Map<string, Set<string>>;
 }) {
+  const [chainFor, setChainFor] = React.useState<string | null>(null);
+
+  const chain = React.useMemo(() => {
+    if (!chainFor || !originFile) return null;
+    if (chainFor === originFile) return [chainFor];
+    const queue: string[] = [chainFor];
+    const visited = new Set<string>([chainFor]);
+    const parent = new Map<string, string>();
+    while (queue.length) {
+      const cur = queue.shift()!;
+      const next = dependencyMap.get(cur);
+      if (!next) continue;
+      for (const n of next) {
+        if (visited.has(n)) continue;
+        visited.add(n);
+        parent.set(n, cur);
+        if (n === originFile) {
+          const path: string[] = [n];
+          let p: string | undefined = cur;
+          while (p) {
+            path.unshift(p);
+            p = parent.get(p);
+          }
+          return path.reverse();
+        }
+        queue.push(n);
+      }
+    }
+    return null;
+  }, [chainFor, originFile, dependencyMap]);
   const flatRows = React.useMemo<FlatHitRow[]>(() => {
     const rows: FlatHitRow[] = [];
     for (const [hop, group] of hopGroups) {
@@ -285,42 +351,79 @@ function VirtualHitList({
             );
           }
           const h = row.hit;
+          const isChainOpen = chainFor === h.file;
           return (
-            <HStack
+            <Box
               key={vItem.key}
               position="absolute"
               top={0}
               left={0}
               width="100%"
-              spacing={2}
-              px={2}
-              py={1}
-              borderRadius="sm"
-              _hover={{ bg: "gray.100", cursor: "pointer" }}
-              onClick={() => onFocusFile(h.file)}
               style={{ height: vItem.size, transform: `translateY(${vItem.start}px)` }}
             >
-              <Badge colorScheme={KIND_BADGE[h.kind].color} fontSize="0.6em">
-                {KIND_BADGE[h.kind].label}
-              </Badge>
-              <Box minW={0} flex={1}>
-                <Text fontSize="sm" fontWeight="medium" isTruncated>{h.symbol}</Text>
-                <MonoText fontSize="xs" color="gray.500" isTruncated>{h.file}</MonoText>
-              </Box>
-              {(h.kind === "re-export" || h.kind === "wrapper") && (
+              <HStack
+                spacing={2}
+                px={2}
+                py={1}
+                borderRadius="sm"
+                _hover={{ bg: "gray.100", cursor: "pointer" }}
+                onClick={() => onFocusFile(h.file)}
+              >
+                <Badge colorScheme={KIND_BADGE[h.kind].color} fontSize="0.6em">
+                  {KIND_BADGE[h.kind].label}
+                </Badge>
+                <Box minW={0} flex={1}>
+                  <Text fontSize="sm" fontWeight="medium" isTruncated>{h.symbol}</Text>
+                  <MonoText fontSize="xs" color="gray.500" isTruncated>{h.file}</MonoText>
+                </Box>
                 <IconButton
-                  aria-label={`Investigate ${h.file}`}
-                  icon={<Text fontSize="xs">🔍</Text>}
+                  aria-label="Show import chain"
+                  icon={<Text fontSize="xs">⛓</Text>}
                   size="xs"
-                  variant="ghost"
-                  title="Investigate this file's exports"
+                  variant={isChainOpen ? "solid" : "ghost"}
+                  title="Show import chain to origin"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onNavigate(h.file, h.symbol);
+                    setChainFor(isChainOpen ? null : h.file);
                   }}
                 />
+                {(h.kind === "re-export" || h.kind === "wrapper") && (
+                  <IconButton
+                    aria-label={`Investigate ${h.file}`}
+                    icon={<Text fontSize="xs">🔍</Text>}
+                    size="xs"
+                    variant="ghost"
+                    title="Investigate this file's exports"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onNavigate(h.file, h.symbol);
+                    }}
+                  />
+                )}
+              </HStack>
+              {isChainOpen && (
+                <Box pl={6} pr={2} pb={1} bg="gray.50">
+                  {chain ? (
+                    chain.map((p, i) => (
+                      <MonoText
+                        key={`${p}-${i}`}
+                        fontSize="xs"
+                        color={p === originFile ? "purple.600" : "gray.700"}
+                        cursor="pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onFocusFile(p);
+                        }}
+                      >
+                        {i === 0 ? "" : "→ "}{p}
+                      </MonoText>
+                    ))
+                  ) : (
+                    <Text fontSize="xs" color="gray.500">No import path found.</Text>
+                  )}
+                </Box>
               )}
-            </HStack>
+            </Box>
           );
         })}
       </Box>
