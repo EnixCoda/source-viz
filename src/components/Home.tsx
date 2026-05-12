@@ -20,7 +20,6 @@ import {
 import * as React from "react";
 import { BrowserCapabilities } from "../lib/browserCapabilities";
 import { rememberProject } from "../lib/recentProjects";
-import { BrowserSupportBanner } from "./BrowserSupportBanner";
 import { FSLoadFilesButton } from "./FSLoadFilesButton";
 import { LoadDataButton } from "./LoadDataButton";
 import { PrivacyPromise } from "./PrivacyPromise";
@@ -95,28 +94,28 @@ function ActionCard({ icon, title, description, action, highlight, disabled, dis
       padding={5}
       borderWidth="1px"
       borderRadius="lg"
-      borderColor={highlight ? "green.300" : "gray.200"}
+      borderColor={highlight ? "green.300" : disabled ? "gray.100" : "gray.200"}
       bg={highlight ? "green.50" : "white"}
       boxShadow={highlight ? "md" : "sm"}
-      opacity={disabled ? 0.55 : 1}
+      opacity={1}
       transition="all 0.15s"
       _hover={{ boxShadow: disabled ? undefined : "md", borderColor: disabled ? undefined : (highlight ? "green.400" : "blue.300") }}
       position="relative"
       minH="180px"
     >
       <HStack spacing={2}>
-        <Box as={icon} fontSize="2xl" color={highlight ? "green.500" : "blue.500"} />
-        <Heading as="h3" size="sm">{title}</Heading>
+        <Box as={icon} fontSize="2xl" color={disabled ? "gray.300" : highlight ? "green.500" : "blue.500"} />
+        <Heading as="h3" size="sm" color={disabled ? "gray.400" : undefined}>{title}</Heading>
         {highlight && (
           <Tag size="sm" colorScheme="green" ml="auto">Recommended</Tag>
         )}
       </HStack>
-      <Text fontSize="sm" color="gray.600" flex={1}>
+      <Text fontSize="sm" color={disabled ? "gray.400" : "gray.600"} flex={1}>
         {description}
       </Text>
       <Box>{action}</Box>
       {disabled && disabledHint && (
-        <Text fontSize="xs" color="orange.600">{disabledHint}</Text>
+        <Text fontSize="xs" color="orange.800" fontWeight="medium">{disabledHint}</Text>
       )}
     </VStack>
   );
@@ -152,7 +151,6 @@ export function Home({ caps, onScanLocal, onLoadData, onLoadDemo }: HomeProps) {
 
   return (
     <VStack alignItems="stretch" spacing={0} flex={1} overflow="hidden">
-      <BrowserSupportBanner caps={caps} />
       <Box flex={1} overflowY="auto">
         <VStack
           maxW="1100px"
@@ -210,7 +208,7 @@ export function Home({ caps, onScanLocal, onLoadData, onLoadDemo }: HomeProps) {
               title="Scan local project"
               description="Pick a project folder (where package.json lives) to scan its imports."
               disabled={!caps.canScanLocal}
-              disabledHint={!caps.canScanLocal ? "Requires Chrome or Edge." : undefined}
+              disabledHint={!caps.canScanLocal ? "Local scanning requires Chrome or Edge (File System Access API)." : undefined}
               action={
                 <FSLoadFilesButton
                   buttonProps={{ colorScheme: "blue", width: "100%", isDisabled: !caps.canScanLocal }}
