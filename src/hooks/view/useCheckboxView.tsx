@@ -9,7 +9,7 @@ export function useCheckboxView({
   ...formControlViewProps
 }: UseFormControlConfig<boolean, CheckboxProps> = {}) {
   return useView(defaultValue, (checked, setChecked) => (
-    <FormControlView {...formControlViewProps}>
+    <FormControlView indentHelperText {...formControlViewProps}>
       <Checkbox isChecked={checked} onChange={(e) => setChecked(e.target.checked)} {...inputProps}>
         {label}
       </Checkbox>

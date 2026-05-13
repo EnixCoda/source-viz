@@ -663,6 +663,17 @@ export function Viz({
       return new Map(prev).set(id, el);
     });
   }, []);
+  // Cache stable ref callbacks per id so React doesn't detach/reattach
+  // (and ping-pong setBodySlot) on every parent render.
+  const bodySlotRefsRef = React.useRef<Map<string, (el: HTMLDivElement | null) => void>>(new Map());
+  const getBodySlotRef = React.useCallback((id: string) => {
+    let ref = bodySlotRefsRef.current.get(id);
+    if (!ref) {
+      ref = (el: HTMLDivElement | null) => setBodySlot(id, el);
+      bodySlotRefsRef.current.set(id, ref);
+    }
+    return ref;
+  }, [setBodySlot]);
 
   // Dock panel vertical resize
   // Dock flex map: per-panel-id weight for vertical stacking within a zone.
@@ -1196,13 +1207,16 @@ export function Viz({
               onHover={handleHoverHighlightNode}
               onLeave={() => setHighlightedFiles(null)}
             />
-            <NodesFilter
-              nodes={inView ? renderedNodes : allNodes}
-              mapProps={(id) => ({
-                onExclude: () => toggleExcludeNode(id),
-                onSelect: () => focusFileInGraph(id),
-              })}
-            />
+            <Box flex={1} minH="120px" display="flex" flexDirection="column">
+              <NodesFilter
+                nodes={inView ? renderedNodes : allNodes}
+                fillContainer
+                mapProps={(id) => ({
+                  onExclude: () => toggleExcludeNode(id),
+                  onSelect: () => focusFileInGraph(id),
+                })}
+              />
+            </Box>
           </VStack>
         )}
         {d.id === "hotspots" && (
@@ -1296,7 +1310,7 @@ export function Viz({
         <Box display="flex" flexDirection="column" flex={dockFlexMap.get(d.id) ?? 1} minH={0} minW={0} overflow="hidden">
           {renderPanelHeader(d)}
           {/* slot div: portal target for this panel's body */}
-          <div ref={el => setBodySlot(d.id, el)} style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }} />
+          <div ref={getBodySlotRef(d.id)} style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }} />
         </Box>
       </React.Fragment>
     ));
@@ -1590,7 +1604,7 @@ export function Viz({
                   {bottomDefs.map(d => (
                     <div
                       key={d.id}
-                      ref={el => setBodySlot(d.id, el)}
+                      ref={getBodySlotRef(d.id)}
                       style={{
                         position: "absolute",
                         inset: 0,

@@ -8,7 +8,11 @@ export function NodesFilter({ nodes, ...rest }: NodeListProps) {
   const filteredNodes = React.useMemo(() => nodes?.filter((id) => !regExp || id.match(regExp)), [nodes, regExp]);
 
   return (
-    <VStack maxWidth="100%" alignItems="flex-start">
+    <VStack
+      maxWidth="100%"
+      alignItems="flex-start"
+      {...(rest.fillContainer ? { flex: 1, minH: 0, width: "100%" } : {})}
+    >
       {view}
       <NodeList {...rest} nodes={filteredNodes} />
     </VStack>

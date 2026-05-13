@@ -19,6 +19,8 @@ export type FormControlViewProps = {
   formControlProps?: Partial<FormControlProps>;
   row?: boolean;
   putLabelBehind?: boolean;
+  /** Indent helper text to align under the label, not the control widget (useful for checkboxes/switches) */
+  indentHelperText?: boolean;
 };
 
 export function FormControlView({
@@ -28,6 +30,7 @@ export function FormControlView({
   helperText,
   row,
   putLabelBehind,
+  indentHelperText,
   children,
 }: React.PropsWithChildren<FormControlViewProps>) {
   const labelElement = label && <FormLabel fontSize="sm" marginBottom={row ? 0 : 1}>{label}</FormLabel>;
@@ -47,7 +50,7 @@ export function FormControlView({
       {!putLabelBehind && labelElement}
       {children}
       {putLabelBehind && labelElement}
-      {helperText && <FormHelperText>{helperText}</FormHelperText>}
+      {helperText && <FormHelperText marginTop={1} {...(indentHelperText ? { paddingLeft: 6 } : {})}>{helperText}</FormHelperText>}
       {errorMessage && <FormErrorMessage>{errorMessage}</FormErrorMessage>}
     </FormControl>
   );
