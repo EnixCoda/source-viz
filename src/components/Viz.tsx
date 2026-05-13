@@ -1,4 +1,5 @@
 import { Box, Button, ButtonGroup, Divider, HStack, Heading, IconButton, Menu, MenuButton, MenuDivider, MenuItem, MenuList, Tab, TabList, TabPanel, TabPanels, Tabs, Text, Tooltip, VStack } from "@chakra-ui/react";
+import { createPortal } from "react-dom";
 import { ChevronDownIcon, CloseIcon, HamburgerIcon } from "@chakra-ui/icons";
 import {
   SearchIcon,
@@ -646,6 +647,23 @@ export function Viz({
   const [bottomHeight, setBottomHeight] = React.useState<number>(240);
   const [bottomActiveTab, setBottomActiveTab] = React.useState<string | null>(null);
 
+  // Slot divs for panel body portals. Keyed by panel id.
+  // When a panel moves between zones, its slot div changes but the portal fiber stays
+  // at the same position in the tree → React moves the DOM without unmounting → state preserved.
+  const [panelBodySlots, setPanelBodySlots] = React.useState<Map<string, HTMLDivElement>>(() => new Map());
+  const setBodySlot = React.useCallback((id: string, el: HTMLDivElement | null) => {
+    setPanelBodySlots(prev => {
+      if (el === null) {
+        if (!prev.has(id)) return prev;
+        const next = new Map(prev);
+        next.delete(id);
+        return next;
+      }
+      if (prev.get(id) === el) return prev;
+      return new Map(prev).set(id, el);
+    });
+  }, []);
+
   // Dock panel vertical resize
   // Dock flex map: per-panel-id weight for vertical stacking within a zone.
   const [dockFlexMap, setDockFlexMap] = React.useState<Map<string, number>>(new Map());
@@ -1277,7 +1295,8 @@ export function Viz({
         {i > 0 && <VerticalResizeHandler onPointerDown={makeStackResizeHandler(containerRef, arr[i - 1].id, d.id, "y")} />}
         <Box display="flex" flexDirection="column" flex={dockFlexMap.get(d.id) ?? 1} minH={0} minW={0} overflow="hidden">
           {renderPanelHeader(d)}
-          {renderPanelBody(d)}
+          {/* slot div: portal target for this panel's body */}
+          <div ref={el => setBodySlot(d.id, el)} style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }} />
         </Box>
       </React.Fragment>
     ));
@@ -1480,7 +1499,6 @@ export function Viz({
         {hasBottom && (() => {
           const bottomDefs = dockDefs.filter(d => placementOf(d.id) === "bottom");
           const activeId = bottomDefs.find(d => d.id === bottomActiveTab)?.id ?? bottomDefs[0]?.id ?? null;
-          const activeDef = bottomDefs.find(d => d.id === activeId) ?? null;
           return (
             <>
               <VerticalResizeHandler onPointerDown={makeZoneResizeHandler("y", -1, bottomHeight, setBottomHeight)} />
@@ -1567,12 +1585,21 @@ export function Viz({
                     );
                   })()}
                 </HStack>
-                {/* Active panel body */}
-                {activeDef && (
-                  <Box flex={1} minH={0} display="flex" flexDirection="column" overflow="hidden">
-                    {renderPanelBody(activeDef)}
-                  </Box>
-                )}
+                {/* Tab bodies: all mounted (preserves state), only active shown */}
+                <Box flex={1} minH={0} position="relative" overflow="hidden">
+                  {bottomDefs.map(d => (
+                    <div
+                      key={d.id}
+                      ref={el => setBodySlot(d.id, el)}
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        display: d.id === activeId ? "flex" : "none",
+                        flexDirection: "column",
+                      }}
+                    />
+                  ))}
+                </Box>
               </Box>
             </>
           );
@@ -1613,6 +1640,14 @@ export function Viz({
         onNavigate={(file, symbol) => setInvestigateTarget({ file, symbol })}
       />
       <CommandPalette isOpen={paletteOpen} onClose={() => setPaletteOpen(false)} actions={paletteActions} />
+      {/* Panel body portals — one per open panel, stable across zone moves */}
+      {dockDefs
+        .filter(d => placementOf(d.id) !== "closed")
+        .map(d => {
+          const slot = panelBodySlots.get(d.id);
+          if (!slot) return null;
+          return createPortal(renderPanelBody(d), slot, d.id);
+        })}
     </SelectionContext.Provider>
   );
 }
