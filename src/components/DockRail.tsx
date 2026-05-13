@@ -3,11 +3,17 @@ import * as React from "react";
 
 export type DockId = string;
 
+export type DockPlacement = "primary" | "sidebar" | "closed";
+
 export type DockDef = {
   id: DockId;
   label: string;
   icon: React.ReactElement;
   badge?: React.ReactNode;
+  /** Default placement when first opened. Defaults to "sidebar". */
+  defaultPlacement?: Exclude<DockPlacement, "closed">;
+  /** When true, panel cannot be closed (e.g. the Visualization panel). */
+  alwaysOpen?: boolean;
 };
 
 export function DockRail({

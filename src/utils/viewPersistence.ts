@@ -2,11 +2,16 @@ import { DependencyEntry } from "../services/serializers";
 
 export type PersistedView = {
   panelWidth?: number;
+  /** @deprecated use placement */
   vizMode?: "graph" | "table" | "split";
-  /** @deprecated use openDockIds */
+  /** @deprecated use placement */
   dockId?: string | null;
+  /** @deprecated use placement */
   openDockIds?: string[];
+  /** @deprecated pinning removed in favour of explicit placement */
   pinnedDockIds?: string[];
+  /** Panel placement: panel-id -> "primary" | "sidebar" | "closed". */
+  placement?: Record<string, "primary" | "sidebar" | "closed">;
   excludeRegex?: string;
   rootsRegex?: string;
   leavesRegex?: string;

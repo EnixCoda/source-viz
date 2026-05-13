@@ -1,5 +1,5 @@
-import { Box, Button, ButtonGroup, Divider, HStack, Heading, IconButton, Tab, TabList, TabPanel, TabPanels, Tabs, Text, Tooltip, VStack } from "@chakra-ui/react";
-import { LockIcon, UnlockIcon, HamburgerIcon } from "@chakra-ui/icons";
+import { Box, Button, ButtonGroup, Divider, HStack, Heading, IconButton, Menu, MenuButton, MenuDivider, MenuItem, MenuList, Tab, TabList, TabPanel, TabPanels, Tabs, Text, Tooltip, VStack } from "@chakra-ui/react";
+import { ChevronDownIcon, CloseIcon, HamburgerIcon } from "@chakra-ui/icons";
 import {
   SearchIcon,
   InfoOutlineIcon,
@@ -18,7 +18,6 @@ import { Size2D, useResizeHandler } from "../hooks/useResizeHandler";
 import { useSet } from "../hooks/useSet";
 import { useCheckboxView } from "../hooks/view/useCheckboxView";
 import { useNumberInputView } from "../hooks/view/useInputView";
-import { useRadioGroupView } from "../hooks/view/useRadioGroupView";
 import { useRegExpInputView } from "../hooks/view/useRegExpInputView";
 import { useSelectView } from "../hooks/view/useSelectView";
 import { useSwitchView } from "../hooks/view/useSwitchView";
@@ -40,7 +39,7 @@ import { EdgeStyleMode } from "../lib/graph-viz";
 import { ActiveFilter, ActiveFiltersBar } from "./ActiveFiltersBar";
 import { CommandPalette, PaletteAction } from "./CommandPalette";
 import { DiffSection } from "./DiffSection";
-import { DockDef, DockId, DockRail } from "./DockRail";
+import { DockDef, DockId, DockPlacement, DockRail } from "./DockRail";
 import { ExportButton } from "./ExportButton";
 import { FormSwitch } from "./FormSwitch";
 import { HorizontalResizeHandler } from "./HorizontalResizeHandler";
@@ -62,6 +61,8 @@ import { ZoomHUD } from "./ZoomHUD";
 import { ArrowBackIcon, RepeatIcon } from "@chakra-ui/icons";
 
 const DOCK_LABELS: Record<string, string> = {
+  viz: "Visualization",
+  table: "Entries table",
   inspector: "Inspector",
   roots: "Entry points",
   leaves: "Leaf files",
@@ -230,22 +231,6 @@ export function Viz({
     },
   });
 
-  const [vizModeView, vizMode, setVizMode] = useRadioGroupView(
-    "Viz Mode",
-    [
-      { value: "graph", label: "Graph" },
-      { value: "table", label: "Table" },
-      { value: "split", label: "Split" },
-    ],
-    {
-      defaultValue: "graph",
-      formControlProps: {
-        width: "auto",
-      },
-      row: true,
-    }
-  );
-
   // handling resize
   const [preferredSize, setSize] = React.useState<Size2D>(() => [window.innerWidth / 2, window.innerHeight]);
   const { onPointerDown } = useResizeHandler(preferredSize, setSize);
@@ -262,29 +247,11 @@ export function Viz({
   }, [windowSize.width]);
   const [width] = useClampedSize(preferredSize, sizeLimit);
 
-  const [vizContainerRef] = useObserveElementSize();
   const [graphCanvasRef, graphCanvasSize] = useObserveElementSize();
 
-  // Vertical split (graph / table in split mode)
-  const [splitHeightPx, setSplitHeightPx] = React.useState<number | null>(null);
-  const onSplitHandlePointerDown = React.useCallback((e: React.PointerEvent) => {
-    e.preventDefault();
-    const container = vizContainerRef.current;
-    if (!container) return;
-    const containerH = container.getBoundingClientRect().height;
-    const startH = splitHeightPx ?? containerH * 0.6;
-    const startY = e.clientY;
-    const MIN_H = 80;
-    const onMove = (me: PointerEvent) => {
-      setSplitHeightPx(Math.max(MIN_H, Math.min(containerH - MIN_H, startH + me.clientY - startY)));
-    };
-    const onUp = () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-  }, [splitHeightPx, vizContainerRef]);
+  // Vertical split / stack resize: per-stack container refs.
+  const primaryContainerRef = React.useRef<HTMLDivElement>(null);
+  const sidebarContainerRef = React.useRef<HTMLDivElement>(null);
 
 
 
@@ -574,75 +541,96 @@ export function Viz({
     [entries, renderedNodesSet]
   );
 
-  // Dock state — openDockIds: which panels are visible; pinnedDockIds: won't auto-close
-  const [openDockIds, setOpenDockIds] = React.useState<Set<DockId>>(() => new Set(["inspector"]));
-  const [pinnedDockIds, setPinnedDockIds] = React.useState<Set<DockId>>(() => new Set(["inspector"]));
+  // Panel placement state: panel-id -> "primary" | "sidebar" | "closed".
+  // Panels not in the map use their defaultPlacement (or "closed").
+  const [placement, setPlacement] = React.useState<Map<DockId, DockPlacement>>(
+    () => new Map<DockId, DockPlacement>([
+      ["viz", "primary"],
+      ["inspector", "sidebar"],
+    ])
+  );
 
-  // Stable refs so callbacks below don't need to re-create on every state change
-  const openDockIdsRef = React.useRef(openDockIds);
-  const pinnedDockIdsRef = React.useRef(pinnedDockIds);
+  const placementOf = React.useCallback(
+    (id: DockId): DockPlacement => placement.get(id) ?? "closed",
+    [placement]
+  );
+
+  // Set of currently-open panel ids — kept for DockRail compatibility.
+  const openDockIds = React.useMemo(() => {
+    const s = new Set<DockId>();
+    for (const [id, p] of placement) if (p !== "closed") s.add(id);
+    return s;
+  }, [placement]);
+
+  const placementRef = React.useRef(placement);
   React.useLayoutEffect(() => {
-    openDockIdsRef.current = openDockIds;
-    pinnedDockIdsRef.current = pinnedDockIds;
+    placementRef.current = placement;
   });
 
-  const closeDock = React.useCallback((id: DockId) => {
-    setOpenDockIds(prev => { const next = new Set(prev); next.delete(id); return next; });
-    setPinnedDockIds(prev => { const next = new Set(prev); next.delete(id); return next; });
+  const movePanel = React.useCallback((id: DockId, to: DockPlacement) => {
+    setPlacement(prev => {
+      const next = new Map(prev);
+      next.set(id, to);
+      return next;
+    });
   }, []);
 
-  const openDock = React.useCallback((id: DockId) => {
-    const pinned = pinnedDockIdsRef.current;
-    setOpenDockIds(prev => {
-      const next = new Set(prev);
-      // Close any unpinned panels that are currently open
-      for (const openId of next) {
-        if (!pinned.has(openId)) next.delete(openId);
+  const closeDock = React.useCallback((id: DockId) => {
+    setPlacement(prev => {
+      const next = new Map(prev);
+      next.set(id, "closed");
+      return next;
+    });
+  }, []);
+
+  const openDock = React.useCallback((id: DockId, to?: Exclude<DockPlacement, "closed">) => {
+    setPlacement(prev => {
+      const next = new Map(prev);
+      const cur = prev.get(id);
+      if (to) {
+        next.set(id, to);
+      } else if (cur === undefined || cur === "closed") {
+        // Default to sidebar when re-opening from closed.
+        next.set(id, "sidebar");
       }
-      next.add(id);
       return next;
     });
   }, []);
 
   const toggleDock = React.useCallback((id: DockId) => {
-    if (openDockIdsRef.current.has(id)) closeDock(id);
-    else openDock(id);
+    const cur = placementRef.current.get(id) ?? "closed";
+    if (cur === "closed") openDock(id);
+    else closeDock(id);
   }, [openDock, closeDock]);
 
-  const togglePin = React.useCallback((id: DockId) => {
-    setPinnedDockIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  }, []);
-
-  // Auto-open inspector on first selection if no panels are open
+  // Auto-open inspector on first selection if it's currently closed.
   React.useEffect(() => {
-    if (selectedNodes.size > 0 && openDockIdsRef.current.size === 0) {
-      openDock("inspector");
+    if (selectedNodes.size > 0 && (placementRef.current.get("inspector") ?? "closed") === "closed") {
+      openDock("inspector", "sidebar");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedNodes]);
 
   const dockDefs = React.useMemo<DockDef[]>(
     () => [
-      { id: "inspector", label: "Inspector", icon: <InfoOutlineIcon />, badge: selectedNodes.size || undefined },
-      { id: "lookup", label: "Look up nodes", icon: <SearchIcon /> },
-      { id: "hotspots", label: "Hotspots (fan-in/out)", icon: <TriangleUpIcon /> },
-      { id: "roots", label: "Entry points", icon: <StarIcon /> },
-      { id: "leaves", label: "Leaf files", icon: <ViewIcon /> },
-      { id: "filters", label: "Filters & exclusions", icon: <RepeatClockIcon />, badge: excludedNodes.length || undefined },
-      { id: "cycles", label: "Cycles", icon: <RepeatIcon />, badge: graphData.cycles.length || undefined },
-      { id: "graph-settings", label: "Graph settings", icon: <SettingsIcon /> },
-      { id: "settings", label: "General settings", icon: <HamburgerIcon /> },
+      { id: "viz", label: "Visualization", icon: <ViewIcon />, defaultPlacement: "primary", alwaysOpen: true },
+      { id: "table", label: "Entries table", icon: <HamburgerIcon />, defaultPlacement: "primary" },
+      { id: "inspector", label: "Inspector", icon: <InfoOutlineIcon />, badge: selectedNodes.size || undefined, defaultPlacement: "sidebar" },
+      { id: "lookup", label: "Look up nodes", icon: <SearchIcon />, defaultPlacement: "sidebar" },
+      { id: "hotspots", label: "Hotspots (fan-in/out)", icon: <TriangleUpIcon />, defaultPlacement: "sidebar" },
+      { id: "roots", label: "Entry points", icon: <StarIcon />, defaultPlacement: "sidebar" },
+      { id: "leaves", label: "Leaf files", icon: <ViewIcon />, defaultPlacement: "sidebar" },
+      { id: "filters", label: "Filters & exclusions", icon: <RepeatClockIcon />, badge: excludedNodes.length || undefined, defaultPlacement: "sidebar" },
+      { id: "cycles", label: "Cycles", icon: <RepeatIcon />, badge: graphData.cycles.length || undefined, defaultPlacement: "sidebar" },
+      { id: "graph-settings", label: "Graph settings", icon: <SettingsIcon />, defaultPlacement: "sidebar" },
+      { id: "settings", label: "General settings", icon: <HamburgerIcon />, defaultPlacement: "sidebar" },
     ],
     [selectedNodes.size, excludedNodes.length, graphData.cycles.length]
   );
 
   // Dock panel vertical resize
+  // Dock flex map: per-panel-id weight for vertical stacking within a zone.
   const [dockFlexMap, setDockFlexMap] = React.useState<Map<string, number>>(new Map());
-  const dockContainerRef = React.useRef<HTMLDivElement>(null);
   const openDockIdsKey = [...openDockIds].sort().join(",");
   React.useEffect(() => {
     const ids = dockDefs.filter(d => openDockIds.has(d.id)).map(d => d.id);
@@ -656,9 +644,9 @@ export function Viz({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openDockIdsKey]);
 
-  const makeDockResizeHandler = React.useCallback((aboveId: string, belowId: string) => (e: React.PointerEvent) => {
+  const makeStackResizeHandler = React.useCallback((containerRef: React.RefObject<HTMLDivElement | null>, aboveId: string, belowId: string) => (e: React.PointerEvent) => {
     e.preventDefault();
-    const container = dockContainerRef.current;
+    const container = containerRef.current;
     if (!container) return;
     const containerH = container.getBoundingClientRect().height;
     const startY = e.clientY;
@@ -754,14 +742,31 @@ export function Viz({
 
   const restoreView = React.useCallback((v: PersistedView) => {
     if (v.panelWidth && v.panelWidth > 100) setSize([v.panelWidth, window.innerHeight]);
-    if (v.vizMode) setVizMode(v.vizMode);
-    if (Array.isArray(v.openDockIds)) {
-      setOpenDockIds(new Set(v.openDockIds));
-    } else if (v.dockId !== undefined) {
-      // Backward-compat: old persisted single dockId
-      setOpenDockIds(v.dockId ? new Set([v.dockId]) : new Set());
+    if (v.placement) {
+      setPlacement(prev => {
+        const next = new Map(prev);
+        for (const [id, p] of Object.entries(v.placement!)) next.set(id, p);
+        return next;
+      });
+    } else {
+      // Backward-compat migration from old vizMode + openDockIds.
+      setPlacement(prev => {
+        const next = new Map(prev);
+        // Migrate vizMode → table placement
+        if (v.vizMode === "table" || v.vizMode === "split") next.set("table", "primary");
+        // Viz is always in primary.
+        next.set("viz", "primary");
+        // Migrate open dock ids → sidebar
+        const opens = Array.isArray(v.openDockIds)
+          ? v.openDockIds
+          : (v.dockId ? [v.dockId] : []);
+        for (const id of opens) {
+          if (id === "viz" || id === "table") continue;
+          next.set(id, "sidebar");
+        }
+        return next;
+      });
     }
-    if (Array.isArray(v.pinnedDockIds)) setPinnedDockIds(new Set(v.pinnedDockIds));
     if (typeof v.excludeRegex === "string") setExcludeNodesFilter(v.excludeRegex);
     if (typeof v.rootsRegex === "string") setRestrictRoots(v.rootsRegex);
     if (typeof v.leavesRegex === "string") setRestrictLeaves(v.leavesRegex);
@@ -769,7 +774,7 @@ export function Viz({
     if (v.graphMode) setGraphMode(v.graphMode as GraphMode);
     if (typeof v.groupByDir === "boolean") setGroupByDir(v.groupByDir);
     if (typeof v.groupDepth === "number" && v.groupDepth >= 1) setGroupDepth(v.groupDepth);
-  }, [setVizMode, setExcludeNodesFilter, setRestrictRoots, setRestrictLeaves, setExcludedNodes, setGraphMode, setGroupByDir, setGroupDepth]);
+  }, [setExcludeNodesFilter, setRestrictRoots, setRestrictLeaves, setExcludedNodes, setGraphMode, setGroupByDir, setGroupDepth]);
 
   // Restore on dataset change
   const restoredSigRef = React.useRef<string | null>(null);
@@ -790,19 +795,21 @@ export function Viz({
     setSavedViews(listSavedViews(datasetSig));
   }, [datasetSig]);
 
-  const currentView = React.useMemo<PersistedView>(() => ({
-    panelWidth: preferredSize[0],
-    vizMode,
-    openDockIds: [...openDockIds],
-    pinnedDockIds: [...pinnedDockIds],
-    excludeRegex: excludeNodesFilterInput,
-    rootsRegex: restrictRootsInput,
-    leavesRegex: restrictLeavesInput,
-    excludedNodes: [...excludedNodes],
-    graphMode,
-    groupByDir,
-    groupDepth,
-  }), [preferredSize, vizMode, openDockIds, pinnedDockIds, excludeNodesFilterInput, restrictRootsInput, restrictLeavesInput, excludedNodes, graphMode, groupByDir, groupDepth]);
+  const currentView = React.useMemo<PersistedView>(() => {
+    const placementObj: Record<string, DockPlacement> = {};
+    for (const [id, p] of placement) placementObj[id] = p;
+    return {
+      panelWidth: preferredSize[0],
+      placement: placementObj,
+      excludeRegex: excludeNodesFilterInput,
+      rootsRegex: restrictRootsInput,
+      leavesRegex: restrictLeavesInput,
+      excludedNodes: [...excludedNodes],
+      graphMode,
+      groupByDir,
+      groupDepth,
+    };
+  }, [preferredSize, placement, excludeNodesFilterInput, restrictRootsInput, restrictLeavesInput, excludedNodes, graphMode, groupByDir, groupDepth]);
 
   // Debounced auto-save
   React.useEffect(() => {
@@ -853,9 +860,8 @@ export function Viz({
       { id: "dock-settings", label: "Open: General settings", group: "action", run: () => openDock("settings") },
       { id: "dock-lookup", label: "Open: Look up", group: "action", run: () => openDock("lookup") },
       { id: "dock-hotspots", label: "Open: Hotspots", group: "action", run: () => openDock("hotspots") },
-      { id: "mode-graph", label: "View: Graph only", group: "action", run: () => setVizMode("graph") },
-      { id: "mode-table", label: "View: Table only", group: "action", run: () => setVizMode("table") },
-      { id: "mode-split", label: "View: Split (graph + table)", group: "action", run: () => setVizMode("split") },
+      { id: "mode-table-open", label: "Show entries table", group: "action", run: () => openDock("table", "primary") },
+      { id: "mode-table-close", label: "Hide entries table", group: "action", run: () => closeDock("table") },
       { id: "group-toggle", label: groupByDir ? "Group by directory: OFF" : "Group by directory: ON", group: "action", hint: "g", run: () => setGroupByDir(!groupByDir) },
     ];
     // Node actions: pick & focus
@@ -873,7 +879,7 @@ export function Viz({
       });
     }
     return actions;
-  }, [graphRef, handleRebuildLayout, clearExcludedNodes, clearAllFilters, graphData.cycles.length, allNodes, setSelectedNode, setVizMode, groupByDir, setGroupByDir, openDock]);
+  }, [graphRef, handleRebuildLayout, clearExcludedNodes, clearAllFilters, graphData.cycles.length, allNodes, setSelectedNode, openDock, closeDock, groupByDir, setGroupByDir]);
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -919,6 +925,282 @@ export function Viz({
     return () => window.removeEventListener("keydown", onKey);
   }, [graphRef, paletteOpen, selectedNodes, toggleExcludeNode, setGroupByDir, openDock]);
 
+  const renderPanelHeader = (d: DockDef): React.ReactNode => {
+    const cur = placementOf(d.id);
+    const zones: Array<Exclude<DockPlacement, "closed">> = ["primary", "sidebar"];
+    return (
+      <HStack px={2} py={1} bg="gray.50" borderBottom="1px solid" borderColor="gray.200" flexShrink={0} justifyContent="space-between" spacing={1}>
+        <Heading as="h2" size="xs" color="gray.700" isTruncated>{DOCK_LABELS[d.id] ?? d.id}</Heading>
+        <HStack spacing={0}>
+          <Menu placement="bottom-end" isLazy>
+            <Tooltip label="Move panel" hasArrow openDelay={300}>
+              <MenuButton as={IconButton} aria-label="Move panel" icon={<ChevronDownIcon />} size="xs" variant="ghost" />
+            </Tooltip>
+            <MenuList minW="160px" fontSize="sm">
+              {zones.filter(z => z !== cur).map(z => (
+                <MenuItem key={z} onClick={() => movePanel(d.id, z)}>
+                  Move to {z === "primary" ? "primary area" : "sidebar"}
+                </MenuItem>
+              ))}
+              {!d.alwaysOpen && <MenuDivider />}
+              {!d.alwaysOpen && <MenuItem onClick={() => closeDock(d.id)}>Close panel</MenuItem>}
+            </MenuList>
+          </Menu>
+          {!d.alwaysOpen && (
+            <Tooltip label="Close panel" hasArrow openDelay={300}>
+              <IconButton aria-label="Close panel" icon={<CloseIcon boxSize="0.6em" />} size="xs" variant="ghost" onClick={() => closeDock(d.id)} />
+            </Tooltip>
+          )}
+        </HStack>
+      </HStack>
+    );
+  };
+
+  const renderPanelBody = (d: DockDef): React.ReactNode => {
+    if (d.id === "viz") {
+      return (
+        <Box ref={graphCanvasRef} flex={1} minH={0} display="flex" flexDirection="column" position="relative" overflow="hidden">
+          <div ref={ref} style={{ flex: 1, minHeight: 0 }} />
+          <ZoomHUD
+            zoom={zoom}
+            onZoomIn={() => graphRef.current?.zoomBy(1.4)}
+            onZoomOut={() => graphRef.current?.zoomBy(1 / 1.4)}
+            onFit={() => graphRef.current?.fitToView()}
+            onReset={() => graphRef.current?.resetView()}
+            onScreenshot={() => {
+              const url = graphRef.current?.toDataURL();
+              if (!url) return;
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `source-viz-${Date.now()}.png`;
+              a.click();
+            }}
+            onRebuildLayout={graphMode === "dag" ? handleRebuildLayout : undefined}
+            layoutStale={layoutStale}
+          />
+          <Minimap graphRef={graphRef} refreshKey={displayedGraphData.nodes.length + selectedNodes.size} />
+          {hover && !contextMenu && (
+            <NodeHoverCard
+              nodeId={hover.nodeId}
+              screenX={hover.x}
+              screenY={hover.y}
+              onCycle={graphData.cycles.some((c) => c.includes(hover.nodeId))}
+              importsPreview={[...(data.dependencyMap.get(hover.nodeId) ?? [])].slice(0, 5)}
+              importedByPreview={[...(data.dependantMap.get(hover.nodeId) ?? [])].slice(0, 5)}
+            />
+          )}
+        </Box>
+      );
+    }
+    if (d.id === "table") {
+      return (
+        <Box flex={1} minH={0} overflow="auto">
+          <EntriesTable entries={renderedEntries} onClickSelect={setSelectedNode} />
+        </Box>
+      );
+    }
+    return (
+      <Box flex={1} overflow="auto" minH={0} px={2} py={2} display="flex" flexDirection="column">
+        {d.id === "inspector" && (
+          <NodeInspector
+            selectedNodes={selectedNodes}
+            selectedNode={selectedNode}
+            data={data}
+            renderedNodes={renderedNodes}
+            kindMap={kindMap}
+            nodeSelectionHistory={nodeSelectionHistory}
+            historyOffset={historyOffset}
+            setHistoryOffset={setHistoryOffset}
+            setSelectedNode={setSelectedNode}
+            setSelectedNodes={setSelectedNodes}
+            allExcludedNodes={allExcludedNodes}
+            toggleExcludeNode={toggleExcludeNode}
+            investigatorFs={investigatorFs}
+            setInvestigateTarget={setInvestigateTarget}
+          />
+        )}
+        {d.id === "roots" && (
+          <VStack alignItems="flex-start" spacing={2} height="100%" width="100%">
+            <Tooltip
+              label="Files that import others but are not imported by anything — entry points / roots of the graph."
+              hasArrow
+              placement="top-start"
+            >
+              <Text fontSize="xs" color="gray.500" cursor="help" textDecoration="underline" textDecorationStyle="dotted">
+                What are entry points?
+              </Text>
+            </Tooltip>
+            {restrictRootInputView}
+            <FormSwitch
+              label="Hide nodes not rendered as entry point"
+              inputProps={{ isDisabled: restrictRootsRegExp === null }}
+              value={restrictRootsRegExp === null || inView}
+              onChange={() => setInView(!inView)}
+            />
+            <NodeList
+              fillContainer
+              nodes={restrictRootsRegExp === null || inView ? rootsInView : [...restrictedRoots]}
+              kindMap={kindMap}
+              mapProps={(id) => ({
+                onExclude: () => toggleExcludeNode(id),
+                onSelect: () => setSelectedNode(id),
+              })}
+            />
+          </VStack>
+        )}
+        {d.id === "leaves" && (
+          <VStack alignItems="flex-start" spacing={2} height="100%" width="100%">
+            <Tooltip
+              label="Files imported by others but importing nothing — utilities, types, constants, or 3rd party packages."
+              hasArrow
+              placement="top-start"
+            >
+              <Text fontSize="xs" color="gray.500" cursor="help" textDecoration="underline" textDecorationStyle="dotted">
+                What are leaf files?
+              </Text>
+            </Tooltip>
+            {restrictLeavesInputView}
+            <FormSwitch
+              label="Hide nodes not rendered as leaf"
+              inputProps={{ isDisabled: restrictLeavesRegExp === null }}
+              value={restrictLeavesRegExp === null || inView}
+              onChange={() => setInView(!inView)}
+            />
+            <NodeList
+              fillContainer
+              nodes={restrictLeavesRegExp === null || inView ? leavesInView : [...restrictedLeaves]}
+              kindMap={kindMap}
+              mapProps={(id) => ({
+                onExclude: () => toggleExcludeNode(id),
+                onSelect: () => setSelectedNode(id),
+              })}
+            />
+          </VStack>
+        )}
+        {d.id === "filters" && (
+          <VStack alignItems="stretch" spacing={3}>
+            <VStack alignItems="flex-start" as="section" spacing={1}>
+              <Heading as="h3" size="xs" color="gray.600">
+                Manually excluded ({excludedNodes.length})
+              </Heading>
+              <NodeList
+                nodes={excludedNodes}
+                kindMap={kindMap}
+                mapProps={(id) => ({
+                  onCancel: () => toggleExcludeNode(id),
+                })}
+              />
+            </VStack>
+            <VStack alignItems="flex-start" as="section" spacing={1}>
+              <Heading as="h3" size="xs" color="gray.600">
+                Exclude with regex ({excludedNodesFromInput.length})
+              </Heading>
+              {excludeNodesFilterInputView}
+              <NodeList nodes={excludedNodesFromInput} />
+            </VStack>
+          </VStack>
+        )}
+        {d.id === "lookup" && (
+          <VStack alignItems="stretch" spacing={2} flex={1} minH={0}>
+            {inViewView}
+            <Hotspots
+              entries={inView ? renderedNodes : allNodes}
+              fanInMap={fanInMap}
+              fanOutMap={fanOutMap}
+              onFocus={focusFileInGraph}
+              onHover={handleHoverHighlightNode}
+              onLeave={() => setHighlightedFiles(null)}
+            />
+            <NodesFilter
+              nodes={inView ? renderedNodes : allNodes}
+              mapProps={(id) => ({
+                onExclude: () => toggleExcludeNode(id),
+                onSelect: () => focusFileInGraph(id),
+              })}
+            />
+          </VStack>
+        )}
+        {d.id === "hotspots" && (
+          <Hotspots
+            entries={allNodes}
+            fanInMap={fanInMap}
+            fanOutMap={fanOutMap}
+            onFocus={focusFileInGraph}
+            onHover={handleHoverHighlightNode}
+            onLeave={() => setHighlightedFiles(null)}
+          />
+        )}
+        {d.id === "cycles" && (
+          <VStack alignItems="stretch" spacing={2} flex={1} minH={0}>
+            <Text fontSize="sm" color="gray.600">
+              {graphData.cycles.length} cycle{graphData.cycles.length === 1 ? "" : "s"} detected.
+            </Text>
+            {graphData.cycles.length > 0 ? (
+              <Tabs size="sm" variant="line" isLazy flex={1} display="flex" flexDirection="column" minH={0}>
+                <TabList>
+                  <Tab>Cycles</Tab>
+                  <Tab>Suggested cuts ({graphData.suggestedCuts.length})</Tab>
+                </TabList>
+                <TabPanels flex={1} minH={0} overflow="hidden">
+                  <TabPanel px={0} py={2} height="100%" overflowY="auto">
+                    <ListOfNodeList
+                      containerProps={{ maxHeight: "calc(100vh - 280px)" }}
+                      lists={graphData.cycles}
+                      getProps={() => ({
+                        mapProps: (id) => ({ onSelect: () => focusFileInGraph(id) }),
+                      })}
+                    />
+                  </TabPanel>
+                  <TabPanel px={0} py={2} height="100%" display="flex" flexDirection="column" minH={0}>
+                    <SuggestedCuts
+                      cuts={graphData.suggestedCuts}
+                      cycles={graphData.cycles}
+                      onHighlightEdge={highlightEdgeBetween}
+                      onClearHighlight={clearHighlightedEdges}
+                      onFocusNode={focusFileInGraph}
+                    />
+                  </TabPanel>
+                </TabPanels>
+              </Tabs>
+            ) : (
+              <Text fontSize="sm" color="gray.400">
+                No cycles in the current filter.
+              </Text>
+            )}
+          </VStack>
+        )}
+        {d.id === "graph-settings" && (
+          <VStack alignItems="stretch" spacing={2}>
+            {graphModeView}
+            {colorByView}
+            {edgeStyleView}
+            {fontSizeView}
+            {separateAsyncImportsView}
+            {groupByDirView}
+            {groupByDir && groupDepthView}
+            {autoFitOnFocusView}
+          </VStack>
+        )}
+        {d.id === "settings" && (
+          <VStack alignItems="stretch" spacing={4}>
+            <VStack alignItems="stretch" spacing={1}>
+              <Heading as="h3" size="xs" color="gray.600">General</Heading>
+              <SettingsOfOpenInVSCode />
+              <ExportButton data={entries} />
+            </VStack>
+            <SavedViewsSection
+              views={savedViews}
+              onSave={saveCurrentAsView}
+              onApply={applySavedView}
+              onDelete={deleteSavedView}
+            />
+            <DiffSection currentEntries={entries} onFocusNode={setSelectedNode} />
+          </VStack>
+        )}
+      </Box>
+    );
+  };
+
   return (
     <HStack alignItems="stretch" spacing={0} maxHeight="100%" height="100vh" width="100%">
       <VStack alignItems="stretch" height="100vh" width={width} spacing={0}>
@@ -933,68 +1215,19 @@ export function Viz({
               </Tooltip>
             )}
           </ButtonGroup>
-          <Box transform="scale(0.85)" transformOrigin="right center">
-            {vizModeView}
-          </Box>
         </HStack>
         <ActiveFiltersBar filters={activeFilters} onClearAll={clearAllFilters} />
         <Divider height="auto" />
-        <Box ref={vizContainerRef} flex={1} overflow="hidden" position="relative" minH={0} display="flex" flexDirection="column">
-          <Box
-            ref={graphCanvasRef}
-            display={vizMode === "table" ? "none" : "flex"}
-            flexDirection="column"
-            flex={vizMode === "split" ? (splitHeightPx != null ? `0 0 ${splitHeightPx}px` : "0 0 60%") : 1}
-            minH={0}
-            position="relative"
-          >
-            <div ref={ref} style={{ flex: 1, minHeight: 0 }} />
-            {vizMode !== "table" && (
-              <>
-                <ZoomHUD
-                  zoom={zoom}
-                  onZoomIn={() => graphRef.current?.zoomBy(1.4)}
-                  onZoomOut={() => graphRef.current?.zoomBy(1 / 1.4)}
-                  onFit={() => graphRef.current?.fitToView()}
-                  onReset={() => graphRef.current?.resetView()}
-                  onScreenshot={() => {
-                    const url = graphRef.current?.toDataURL();
-                    if (!url) return;
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = `source-viz-${Date.now()}.png`;
-                    a.click();
-                  }}
-                  onRebuildLayout={graphMode === "dag" ? handleRebuildLayout : undefined}
-                  layoutStale={layoutStale}
-                />
-                <Minimap graphRef={graphRef} refreshKey={displayedGraphData.nodes.length + selectedNodes.size} />
-
-                {hover && !contextMenu && (
-                  <NodeHoverCard
-                    nodeId={hover.nodeId}
-                    screenX={hover.x}
-                    screenY={hover.y}
-                    onCycle={graphData.cycles.some((c) => c.includes(hover.nodeId))}
-                    importsPreview={[...(data.dependencyMap.get(hover.nodeId) ?? [])].slice(0, 5)}
-                    importedByPreview={[...(data.dependantMap.get(hover.nodeId) ?? [])].slice(0, 5)}
-                  />
-                )}
-              </>
-            )}
-          </Box>
-          {(vizMode === "table" || vizMode === "split") && (
-            <>
-              {vizMode === "split" && <VerticalResizeHandler onPointerDown={onSplitHandlePointerDown} />}
-              <Box
-                flex={1}
-                minH={0}
-                overflowY="auto"
-              >
-                <EntriesTable entries={renderedEntries} onClickSelect={setSelectedNode} />
+        <Box ref={primaryContainerRef} flex={1} overflow="hidden" position="relative" minH={0} display="flex" flexDirection="column">
+          {dockDefs.filter(d => placementOf(d.id) === "primary").map((d, i, arr) => (
+            <React.Fragment key={d.id}>
+              {i > 0 && <VerticalResizeHandler onPointerDown={makeStackResizeHandler(primaryContainerRef, arr[i - 1].id, d.id)} />}
+              <Box display="flex" flexDirection="column" flex={dockFlexMap.get(d.id) ?? 1} minH={0}>
+                {renderPanelHeader(d)}
+                {renderPanelBody(d)}
               </Box>
-            </>
-          )}
+            </React.Fragment>
+          ))}
           {contextMenu && (
             <Box
               position="fixed"
@@ -1100,244 +1333,23 @@ export function Viz({
           selected={selectedNodes.size}
           graphMode={graphMode ?? "dag"}
           asyncCutoff={separateAsyncImports}
-          layoutStale={layoutStale && vizMode !== "table"}
+          layoutStale={layoutStale}
         />
       </VStack>
       <HorizontalResizeHandler onPointerDown={onPointerDown} />
       <HStack alignItems="stretch" height="100vh" flex={1} minW={0} spacing={0}>
-        <Box ref={dockContainerRef} flex={1} minW={0} overflow="hidden" display="flex" flexDirection="column">
-          {openDockIds.size > 0 && dockDefs.filter(d => openDockIds.has(d.id)).map((d, i, arr) => (
+        <Box ref={sidebarContainerRef} flex={1} minW={0} overflow="hidden" display="flex" flexDirection="column">
+          {dockDefs.filter(d => placementOf(d.id) === "sidebar").map((d, i, arr) => (
             <React.Fragment key={d.id}>
-              {i > 0 && <VerticalResizeHandler onPointerDown={makeDockResizeHandler(arr[i - 1].id, d.id)} />}
+              {i > 0 && <VerticalResizeHandler onPointerDown={makeStackResizeHandler(sidebarContainerRef, arr[i - 1].id, d.id)} />}
               <Box display="flex" flexDirection="column" flex={dockFlexMap.get(d.id) ?? 1} minH={0}>
-                <HStack
-                  px={2}
-                  py={1}
-                  bg="gray.50"
-                  borderBottom="1px solid"
-                  borderColor="gray.200"
-                  flexShrink={0}
-                  justifyContent="space-between"
-                >
-                  <Heading as="h2" size="xs" color="gray.700">
-                    {DOCK_LABELS[d.id] ?? d.id}
-                  </Heading>
-                  <HStack spacing={0}>
-                    <Tooltip label={pinnedDockIds.has(d.id) ? "Unpin panel" : "Pin panel — stays open when others open"} hasArrow openDelay={300}>
-                      <IconButton
-                        size="xs"
-                        variant="ghost"
-                        aria-label={pinnedDockIds.has(d.id) ? "Unpin panel" : "Pin panel"}
-                        icon={pinnedDockIds.has(d.id) ? <LockIcon /> : <UnlockIcon />}
-                        colorScheme={pinnedDockIds.has(d.id) ? "blue" : "gray"}
-                        onClick={() => togglePin(d.id)}
-                      />
-                    </Tooltip>
-                  </HStack>
-                </HStack>
-                <Box flex={1} overflow="auto" minH={0} px={2} py={2} display="flex" flexDirection="column">
-                  {d.id === "inspector" && (
-                    <NodeInspector
-                      selectedNodes={selectedNodes}
-                      selectedNode={selectedNode}
-                      data={data}
-                      renderedNodes={renderedNodes}
-                      kindMap={kindMap}
-                      nodeSelectionHistory={nodeSelectionHistory}
-                      historyOffset={historyOffset}
-                      setHistoryOffset={setHistoryOffset}
-                      setSelectedNode={setSelectedNode}
-                      setSelectedNodes={setSelectedNodes}
-                      allExcludedNodes={allExcludedNodes}
-                      toggleExcludeNode={toggleExcludeNode}
-                      investigatorFs={investigatorFs}
-                      setInvestigateTarget={setInvestigateTarget}
-                    />
-                  )}
-                  {d.id === "roots" && (
-                  <VStack alignItems="flex-start" spacing={2} height="100%" width="100%">
-                    <Tooltip
-                      label="Files that import others but are not imported by anything — entry points / roots of the graph."
-                      hasArrow
-                      placement="top-start"
-                    >
-                      <Text fontSize="xs" color="gray.500" cursor="help" textDecoration="underline" textDecorationStyle="dotted">
-                        What are entry points?
-                      </Text>
-                    </Tooltip>
-                    {restrictRootInputView}
-                    <FormSwitch
-                      label="Hide nodes not rendered as entry point"
-                      inputProps={{ isDisabled: restrictRootsRegExp === null }}
-                      value={restrictRootsRegExp === null || inView}
-                      onChange={() => setInView(!inView)}
-                    />
-                    <NodeList
-                      fillContainer
-                      nodes={restrictRootsRegExp === null || inView ? rootsInView : [...restrictedRoots]}
-                      kindMap={kindMap}
-                      mapProps={(id) => ({
-                        onExclude: () => toggleExcludeNode(id),
-                        onSelect: () => setSelectedNode(id),
-                      })}
-                    />
-                  </VStack>
-                )}
-                  {d.id === "leaves" && (
-                    <VStack alignItems="flex-start" spacing={2} height="100%" width="100%">
-                      <Tooltip
-                        label="Files imported by others but importing nothing — utilities, types, constants, or 3rd party packages."
-                        hasArrow
-                        placement="top-start"
-                      >
-                        <Text fontSize="xs" color="gray.500" cursor="help" textDecoration="underline" textDecorationStyle="dotted">
-                          What are leaf files?
-                        </Text>
-                      </Tooltip>
-                      {restrictLeavesInputView}
-                      <FormSwitch
-                        label="Hide nodes not rendered as leaf"
-                        inputProps={{ isDisabled: restrictLeavesRegExp === null }}
-                        value={restrictLeavesRegExp === null || inView}
-                        onChange={() => setInView(!inView)}
-                      />
-                      <NodeList
-                        fillContainer
-                        nodes={restrictLeavesRegExp === null || inView ? leavesInView : [...restrictedLeaves]}
-                        kindMap={kindMap}
-                        mapProps={(id) => ({
-                          onExclude: () => toggleExcludeNode(id),
-                          onSelect: () => setSelectedNode(id),
-                        })}
-                      />
-                    </VStack>
-                  )}
-                  {d.id === "filters" && (
-                    <VStack alignItems="stretch" spacing={3}>
-                      <VStack alignItems="flex-start" as="section" spacing={1}>
-                        <Heading as="h3" size="xs" color="gray.600">
-                          Manually excluded ({excludedNodes.length})
-                        </Heading>
-                        <NodeList
-                          nodes={excludedNodes}
-                          kindMap={kindMap}
-                          mapProps={(id) => ({
-                            onCancel: () => toggleExcludeNode(id),
-                          })}
-                        />
-                      </VStack>
-                      <VStack alignItems="flex-start" as="section" spacing={1}>
-                        <Heading as="h3" size="xs" color="gray.600">
-                          Exclude with regex ({excludedNodesFromInput.length})
-                        </Heading>
-                        {excludeNodesFilterInputView}
-                        <NodeList nodes={excludedNodesFromInput} />
-                      </VStack>
-                    </VStack>
-                  )}
-                  {d.id === "lookup" && (
-                    <VStack alignItems="stretch" spacing={2} flex={1} minH={0}>
-                      {inViewView}
-                      <Hotspots
-                        entries={inView ? renderedNodes : allNodes}
-                        fanInMap={fanInMap}
-                        fanOutMap={fanOutMap}
-                        onFocus={focusFileInGraph}
-                        onHover={handleHoverHighlightNode}
-                        onLeave={() => setHighlightedFiles(null)}
-                      />
-                      <NodesFilter
-                        nodes={inView ? renderedNodes : allNodes}
-                        mapProps={(id) => ({
-                          onExclude: () => toggleExcludeNode(id),
-                          onSelect: () => focusFileInGraph(id),
-                        })}
-                      />
-                    </VStack>
-                  )}
-                  {d.id === "hotspots" && (
-                    <Hotspots
-                      entries={allNodes}
-                      fanInMap={fanInMap}
-                      fanOutMap={fanOutMap}
-                      onFocus={focusFileInGraph}
-                      onHover={handleHoverHighlightNode}
-                      onLeave={() => setHighlightedFiles(null)}
-                    />
-                  )}
-                  {d.id === "cycles" && (
-                    <VStack alignItems="stretch" spacing={2} flex={1} minH={0}>
-                      <Text fontSize="sm" color="gray.600">
-                        {graphData.cycles.length} cycle{graphData.cycles.length === 1 ? "" : "s"} detected.
-                      </Text>
-                      {graphData.cycles.length > 0 ? (
-                        <Tabs size="sm" variant="line" isLazy flex={1} display="flex" flexDirection="column" minH={0}>
-                          <TabList>
-                            <Tab>Cycles</Tab>
-                            <Tab>Suggested cuts ({graphData.suggestedCuts.length})</Tab>
-                          </TabList>
-                          <TabPanels flex={1} minH={0} overflow="hidden">
-                            <TabPanel px={0} py={2} height="100%" overflowY="auto">
-                              <ListOfNodeList
-                                containerProps={{ maxHeight: "calc(100vh - 280px)" }}
-                                lists={graphData.cycles}
-                                getProps={() => ({
-                                  mapProps: (id) => ({ onSelect: () => focusFileInGraph(id) }),
-                                })}
-                              />
-                            </TabPanel>
-                            <TabPanel px={0} py={2} height="100%" display="flex" flexDirection="column" minH={0}>
-                              <SuggestedCuts
-                                cuts={graphData.suggestedCuts}
-                                cycles={graphData.cycles}
-                                onHighlightEdge={highlightEdgeBetween}
-                                onClearHighlight={clearHighlightedEdges}
-                                onFocusNode={focusFileInGraph}
-                              />
-                            </TabPanel>
-                          </TabPanels>
-                        </Tabs>
-                      ) : (
-                        <Text fontSize="sm" color="gray.400">
-                          No cycles in the current filter.
-                        </Text>
-                      )}
-                    </VStack>
-                  )}
-                  {d.id === "graph-settings" && (
-                    <VStack alignItems="stretch" spacing={2}>
-                      {graphModeView}
-                      {colorByView}
-                      {edgeStyleView}
-                      {fontSizeView}
-                      {separateAsyncImportsView}
-                      {groupByDirView}
-                      {groupByDir && groupDepthView}
-                      {autoFitOnFocusView}
-                    </VStack>
-                  )}
-                  {d.id === "settings" && (
-                    <VStack alignItems="stretch" spacing={4}>
-                      <VStack alignItems="stretch" spacing={1}>
-                        <Heading as="h3" size="xs" color="gray.600">General</Heading>
-                        <SettingsOfOpenInVSCode />
-                        <ExportButton data={entries} />
-                      </VStack>
-                      <SavedViewsSection
-                        views={savedViews}
-                        onSave={saveCurrentAsView}
-                        onApply={applySavedView}
-                        onDelete={deleteSavedView}
-                      />
-                      <DiffSection currentEntries={entries} onFocusNode={setSelectedNode} />
-                    </VStack>
-                  )}
-                </Box>
+                {renderPanelHeader(d)}
+                {renderPanelBody(d)}
               </Box>
             </React.Fragment>
           ))}
         </Box>
-        <DockRail docks={dockDefs} activeIds={openDockIds} onChange={toggleDock} />
+                <DockRail docks={dockDefs} activeIds={openDockIds} onChange={toggleDock} />
       </HStack>
       <InvestigatePanel
         isOpen={investigateTarget !== null}
