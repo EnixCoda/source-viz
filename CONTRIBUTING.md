@@ -7,21 +7,32 @@ Thanks for your interest! Here's how to get started.
 ```bash
 git clone https://github.com/EnixCoda/source-viz.git
 cd source-viz
-npm install
-npm run dev     # starts the Vite dev server
+pnpm install
+pnpm dev          # start Vite dev server
+```
+
+### Available scripts
+
+```bash
+pnpm dev          # start dev server
+pnpm test         # run tests
+pnpm lint         # lint
+pnpm build        # production build
+pnpm build:cli    # bundle CLI to dist-cli/
+pnpm generate-demo  # regenerate public/demo-data.json
 ```
 
 ## Running tests
 
 ```bash
-npm test              # run all tests
-npm test -- --watch   # watch mode
+pnpm test              # run all tests
+pnpm test -- --watch   # watch mode
 ```
 
 ## Code style
 
 - TypeScript + React. Formatting is handled by Prettier (config in `package.json`).
-- Lint with `npm run lint` before submitting a PR.
+- Lint with `pnpm lint` before submitting a PR.
 - Prefer conventional commit messages: `feat:`, `fix:`, `refactor:`, `chore:`, `test:`, `docs:`.
 
 ## Project structure
@@ -47,7 +58,7 @@ scripts/
 
 1. Fork the repo and create a feature branch.
 2. Make your changes and add/update tests if applicable.
-3. Run `npm test && npm run lint && npm run build` — all must pass.
+3. Run `pnpm test && pnpm lint && pnpm build` — all must pass.
 4. Open a pull request with a clear description of what and why.
 
 ## Reporting bugs

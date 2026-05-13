@@ -1,48 +1,30 @@
 # source-viz
 
+[![CI](https://github.com/EnixCoda/source-viz/actions/workflows/ci.yml/badge.svg)](https://github.com/EnixCoda/source-viz/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/source-viz)](https://www.npmjs.com/package/source-viz)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Visualize JavaScript/TypeScript import dependency graphs — in the browser or from the command line.
-
-## Features
-
-- 📂 **Browser UI** — scan a local project folder directly in Chrome/Edge (no upload, fully local)
-- 🔍 **Dependency graph** — interactive D3 force-directed visualization with zoom, drag, and selection
-- 🔄 **Cycle detection** — highlights circular dependencies so you can break them
-- 🗂 **tsconfig alias support** — resolves `@/...` and other path aliases from `tsconfig.json`
-- 💻 **CLI** — `npx source-viz` for scripting, CI integration, and quick terminal analysis
-- 📤 **Export / restore** — save the scan result to JSON and resume without rescanning
-- 🎯 **Filter** — include/exclude patterns (regex) to narrow scan scope
-
-## Live Demo
-
-**[srcviz.enix.one](https://srcviz.enix.one/)** — deployed via Vercel.
 
 ## Web UI
 
-The web UI works in **Chrome or Edge** (requires the [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API)).
+Play now — https://srcviz.enix.one/
 
-```
-# Run locally
-git clone https://github.com/EnixCoda/source-viz.git
-cd source-viz
-pnpm install
-pnpm dev
-```
+## Why?
 
-Open the shown URL, click **Scan local project**, and pick your project root folder.
+Most dependency-analysis tools require complex config, only run in CI, or upload your code somewhere. source-viz doesn't:
+
+- **Zero config** — point it at a directory and go. tsconfig path aliases are resolved automatically.
+- **Interactive graph** — visualization with zoom, drag, and node selection.
+- **Cycle detection** — circular dependencies are highlighted out of the box.
+- **Dual interface** — explore visually in the browser, or script and automate with the CLI.
+- **Fully local** — the browser reads your folder directly via the File System Access API. Nothing leaves your machine.
 
 ## CLI
 
-### Install
-
 ```bash
-npm install -g source-viz
-# or run without installing:
 npx source-viz
 ```
-
-> Requires Node.js ≥ 18.
-
-### Commands
 
 #### `scan <dir>` — output the full dependency map
 
@@ -86,7 +68,7 @@ npx source-viz deps src utils/helpers.ts --dependents
 npx source-viz deps src utils/helpers.ts --dependents --transitive
 ```
 
-### Options (all commands)
+#### Common options
 
 | Flag | Description |
 |------|-------------|
@@ -95,28 +77,22 @@ npx source-viz deps src utils/helpers.ts --dependents --transitive
 | `--silent` | Suppress warnings |
 | `--json` | Output as JSON array (`cycles`, `deps`) |
 
-## Development
+## Alternatives
 
-```bash
-git clone https://github.com/EnixCoda/source-viz.git
-cd source-viz
-pnpm install
-
-pnpm dev          # start dev server
-pnpm test         # run tests
-pnpm lint         # lint
-pnpm build        # production build
-pnpm build:cli    # bundle CLI to dist-cli/
-```
-
-To regenerate the demo data:
-```bash
-pnpm generate-demo
-```
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+| | **source-viz** | dependency-cruiser | madge | Skott |
+|---|:---:|:---:|:---:|:---:|
+| | | [↗](https://github.com/sverweij/dependency-cruiser) | [↗](https://github.com/pahen/madge) | [↗](https://github.com/antoine-coulon/skott) |
+| Zero install | ✅ | ❌ | ❌ | ❌ |
+| Web UI | ✅ | ❌ | ❌ | ✅ (CLI-launched) |
+| Interactive graph | ✅ | ❌ | ❌ | ✅ |
+| Zero config | ✅ | ❌ | ✅ | ✅ |
+| Cycle detection | ✅ | ✅ | ✅ | ✅ |
+| CLI | ✅ | ✅ | ✅ | ✅ |
+| Custom rules / validation | ❌ | ✅ | ❌ | ❌ |
+| Vue / Svelte / CSS support | ❌ | ✅ | partial | ❌ |
+| Unused dep detection | ❌ | partial | ❌ | ✅ |
+| SVG / PNG export | ❌ | ✅ | ✅ | ✅ |
+| Programmatic API | ❌ | ✅ | ✅ | ✅ |
 
 ## License
 
