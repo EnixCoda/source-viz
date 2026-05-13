@@ -59,7 +59,6 @@ import { SettingsOfOpenInVSCode } from "./OpenInVSCode";
 import { EntriesTable } from "./Scan/EntriesTable";
 import { StatusBar } from "./StatusBar";
 import { ZoomHUD } from "./ZoomHUD";
-import { VizSettingsPopover } from "./VizSettingsPopover";
 import { ArrowBackIcon, RepeatIcon } from "@chakra-ui/icons";
 
 const DOCK_LABELS: Record<string, string> = {
@@ -967,16 +966,7 @@ export function Viz({
                   layoutStale={layoutStale}
                 />
                 <Minimap graphRef={graphRef} refreshKey={displayedGraphData.nodes.length + selectedNodes.size} />
-                <VizSettingsPopover>
-                  {graphModeView}
-                  {colorByView}
-                  {edgeStyleView}
-                  {fontSizeView}
-                  {separateAsyncImportsView}
-                  {groupByDirView}
-                  {groupByDir && groupDepthView}
-                  {autoFitOnFocusView}
-                </VizSettingsPopover>
+
                 {hover && !contextMenu && (
                   <NodeHoverCard
                     nodeId={hover.nodeId}
@@ -1313,6 +1303,17 @@ export function Viz({
                   )}
                   {d.id === "settings" && (
                     <VStack alignItems="stretch" spacing={4}>
+                      <VStack alignItems="stretch" spacing={1}>
+                        <Heading as="h3" size="xs" color="gray.600">Graph</Heading>
+                        {graphModeView}
+                        {colorByView}
+                        {edgeStyleView}
+                        {fontSizeView}
+                        {separateAsyncImportsView}
+                        {groupByDirView}
+                        {groupByDir && groupDepthView}
+                        {autoFitOnFocusView}
+                      </VStack>
                       <VStack alignItems="stretch" spacing={1}>
                         <Heading as="h3" size="xs" color="gray.600">General</Heading>
                         <SettingsOfOpenInVSCode />
