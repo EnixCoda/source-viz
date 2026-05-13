@@ -55,7 +55,7 @@ import { Hotspots } from "./Hotspots";
 import { SuggestedCuts } from "./SuggestedCuts";
 import { NodesFilter } from "./NodesFilter";
 import { SettingsOfOpenInVSCode } from "./OpenInVSCode";
-import { EntriesTable } from "./Scan/EntriesTable";
+import { NodeTable } from "./Scan/NodeTable";
 import { StatusBar } from "./StatusBar";
 import { ZoomHUD } from "./ZoomHUD";
 import { SelectionContext } from "../contexts/SelectionContext";
@@ -335,6 +335,12 @@ export function Viz({
   const fanInMap = React.useMemo(() => computeFanIn(data.dependantMap), [data.dependantMap]);
   const fanOutMap = React.useMemo(() => computeFanOut(data.dependencyMap), [data.dependencyMap]);
 
+  const cycleNodes = React.useMemo(() => {
+    const s = new Set<string>();
+    for (const cycle of graphData.cycles) for (const id of cycle) s.add(id);
+    return s;
+  }, [graphData.cycles]);
+
   const handleHoverHighlightNode = React.useCallback((id: string) => {
     const nbrs = new Set<string>([id]);
     const ins = data.dependantMap.get(id);
@@ -544,18 +550,6 @@ export function Viz({
   const rootsInView = React.useMemo(
     () => renderedNodes.filter((id) => !targetsSet.has(id) && sourcesSet.has(id)),
     [renderedNodes, sourcesSet, targetsSet]
-  );
-
-  const renderedNodesSet = React.useMemo(() => new Set(renderedNodes), [renderedNodes]);
-  const renderedEntries = React.useMemo(
-    () =>
-      entries
-        .filter(([entry]) => renderedNodesSet.has(entry))
-        .map(([entry, dependencies]) => [
-          entry,
-          dependencies.filter(([dependency]) => renderedNodesSet.has(dependency)),
-        ]) satisfies DependencyEntry[],
-    [entries, renderedNodesSet]
   );
 
   // Panel placement state: panel-id -> "primary" | "sidebar" | "closed".
@@ -1011,8 +1005,15 @@ export function Viz({
     }
     if (d.id === "table") {
       return (
-        <Box flex={1} minH={0} overflow="auto">
-          <EntriesTable entries={renderedEntries} />
+        <Box flex={1} minH={0} overflow="hidden" display="flex" flexDirection="column">
+          <NodeTable
+            renderedNodes={renderedNodes}
+            fanInMap={fanInMap}
+            fanOutMap={fanOutMap}
+            data={data}
+            kindMap={kindMap}
+            cycleNodes={cycleNodes}
+          />
         </Box>
       );
     }
