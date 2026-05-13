@@ -57,7 +57,7 @@ import { NodeTable } from "./Scan/NodeTable";
 import { StatusBar } from "./StatusBar";
 import { ZoomHUD } from "./ZoomHUD";
 import { SelectionContext } from "../contexts/SelectionContext";
-import { ArrowBackIcon, RepeatIcon } from "@chakra-ui/icons";
+import { AddIcon, ArrowBackIcon, RepeatIcon } from "@chakra-ui/icons";
 
 const DOCK_LABELS: Record<string, string> = {
   viz: "Visualization",
@@ -1284,7 +1284,8 @@ export function Viz({
   };
 
   const leftDocks = dockDefs.filter(d => d.defaultZone === "left");
-  const rightDocks = dockDefs.filter(d => d.defaultZone === "right" || d.defaultZone === "bottom" || d.defaultZone === undefined);
+  const rightDocks = dockDefs.filter(d => d.defaultZone === "right");
+  const bottomDefaultDocks = dockDefs.filter(d => d.defaultZone === "bottom");
   const hasLeft = dockDefs.some(d => placementOf(d.id) === "left");
   const hasRight = dockDefs.some(d => placementOf(d.id) === "right");
   const hasBottom = dockDefs.some(d => placementOf(d.id) === "bottom");
@@ -1539,6 +1540,32 @@ export function Viz({
                       </HStack>
                     );
                   })}
+                  {/* Add panel menu — surfaces panels not already in the bottom zone */}
+                  {(() => {
+                    const candidates = dockDefs.filter(d => placementOf(d.id) !== "bottom");
+                    if (candidates.length === 0) return null;
+                    return (
+                      <Menu placement="top-start" isLazy>
+                        <Tooltip label="Add panel to bottom" hasArrow openDelay={300}>
+                          <MenuButton
+                            as={IconButton}
+                            aria-label="Add panel to bottom"
+                            icon={<AddIcon boxSize="0.6em" />}
+                            size="xs"
+                            variant="ghost"
+                            ml={1}
+                          />
+                        </Tooltip>
+                        <MenuList minW="180px" fontSize="sm">
+                          {candidates.map(d => (
+                            <MenuItem key={d.id} onClick={() => movePanel(d.id, "bottom")}>
+                              {DOCK_LABELS[d.id] ?? d.id}
+                            </MenuItem>
+                          ))}
+                        </MenuList>
+                      </Menu>
+                    );
+                  })()}
                 </HStack>
                 {/* Active panel body */}
                 {activeDef && (
@@ -1550,6 +1577,28 @@ export function Viz({
             </>
           );
         })()}
+        {!hasBottom && bottomDefaultDocks.length > 0 && (
+          <HStack spacing={0} bg="gray.50" borderTop="1px solid" borderColor="gray.200" px={2} py={0.5} flexShrink={0} justifyContent="flex-start">
+            <Menu placement="top-start" isLazy>
+              <Tooltip label="Add panel to bottom" hasArrow openDelay={300}>
+                <MenuButton
+                  as={IconButton}
+                  aria-label="Add panel to bottom"
+                  icon={<AddIcon boxSize="0.6em" />}
+                  size="xs"
+                  variant="ghost"
+                />
+              </Tooltip>
+              <MenuList minW="180px" fontSize="sm">
+                {dockDefs.filter(d => placementOf(d.id) !== "bottom").map(d => (
+                  <MenuItem key={d.id} onClick={() => movePanel(d.id, "bottom")}>
+                    {DOCK_LABELS[d.id] ?? d.id}
+                  </MenuItem>
+                ))}
+              </MenuList>
+            </Menu>
+          </HStack>
+        )}
       </VStack>
       <InvestigatePanel
         isOpen={investigateTarget !== null}

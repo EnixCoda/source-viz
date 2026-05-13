@@ -54,7 +54,6 @@ function buildRows(
 const ROW_H = 30;
 
 const COL = {
-  file: "auto",
   fanIn: "52px",
   fanOut: "52px",
   ext: "48px",
@@ -69,6 +68,7 @@ function SortHeader({
   onSort,
   hint,
   width,
+  flex,
   textAlign = "right",
 }: {
   label: string;
@@ -77,7 +77,8 @@ function SortHeader({
   currentDir: SortDir;
   onSort: (k: SortKey) => void;
   hint?: string;
-  width: string;
+  width?: string;
+  flex?: number;
   textAlign?: "left" | "right";
 }) {
   const active = currentKey === sortKey;
@@ -86,7 +87,9 @@ function SortHeader({
       <Box
         as="button"
         width={width}
+        flex={flex}
         flexShrink={0}
+        minW={0}
         textAlign={textAlign}
         color={active ? "blue.600" : "gray.500"}
         _hover={{ color: "gray.800" }}
@@ -151,6 +154,16 @@ export function NodeTable({
   }, []);
 
   const parentRef = React.useRef<HTMLDivElement>(null);
+  const [scrollbarWidth, setScrollbarWidth] = React.useState(0);
+  React.useLayoutEffect(() => {
+    const el = parentRef.current;
+    if (!el) return;
+    const update = () => setScrollbarWidth(el.offsetWidth - el.clientWidth);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [sorted.length]);
   // eslint-disable-next-line react-hooks/incompatible-library
   const virtualizer = useVirtualizer({
     count: sorted.length,
@@ -190,6 +203,7 @@ export function NodeTable({
         bg="gray.50"
         px={2}
         py={0.5}
+        pr={`calc(0.5rem + ${scrollbarWidth}px)`}
         fontWeight="semibold"
         fontSize="0.65em"
         textTransform="uppercase"
@@ -203,7 +217,7 @@ export function NodeTable({
           currentKey={sortKey}
           currentDir={sortDir}
           onSort={handleSort}
-          width={COL.file}
+          flex={1}
           textAlign="left"
         />
         <SortHeader
