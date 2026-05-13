@@ -1,5 +1,5 @@
 import { Box, Button, ButtonGroup, Divider, HStack, Heading, IconButton, Tab, TabList, TabPanel, TabPanels, Tabs, Text, Tooltip, VStack } from "@chakra-ui/react";
-import { LockIcon, UnlockIcon } from "@chakra-ui/icons";
+import { LockIcon, UnlockIcon, HamburgerIcon } from "@chakra-ui/icons";
 import {
   SearchIcon,
   InfoOutlineIcon,
@@ -69,6 +69,7 @@ const DOCK_LABELS: Record<string, string> = {
   lookup: "Look up",
   hotspots: "Hotspots",
   cycles: "Cycles",
+  "graph-settings": "Graph settings",
   settings: "Settings",
 };
 
@@ -633,7 +634,8 @@ export function Viz({
       { id: "leaves", label: "Leaf files", icon: <ViewIcon /> },
       { id: "filters", label: "Filters & exclusions", icon: <RepeatClockIcon />, badge: excludedNodes.length || undefined },
       { id: "cycles", label: "Cycles", icon: <RepeatIcon />, badge: graphData.cycles.length || undefined },
-      { id: "settings", label: "Settings", icon: <SettingsIcon /> },
+      { id: "graph-settings", label: "Graph settings", icon: <SettingsIcon /> },
+      { id: "settings", label: "General settings", icon: <HamburgerIcon /> },
     ],
     [selectedNodes.size, excludedNodes.length, graphData.cycles.length]
   );
@@ -847,7 +849,8 @@ export function Viz({
       { id: "dock-filters", label: "Open: Filters", group: "action", run: () => openDock("filters") },
       { id: "dock-roots", label: "Open: Entry points", group: "action", run: () => openDock("roots") },
       { id: "dock-leaves", label: "Open: Leaf files", group: "action", run: () => openDock("leaves") },
-      { id: "dock-settings", label: "Open: Settings", group: "action", run: () => openDock("settings") },
+      { id: "dock-graph-settings", label: "Open: Graph settings", group: "action", run: () => openDock("graph-settings") },
+      { id: "dock-settings", label: "Open: General settings", group: "action", run: () => openDock("settings") },
       { id: "dock-lookup", label: "Open: Look up", group: "action", run: () => openDock("lookup") },
       { id: "dock-hotspots", label: "Open: Hotspots", group: "action", run: () => openDock("hotspots") },
       { id: "mode-graph", label: "View: Graph only", group: "action", run: () => setVizMode("graph") },
@@ -1301,19 +1304,20 @@ export function Viz({
                       )}
                     </VStack>
                   )}
+                  {d.id === "graph-settings" && (
+                    <VStack alignItems="stretch" spacing={2}>
+                      {graphModeView}
+                      {colorByView}
+                      {edgeStyleView}
+                      {fontSizeView}
+                      {separateAsyncImportsView}
+                      {groupByDirView}
+                      {groupByDir && groupDepthView}
+                      {autoFitOnFocusView}
+                    </VStack>
+                  )}
                   {d.id === "settings" && (
                     <VStack alignItems="stretch" spacing={4}>
-                      <VStack alignItems="stretch" spacing={1}>
-                        <Heading as="h3" size="xs" color="gray.600">Graph</Heading>
-                        {graphModeView}
-                        {colorByView}
-                        {edgeStyleView}
-                        {fontSizeView}
-                        {separateAsyncImportsView}
-                        {groupByDirView}
-                        {groupByDir && groupDepthView}
-                        {autoFitOnFocusView}
-                      </VStack>
                       <VStack alignItems="stretch" spacing={1}>
                         <Heading as="h3" size="xs" color="gray.600">General</Heading>
                         <SettingsOfOpenInVSCode />
