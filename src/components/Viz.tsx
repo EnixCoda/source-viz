@@ -571,6 +571,7 @@ export function Viz({
       next.set(id, to);
       return next;
     });
+    if (to === "bottom") setBottomActiveTab(id);
   }, []);
 
   const closeDock = React.useCallback((id: DockId) => {
@@ -599,6 +600,8 @@ export function Viz({
       }
       return next;
     });
+    const zone = to ?? (placementRef.current.get(id) === undefined || placementRef.current.get(id) === "closed" ? defaultZoneOf(id) : placementRef.current.get(id));
+    if (zone === "bottom") setBottomActiveTab(id);
   }, [defaultZoneOf]);
 
   const toggleDock = React.useCallback((id: DockId) => {
@@ -641,6 +644,7 @@ export function Viz({
   const [leftWidth, setLeftWidth] = React.useState<number>(280);
   const [rightWidth, setRightWidth] = React.useState<number>(320);
   const [bottomHeight, setBottomHeight] = React.useState<number>(240);
+  const [bottomActiveTab, setBottomActiveTab] = React.useState<string | null>(null);
 
   // Dock panel vertical resize
   // Dock flex map: per-panel-id weight for vertical stacking within a zone.
@@ -1265,17 +1269,12 @@ export function Viz({
   };
 
   // Helper to render a stack of panels in a zone.
-  const renderZoneStack = (zone: Exclude<Zone, "closed">, containerRef: React.RefObject<HTMLDivElement | null>) => {
+  const renderZoneStack = (zone: Exclude<Zone, "closed" | "bottom">, containerRef: React.RefObject<HTMLDivElement | null>) => {
     const zoneDefs = dockDefs.filter(d => placementOf(d.id) === zone);
     if (zoneDefs.length === 0) return null;
-    const stackAxis = zone === "bottom" ? "x" : "y";
     return zoneDefs.map((d, i, arr) => (
       <React.Fragment key={d.id}>
-        {i > 0 && (
-          stackAxis === "y"
-            ? <VerticalResizeHandler onPointerDown={makeStackResizeHandler(containerRef, arr[i - 1].id, d.id, "y")} />
-            : <HorizontalResizeHandler onPointerDown={makeStackResizeHandler(containerRef, arr[i - 1].id, d.id, "x")} />
-        )}
+        {i > 0 && <VerticalResizeHandler onPointerDown={makeStackResizeHandler(containerRef, arr[i - 1].id, d.id, "y")} />}
         <Box display="flex" flexDirection="column" flex={dockFlexMap.get(d.id) ?? 1} minH={0} minW={0} overflow="hidden">
           {renderPanelHeader(d)}
           {renderPanelBody(d)}
@@ -1476,15 +1475,81 @@ export function Viz({
           {/* Right rail */}
           <DockRail side="right" docks={rightDocks} activeIds={openDockIds} onChange={toggleDock} />
         </HStack>
-        {/* Bottom zone (full width) */}
-        {hasBottom && (
-          <>
-            <VerticalResizeHandler onPointerDown={makeZoneResizeHandler("y", -1, bottomHeight, setBottomHeight)} />
-            <HStack ref={bottomContainerRef} height={`${bottomHeight}px`} flexShrink={0} minH={0} alignItems="stretch" spacing={0} borderTop="1px solid" borderColor="gray.200">
-              {renderZoneStack("bottom", bottomContainerRef)}
-            </HStack>
-          </>
-        )}
+        {/* Bottom zone (full width, tabbed) */}
+        {hasBottom && (() => {
+          const bottomDefs = dockDefs.filter(d => placementOf(d.id) === "bottom");
+          const activeId = bottomDefs.find(d => d.id === bottomActiveTab)?.id ?? bottomDefs[0]?.id ?? null;
+          const activeDef = bottomDefs.find(d => d.id === activeId) ?? null;
+          return (
+            <>
+              <VerticalResizeHandler onPointerDown={makeZoneResizeHandler("y", -1, bottomHeight, setBottomHeight)} />
+              <Box ref={bottomContainerRef} height={`${bottomHeight}px`} flexShrink={0} minH={0} display="flex" flexDirection="column" borderTop="1px solid" borderColor="gray.200">
+                {/* Tab bar */}
+                <HStack spacing={0} bg="gray.50" borderBottom="1px solid" borderColor="gray.200" flexShrink={0} overflowX="auto">
+                  {bottomDefs.map(d => {
+                    const isActive = d.id === activeId;
+                    return (
+                      <HStack
+                        key={d.id}
+                        spacing={1}
+                        px={3}
+                        py={1.5}
+                        cursor="pointer"
+                        onClick={() => setBottomActiveTab(d.id)}
+                        bg={isActive ? "white" : "transparent"}
+                        borderRight="1px solid"
+                        borderColor="gray.200"
+                        borderBottom={isActive ? "2px solid" : "2px solid transparent"}
+                        borderBottomColor={isActive ? "blue.400" : "transparent"}
+                        _hover={{ bg: isActive ? "white" : "gray.100" }}
+                        flexShrink={0}
+                      >
+                        <Heading as="h2" size="xs" color={isActive ? "gray.800" : "gray.600"}>
+                          {DOCK_LABELS[d.id] ?? d.id}
+                        </Heading>
+                        <Menu placement="bottom-end" isLazy>
+                          <Tooltip label="Move panel" hasArrow openDelay={300}>
+                            <MenuButton
+                              as={IconButton}
+                              aria-label="Move panel"
+                              icon={<ChevronDownIcon />}
+                              size="xs"
+                              variant="ghost"
+                              onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                            />
+                          </Tooltip>
+                          <MenuList minW="160px" fontSize="sm">
+                            <MenuItem onClick={() => movePanel(d.id, "left")}>Move to left side</MenuItem>
+                            <MenuItem onClick={() => movePanel(d.id, "right")}>Move to right side</MenuItem>
+                            {!d.alwaysOpen && <MenuDivider />}
+                            {!d.alwaysOpen && <MenuItem onClick={() => closeDock(d.id)}>Close panel</MenuItem>}
+                          </MenuList>
+                        </Menu>
+                        {!d.alwaysOpen && (
+                          <Tooltip label="Close panel" hasArrow openDelay={300}>
+                            <IconButton
+                              aria-label="Close panel"
+                              icon={<CloseIcon boxSize="0.6em" />}
+                              size="xs"
+                              variant="ghost"
+                              onClick={(e) => { e.stopPropagation(); closeDock(d.id); }}
+                            />
+                          </Tooltip>
+                        )}
+                      </HStack>
+                    );
+                  })}
+                </HStack>
+                {/* Active panel body */}
+                {activeDef && (
+                  <Box flex={1} minH={0} display="flex" flexDirection="column" overflow="hidden">
+                    {renderPanelBody(activeDef)}
+                  </Box>
+                )}
+              </Box>
+            </>
+          );
+        })()}
       </VStack>
       <InvestigatePanel
         isOpen={investigateTarget !== null}
