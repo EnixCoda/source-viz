@@ -58,6 +58,7 @@ import { SettingsOfOpenInVSCode } from "./OpenInVSCode";
 import { EntriesTable } from "./Scan/EntriesTable";
 import { StatusBar } from "./StatusBar";
 import { ZoomHUD } from "./ZoomHUD";
+import { SelectionContext } from "../contexts/SelectionContext";
 import { ArrowBackIcon, RepeatIcon } from "@chakra-ui/icons";
 
 const DOCK_LABELS: Record<string, string> = {
@@ -292,13 +293,29 @@ export function Viz({
     clusterChildrenRef.current = clusteredGraphData?.childrenMap ?? null;
   }, [clusteredGraphData]);
 
-  // Multi-select state
+  // Multi-select state — owned here, exposed to child panels via SelectionContext.
   const [selectedNodes, setSelectedNodes] = React.useState<Set<string>>(new Set());
   const selectedNode = selectedNodes.size === 1 ? [...selectedNodes][0] : null;
 
   const setSelectedNode = React.useCallback((id: string | null) => {
     setSelectedNodes(id ? new Set([id]) : new Set());
   }, []);
+
+  const toggleSelectNode = React.useCallback((id: string) => {
+    setSelectedNodes((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const clearSelection = React.useCallback(() => setSelectedNodes(new Set()), []);
+
+  const selectionContextValue = React.useMemo(
+    () => ({ selectedNodes, setSelectedNodes, setSelectedNode, selectedNode, toggleSelectNode, clearSelection }),
+    [selectedNodes, setSelectedNode, selectedNode, toggleSelectNode, clearSelection]
+  );
 
   // Context menu state
   const [contextMenu, setContextMenu] = React.useState<{
@@ -995,7 +1012,7 @@ export function Viz({
     if (d.id === "table") {
       return (
         <Box flex={1} minH={0} overflow="auto">
-          <EntriesTable entries={renderedEntries} onClickSelect={setSelectedNode} />
+          <EntriesTable entries={renderedEntries} />
         </Box>
       );
     }
@@ -1003,16 +1020,12 @@ export function Viz({
       <Box flex={1} overflow="auto" minH={0} px={2} py={2} display="flex" flexDirection="column">
         {d.id === "inspector" && (
           <NodeInspector
-            selectedNodes={selectedNodes}
-            selectedNode={selectedNode}
             data={data}
             renderedNodes={renderedNodes}
             kindMap={kindMap}
             nodeSelectionHistory={nodeSelectionHistory}
             historyOffset={historyOffset}
             setHistoryOffset={setHistoryOffset}
-            setSelectedNode={setSelectedNode}
-            setSelectedNodes={setSelectedNodes}
             allExcludedNodes={allExcludedNodes}
             toggleExcludeNode={toggleExcludeNode}
             investigatorFs={investigatorFs}
@@ -1202,6 +1215,7 @@ export function Viz({
   };
 
   return (
+    <SelectionContext.Provider value={selectionContextValue}>
     <HStack alignItems="stretch" spacing={0} maxHeight="100%" height="100vh" width="100%">
       <VStack alignItems="stretch" height="100vh" width={width} spacing={0}>
         <HStack justifyContent="space-between" px={2} py={1} flexShrink={0}>
@@ -1365,6 +1379,7 @@ export function Viz({
       />
       <CommandPalette isOpen={paletteOpen} onClose={() => setPaletteOpen(false)} actions={paletteActions} />
     </HStack>
+    </SelectionContext.Provider>
   );
 }
 

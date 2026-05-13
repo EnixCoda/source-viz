@@ -1,6 +1,7 @@
 import { Button, Heading, ModalBody, ModalFooter, Select, Text, VStack } from "@chakra-ui/react";
 import * as React from "react";
 import { PreparedData } from "../utils/graphData";
+import { useSelection } from "../contexts/SelectionContext";
 import { ListOfNodeList } from "./ListOfNodeList";
 import { ModalButton } from "./ModalButton";
 import { MonoText } from "./MonoText";
@@ -10,16 +11,13 @@ import { NodesFilter } from "./NodesFilter";
 export function FindPathToNode({
   nodes,
   data,
-  selectedNode: source,
   nodeSelectionHistory,
-  setSelectedNode,
 }: {
   nodes: string[];
   data: PreparedData;
-  selectedNode: string;
   nodeSelectionHistory?: string[];
-  setSelectedNode: (id: string | null) => void;
 }) {
+  const { selectedNode: source, setSelectedNode } = useSelection();
   const [step, setStep] = React.useState<"selectTarget" | "checkResult">("selectTarget");
   const [target, setTarget] = React.useState<string | null>(null);
 
@@ -122,7 +120,7 @@ export function FindPathToNode({
                   <ModalBody>
                     <Text size="sm">Below shows paths between such nodes</Text>
                     <NodeList
-                      nodes={[source, target]}
+                      nodes={[source ?? "", target]}
                       mapProps={(id) => ({
                         onSelect: () => {
                           setSelectedNode(id);

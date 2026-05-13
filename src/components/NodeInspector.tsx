@@ -20,6 +20,7 @@ import { DependencyKind } from "../services/serializers";
 import { PreparedData } from "../utils/graphData";
 import { carry } from "../utils/general";
 import { InvestigatorFs } from "../lib/usage-investigator";
+import { useSelection } from "../contexts/SelectionContext";
 import { FindPathToNode } from "./FindPathToNode";
 import { FormSwitch } from "./FormSwitch";
 import { MonoText } from "./MonoText";
@@ -27,36 +28,29 @@ import { NodeList } from "./NodeList";
 import { OpenInVSCode } from "./OpenInVSCode";
 
 export function NodeInspector({
-  selectedNodes,
-  selectedNode,
   data,
   renderedNodes,
   kindMap,
   nodeSelectionHistory,
   historyOffset,
   setHistoryOffset,
-  setSelectedNode,
-  setSelectedNodes,
   allExcludedNodes,
   toggleExcludeNode,
   investigatorFs,
   setInvestigateTarget,
 }: {
-  selectedNodes: Set<string>;
-  selectedNode: string | null;
   data: PreparedData;
   renderedNodes: string[];
   kindMap: Map<string, DependencyKind>;
   nodeSelectionHistory: string[];
   historyOffset: number;
   setHistoryOffset: React.Dispatch<React.SetStateAction<number>>;
-  setSelectedNode: (id: string | null) => void;
-  setSelectedNodes: (s: Set<string>) => void;
   allExcludedNodes: Set<string>;
   toggleExcludeNode: (id: string) => void;
   investigatorFs: InvestigatorFs | null;
   setInvestigateTarget: (t: { file: string; symbol?: string | null } | null) => void;
 }) {
+  const { selectedNodes, setSelectedNodes, setSelectedNode, selectedNode } = useSelection();
   // Multi-select view
   if (selectedNodes.size > 1) {
     return (
@@ -262,8 +256,6 @@ export function NodeInspector({
             <FindPathToNode
               nodes={renderedNodes}
               data={data}
-              selectedNode={displayedNode}
-              setSelectedNode={setSelectedNode}
               nodeSelectionHistory={nodeSelectionHistory}
             />
           </TabPanel>

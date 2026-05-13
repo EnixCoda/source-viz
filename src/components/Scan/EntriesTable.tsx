@@ -2,6 +2,7 @@ import { Badge, Box, TableProps } from "@chakra-ui/react";
 import * as React from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { DependencyEntry, DependencyKind } from "../../services/serializers";
+import { useSelection } from "../../contexts/SelectionContext";
 import { MonoText } from "../MonoText";
 
 const kindBadge: Record<DependencyKind, { label: string; colorScheme: string } | null> = {
@@ -24,14 +25,13 @@ const COL_FILE = "45%";
 export function EntriesTable({
   entries,
   showImportType,
-  onClickSelect,
 }: {
   entries: DependencyEntry[];
   showImportType?: boolean;
   tableProps?: TableProps;
   order?: Order;
-  onClickSelect?: (id: string) => void;
 }) {
+  const { setSelectedNode: onClickSelect } = useSelection();
   const flatRows = React.useMemo<FlatRow[]>(() => {
     const rows: FlatRow[] = [];
     for (const [file, dependencies] of entries) {
@@ -99,43 +99,35 @@ export function EntriesTable({
                 {/* File column */}
                 <Box width={COL_FILE} flexShrink={0} minW={0} overflow="hidden" pr={2}>
                   {row.isFirstInFile ? (
-                    onClickSelect ? (
-                      <MonoText
-                        as="button"
-                        textAlign="left"
-                        onClick={() => onClickSelect(row.file)}
-                        color="blue.600"
-                        style={{ cursor: "pointer" }}
-                        isTruncated
-                        maxWidth="100%"
-                        display="block"
-                      >
-                        {row.file}
-                      </MonoText>
-                    ) : (
-                      <MonoText isTruncated>{row.file}</MonoText>
-                    )
-                  ) : null}
-                </Box>
-
-                {/* Dependency column */}
-                <Box flex="1" minW={0} overflow="hidden" display="flex" alignItems="center" gap={1}>
-                  {onClickSelect ? (
                     <MonoText
                       as="button"
                       textAlign="left"
-                      onClick={() => onClickSelect(row.dependency)}
+                      onClick={() => onClickSelect(row.file)}
                       color="blue.600"
                       style={{ cursor: "pointer" }}
                       isTruncated
                       maxWidth="100%"
                       display="block"
                     >
-                      {row.dependency}
+                      {row.file}
                     </MonoText>
-                  ) : (
-                    <MonoText isTruncated>{row.dependency}</MonoText>
-                  )}
+                  ) : null}
+                </Box>
+
+                {/* Dependency column */}
+                <Box flex="1" minW={0} overflow="hidden" display="flex" alignItems="center" gap={1}>
+                  <MonoText
+                    as="button"
+                    textAlign="left"
+                    onClick={() => onClickSelect(row.dependency)}
+                    color="blue.600"
+                    style={{ cursor: "pointer" }}
+                    isTruncated
+                    maxWidth="100%"
+                    display="block"
+                  >
+                    {row.dependency}
+                  </MonoText>
                   {badge && (
                     <Badge flexShrink={0} colorScheme={badge.colorScheme} fontSize="0.6em">
                       {badge.label}
