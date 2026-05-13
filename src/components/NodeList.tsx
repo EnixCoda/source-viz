@@ -11,6 +11,7 @@ export type NodeListProps = {
   mapProps?: (node: string) => Omit<NodeItemProps, "label">;
   listProps?: BoxProps;
   order?: Order;
+  minHeight?: number;
   maxHeight?: number;
   rowHeight?: number;
   /** When true, the list grows to fill its flex container instead of capping at maxHeight */
@@ -32,6 +33,7 @@ export function NodeList({
   mapProps,
   listProps,
   order,
+  minHeight,
   maxHeight = DEFAULT_MAX_HEIGHT,
   rowHeight = DEFAULT_ROW_HEIGHT,
   fillContainer = false,
@@ -59,6 +61,7 @@ export function NodeList({
       ref={parentRef}
       width="100%"
       overflowY="auto"
+      minHeight={minHeight}
       {...(fillContainer ? { flex: 1 } : { maxHeight })}
       {...listProps}
     >
