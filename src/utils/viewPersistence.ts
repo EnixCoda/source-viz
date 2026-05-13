@@ -10,8 +10,11 @@ export type PersistedView = {
   openDockIds?: string[];
   /** @deprecated pinning removed in favour of explicit placement */
   pinnedDockIds?: string[];
-  /** Panel placement: panel-id -> "primary" | "sidebar" | "closed". */
-  placement?: Record<string, "primary" | "sidebar" | "closed">;
+  /** Panel placement: panel-id -> "left" | "right" | "bottom" | "closed".
+   *  Older saved views may use "primary"/"sidebar" — those are migrated on load. */
+  placement?: Record<string, string>;
+  /** Per-zone size in pixels (left/right widths, bottom height). */
+  zoneSize?: { left?: number; right?: number; bottom?: number };
   excludeRegex?: string;
   rootsRegex?: string;
   leavesRegex?: string;

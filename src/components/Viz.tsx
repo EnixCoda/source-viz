@@ -10,11 +10,9 @@ import {
   TriangleUpIcon,
 } from "@chakra-ui/icons";
 import * as React from "react";
-import { useWindowSize } from "react-use";
 import { useGraph, GraphCallbacks } from "../hooks/graph/useGraph";
-import { useClampedSize } from "../hooks/useClampedSize";
 import { useObserveElementSize } from "../hooks/useObserveElementSize";
-import { Size2D, useResizeHandler } from "../hooks/useResizeHandler";
+import { Size2D } from "../hooks/useResizeHandler";
 import { useSet } from "../hooks/useSet";
 import { useCheckboxView } from "../hooks/view/useCheckboxView";
 import { useNumberInputView } from "../hooks/view/useInputView";
@@ -39,7 +37,7 @@ import { EdgeStyleMode } from "../lib/graph-viz";
 import { ActiveFilter, ActiveFiltersBar } from "./ActiveFiltersBar";
 import { CommandPalette, PaletteAction } from "./CommandPalette";
 import { DiffSection } from "./DiffSection";
-import { DockDef, DockId, DockPlacement, DockRail } from "./DockRail";
+import { DockDef, DockId, DockRail, Zone } from "./DockRail";
 import { ExportButton } from "./ExportButton";
 import { FormSwitch } from "./FormSwitch";
 import { HorizontalResizeHandler } from "./HorizontalResizeHandler";
@@ -232,27 +230,15 @@ export function Viz({
     },
   });
 
-  // handling resize
+  // handling resize (kept for legacy persisted-view compatibility)
   const [preferredSize, setSize] = React.useState<Size2D>(() => [window.innerWidth / 2, window.innerHeight]);
-  const { onPointerDown } = useResizeHandler(preferredSize, setSize);
-  const windowSize = useWindowSize();
-  const sizeLimit = React.useMemo(() => {
-    const minimumWidth = 200;
-    const minimumRemainWidth = 300;
-    return {
-      width: {
-        min: minimumWidth,
-        max: windowSize.width - minimumRemainWidth,
-      },
-    };
-  }, [windowSize.width]);
-  const [width] = useClampedSize(preferredSize, sizeLimit);
 
   const [graphCanvasRef, graphCanvasSize] = useObserveElementSize();
 
-  // Vertical split / stack resize: per-stack container refs.
-  const primaryContainerRef = React.useRef<HTMLDivElement>(null);
-  const sidebarContainerRef = React.useRef<HTMLDivElement>(null);
+  // Per-zone container refs for resize handlers within a stack.
+  const leftContainerRef = React.useRef<HTMLDivElement>(null);
+  const rightContainerRef = React.useRef<HTMLDivElement>(null);
+  const bottomContainerRef = React.useRef<HTMLDivElement>(null);
 
 
 
@@ -552,17 +538,18 @@ export function Viz({
     [renderedNodes, sourcesSet, targetsSet]
   );
 
-  // Panel placement state: panel-id -> "primary" | "sidebar" | "closed".
-  // Panels not in the map use their defaultPlacement (or "closed").
-  const [placement, setPlacement] = React.useState<Map<DockId, DockPlacement>>(
-    () => new Map<DockId, DockPlacement>([
-      ["viz", "primary"],
-      ["inspector", "sidebar"],
+  // Panel placement state: panel-id -> "left" | "right" | "bottom" | "closed".
+  // Panels not in the map use their defaultZone (or "closed").
+  // Viz lives in the center and is NOT in the placement map (it's always shown).
+  const [placement, setPlacement] = React.useState<Map<DockId, Zone>>(
+    () => new Map<DockId, Zone>([
+      ["inspector", "right"],
+      ["table", "bottom"],
     ])
   );
 
   const placementOf = React.useCallback(
-    (id: DockId): DockPlacement => placement.get(id) ?? "closed",
+    (id: DockId): Zone => placement.get(id) ?? "closed",
     [placement]
   );
 
@@ -578,7 +565,7 @@ export function Viz({
     placementRef.current = placement;
   });
 
-  const movePanel = React.useCallback((id: DockId, to: DockPlacement) => {
+  const movePanel = React.useCallback((id: DockId, to: Zone) => {
     setPlacement(prev => {
       const next = new Map(prev);
       next.set(id, to);
@@ -594,19 +581,25 @@ export function Viz({
     });
   }, []);
 
-  const openDock = React.useCallback((id: DockId, to?: Exclude<DockPlacement, "closed">) => {
+  // Lookup of default zones by id (built from dockDefs, but also referenced
+  // during state init below — so we keep a small literal map here as fallback).
+  const defaultZoneOf = React.useCallback((id: DockId): Exclude<Zone, "closed"> => {
+    const def = dockDefsRef.current.find(d => d.id === id);
+    return def?.defaultZone ?? "right";
+  }, []);
+
+  const openDock = React.useCallback((id: DockId, to?: Exclude<Zone, "closed">) => {
     setPlacement(prev => {
       const next = new Map(prev);
       const cur = prev.get(id);
       if (to) {
         next.set(id, to);
       } else if (cur === undefined || cur === "closed") {
-        // Default to sidebar when re-opening from closed.
-        next.set(id, "sidebar");
+        next.set(id, defaultZoneOf(id));
       }
       return next;
     });
-  }, []);
+  }, [defaultZoneOf]);
 
   const toggleDock = React.useCallback((id: DockId) => {
     const cur = placementRef.current.get(id) ?? "closed";
@@ -617,27 +610,37 @@ export function Viz({
   // Auto-open inspector on first selection if it's currently closed.
   React.useEffect(() => {
     if (selectedNodes.size > 0 && (placementRef.current.get("inspector") ?? "closed") === "closed") {
-      openDock("inspector", "sidebar");
+      openDock("inspector", "right");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedNodes]);
 
   const dockDefs = React.useMemo<DockDef[]>(
     () => [
-      { id: "viz", label: "Visualization", icon: <ViewIcon />, defaultPlacement: "primary", alwaysOpen: true },
-      { id: "table", label: "Entries table", icon: <HamburgerIcon />, defaultPlacement: "primary" },
-      { id: "inspector", label: "Inspector", icon: <InfoOutlineIcon />, badge: selectedNodes.size || undefined, defaultPlacement: "sidebar" },
-      { id: "lookup", label: "Look up nodes", icon: <SearchIcon />, defaultPlacement: "sidebar" },
-      { id: "hotspots", label: "Hotspots (fan-in/out)", icon: <TriangleUpIcon />, defaultPlacement: "sidebar" },
-      { id: "roots", label: "Entry points", icon: <StarIcon />, defaultPlacement: "sidebar" },
-      { id: "leaves", label: "Leaf files", icon: <ViewIcon />, defaultPlacement: "sidebar" },
-      { id: "filters", label: "Filters & exclusions", icon: <RepeatClockIcon />, badge: excludedNodes.length || undefined, defaultPlacement: "sidebar" },
-      { id: "cycles", label: "Cycles", icon: <RepeatIcon />, badge: graphData.cycles.length || undefined, defaultPlacement: "sidebar" },
-      { id: "graph-settings", label: "Graph settings", icon: <SettingsIcon />, defaultPlacement: "sidebar" },
-      { id: "settings", label: "General settings", icon: <HamburgerIcon />, defaultPlacement: "sidebar" },
+      // Viz is special — rendered in the center, not via the placement system.
+      // Find / Filter panels — left zone
+      { id: "filters", label: "Filters & exclusions", icon: <RepeatClockIcon />, badge: excludedNodes.length || undefined, defaultZone: "left" },
+      { id: "lookup", label: "Look up nodes", icon: <SearchIcon />, defaultZone: "left" },
+      { id: "roots", label: "Entry points", icon: <StarIcon />, defaultZone: "left" },
+      { id: "leaves", label: "Leaf files", icon: <ViewIcon />, defaultZone: "left" },
+      // Analyze / Configure panels — right zone
+      { id: "inspector", label: "Inspector", icon: <InfoOutlineIcon />, badge: selectedNodes.size || undefined, defaultZone: "right" },
+      { id: "hotspots", label: "Hotspots (fan-in/out)", icon: <TriangleUpIcon />, defaultZone: "right" },
+      { id: "cycles", label: "Cycles", icon: <RepeatIcon />, badge: graphData.cycles.length || undefined, defaultZone: "right" },
+      { id: "graph-settings", label: "Graph settings", icon: <SettingsIcon />, defaultZone: "right" },
+      { id: "settings", label: "General settings", icon: <HamburgerIcon />, defaultZone: "right" },
+      // Bottom zone
+      { id: "table", label: "Entries table", icon: <HamburgerIcon />, defaultZone: "bottom" },
     ],
     [selectedNodes.size, excludedNodes.length, graphData.cycles.length]
   );
+  const dockDefsRef = React.useRef(dockDefs);
+  React.useLayoutEffect(() => { dockDefsRef.current = dockDefs; });
+
+  // Zone sizes (px). Inner edges of left/right/bottom can be dragged.
+  const [leftWidth, setLeftWidth] = React.useState<number>(280);
+  const [rightWidth, setRightWidth] = React.useState<number>(320);
+  const [bottomHeight, setBottomHeight] = React.useState<number>(240);
 
   // Dock panel vertical resize
   // Dock flex map: per-panel-id weight for vertical stacking within a zone.
@@ -655,18 +658,20 @@ export function Viz({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openDockIdsKey]);
 
-  const makeStackResizeHandler = React.useCallback((containerRef: React.RefObject<HTMLDivElement | null>, aboveId: string, belowId: string) => (e: React.PointerEvent) => {
+  const makeStackResizeHandler = React.useCallback((containerRef: React.RefObject<HTMLDivElement | null>, aboveId: string, belowId: string, axis: "y" | "x" = "y") => (e: React.PointerEvent) => {
     e.preventDefault();
     const container = containerRef.current;
     if (!container) return;
-    const containerH = container.getBoundingClientRect().height;
-    const startY = e.clientY;
+    const rect = container.getBoundingClientRect();
+    const containerSize = axis === "y" ? rect.height : rect.width;
+    const startCoord = axis === "y" ? e.clientY : e.clientX;
     const totalFlex = [...dockFlexMap.values()].reduce((a, b) => a + b, 0);
     const startAbove = dockFlexMap.get(aboveId) ?? 1;
     const startBelow = dockFlexMap.get(belowId) ?? 1;
-    const minFlex = 60 * totalFlex / containerH;
+    const minFlex = 60 * totalFlex / containerSize;
     const onMove = (me: PointerEvent) => {
-      const delta = (me.clientY - startY) * totalFlex / containerH;
+      const cur = axis === "y" ? me.clientY : me.clientX;
+      const delta = (cur - startCoord) * totalFlex / containerSize;
       const newAbove = Math.max(minFlex, Math.min(startAbove + startBelow - minFlex, startAbove + delta));
       const newBelow = startAbove + startBelow - newAbove;
       setDockFlexMap(prev => new Map(prev).set(aboveId, newAbove).set(belowId, newBelow));
@@ -679,6 +684,29 @@ export function Viz({
     window.addEventListener("pointerup", onUp);
   }, [dockFlexMap]);
 
+
+  // Drag-resize for zone edges (left/right widths, bottom height).
+  const makeZoneResizeHandler = React.useCallback(
+    (axis: "x" | "y", direction: 1 | -1, current: number, set: (v: number) => void) =>
+    (e: React.PointerEvent) => {
+      e.preventDefault();
+      const startCoord = axis === "x" ? e.clientX : e.clientY;
+      const startSize = current;
+      const onMove = (me: PointerEvent) => {
+        const cur = axis === "x" ? me.clientX : me.clientY;
+        const delta = (cur - startCoord) * direction;
+        const next = Math.max(120, Math.min(800, startSize + delta));
+        set(next);
+      };
+      const onUp = () => {
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+      };
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+    },
+    []
+  );
 
   const activeFilters = React.useMemo<ActiveFilter[]>(() => {
     const list: ActiveFilter[] = [];
@@ -753,27 +781,42 @@ export function Viz({
 
   const restoreView = React.useCallback((v: PersistedView) => {
     if (v.panelWidth && v.panelWidth > 100) setSize([v.panelWidth, window.innerHeight]);
+    if (v.zoneSize) {
+      if (typeof v.zoneSize.left === "number") setLeftWidth(v.zoneSize.left);
+      if (typeof v.zoneSize.right === "number") setRightWidth(v.zoneSize.right);
+      if (typeof v.zoneSize.bottom === "number") setBottomHeight(v.zoneSize.bottom);
+    }
     if (v.placement) {
+      // Migrate old "primary"/"sidebar" values from previous layout versions.
+      const migrate = (id: string, raw: string): Zone => {
+        if (raw === "left" || raw === "right" || raw === "bottom" || raw === "closed") return raw;
+        if (raw === "primary") return id === "table" ? "bottom" : "right";
+        if (raw === "sidebar") {
+          const def = dockDefsRef.current.find(d => d.id === id);
+          return def?.defaultZone ?? "right";
+        }
+        return "closed";
+      };
       setPlacement(prev => {
         const next = new Map(prev);
-        for (const [id, p] of Object.entries(v.placement!)) next.set(id, p);
+        for (const [id, p] of Object.entries(v.placement!)) {
+          if (id === "viz") continue; // Viz is no longer in the placement map.
+          next.set(id, migrate(id, p as string));
+        }
         return next;
       });
     } else {
-      // Backward-compat migration from old vizMode + openDockIds.
+      // Backward-compat migration from very old vizMode + openDockIds.
       setPlacement(prev => {
         const next = new Map(prev);
-        // Migrate vizMode → table placement
-        if (v.vizMode === "table" || v.vizMode === "split") next.set("table", "primary");
-        // Viz is always in primary.
-        next.set("viz", "primary");
-        // Migrate open dock ids → sidebar
+        if (v.vizMode === "table" || v.vizMode === "split") next.set("table", "bottom");
         const opens = Array.isArray(v.openDockIds)
           ? v.openDockIds
           : (v.dockId ? [v.dockId] : []);
         for (const id of opens) {
           if (id === "viz" || id === "table") continue;
-          next.set(id, "sidebar");
+          const def = dockDefsRef.current.find(d => d.id === id);
+          next.set(id, def?.defaultZone ?? "right");
         }
         return next;
       });
@@ -807,11 +850,12 @@ export function Viz({
   }, [datasetSig]);
 
   const currentView = React.useMemo<PersistedView>(() => {
-    const placementObj: Record<string, DockPlacement> = {};
+    const placementObj: Record<string, Zone> = {};
     for (const [id, p] of placement) placementObj[id] = p;
     return {
       panelWidth: preferredSize[0],
       placement: placementObj,
+      zoneSize: { left: leftWidth, right: rightWidth, bottom: bottomHeight },
       excludeRegex: excludeNodesFilterInput,
       rootsRegex: restrictRootsInput,
       leavesRegex: restrictLeavesInput,
@@ -820,7 +864,7 @@ export function Viz({
       groupByDir,
       groupDepth,
     };
-  }, [preferredSize, placement, excludeNodesFilterInput, restrictRootsInput, restrictLeavesInput, excludedNodes, graphMode, groupByDir, groupDepth]);
+  }, [preferredSize, placement, leftWidth, rightWidth, bottomHeight, excludeNodesFilterInput, restrictRootsInput, restrictLeavesInput, excludedNodes, graphMode, groupByDir, groupDepth]);
 
   // Debounced auto-save
   React.useEffect(() => {
@@ -871,7 +915,7 @@ export function Viz({
       { id: "dock-settings", label: "Open: General settings", group: "action", run: () => openDock("settings") },
       { id: "dock-lookup", label: "Open: Look up", group: "action", run: () => openDock("lookup") },
       { id: "dock-hotspots", label: "Open: Hotspots", group: "action", run: () => openDock("hotspots") },
-      { id: "mode-table-open", label: "Show entries table", group: "action", run: () => openDock("table", "primary") },
+      { id: "mode-table-open", label: "Show entries table", group: "action", run: () => openDock("table", "bottom") },
       { id: "mode-table-close", label: "Hide entries table", group: "action", run: () => closeDock("table") },
       { id: "group-toggle", label: groupByDir ? "Group by directory: OFF" : "Group by directory: ON", group: "action", hint: "g", run: () => setGroupByDir(!groupByDir) },
     ];
@@ -938,7 +982,12 @@ export function Viz({
 
   const renderPanelHeader = (d: DockDef): React.ReactNode => {
     const cur = placementOf(d.id);
-    const zones: Array<Exclude<DockPlacement, "closed">> = ["primary", "sidebar"];
+    const zones: Array<Exclude<Zone, "closed">> = ["left", "right", "bottom"];
+    const zoneLabel: Record<Exclude<Zone, "closed">, string> = {
+      left: "left side",
+      right: "right side",
+      bottom: "bottom",
+    };
     return (
       <HStack px={2} py={1} bg="gray.50" borderBottom="1px solid" borderColor="gray.200" flexShrink={0} justifyContent="space-between" spacing={1}>
         <Heading as="h2" size="xs" color="gray.700" isTruncated>{DOCK_LABELS[d.id] ?? d.id}</Heading>
@@ -950,7 +999,7 @@ export function Viz({
             <MenuList minW="160px" fontSize="sm">
               {zones.filter(z => z !== cur).map(z => (
                 <MenuItem key={z} onClick={() => movePanel(d.id, z)}>
-                  Move to {z === "primary" ? "primary area" : "sidebar"}
+                  Move to {zoneLabel[z]}
                 </MenuItem>
               ))}
               {!d.alwaysOpen && <MenuDivider />}
@@ -1215,157 +1264,228 @@ export function Viz({
     );
   };
 
-  return (
-    <SelectionContext.Provider value={selectionContextValue}>
-    <HStack alignItems="stretch" spacing={0} maxHeight="100%" height="100vh" width="100%">
-      <VStack alignItems="stretch" height="100vh" width={width} spacing={0}>
-        <HStack justifyContent="space-between" px={2} py={1} flexShrink={0}>
-          <ButtonGroup size="xs" variant="ghost" spacing={0.5}>
-            <Tooltip label="Back" hasArrow openDelay={300}>
-              <IconButton aria-label="Back" icon={<ArrowBackIcon />} onClick={onBack} />
-            </Tooltip>
-            {onRescan && (
-              <Tooltip label="Re-scan project" hasArrow openDelay={300}>
-                <IconButton aria-label="Re-scan" icon={<RepeatIcon />} onClick={onRescan} />
-              </Tooltip>
-            )}
-          </ButtonGroup>
-        </HStack>
-        <ActiveFiltersBar filters={activeFilters} onClearAll={clearAllFilters} />
-        <Divider height="auto" />
-        <Box ref={primaryContainerRef} flex={1} overflow="hidden" position="relative" minH={0} display="flex" flexDirection="column">
-          {dockDefs.filter(d => placementOf(d.id) === "primary").map((d, i, arr) => (
-            <React.Fragment key={d.id}>
-              {i > 0 && <VerticalResizeHandler onPointerDown={makeStackResizeHandler(primaryContainerRef, arr[i - 1].id, d.id)} />}
-              <Box display="flex" flexDirection="column" flex={dockFlexMap.get(d.id) ?? 1} minH={0}>
-                {renderPanelHeader(d)}
-                {renderPanelBody(d)}
-              </Box>
-            </React.Fragment>
-          ))}
-          {contextMenu && (
-            <Box
-              position="fixed"
-              left={contextMenu.x}
-              top={contextMenu.y}
-              zIndex={1000}
-              bg="white"
-              shadow="lg"
-              borderRadius="md"
-              border="1px solid"
-              borderColor="gray.200"
-              py={1}
-              minW="200px"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {contextMenu.nodeId ? (
-                <VStack alignItems="stretch" spacing={0}>
-                  <Text px={3} py={1} fontSize="xs" color="gray.500" fontWeight="bold">
-                    {contextMenu.nodeId.length > 40
-                      ? "…" + contextMenu.nodeId.slice(-39)
-                      : contextMenu.nodeId}
-                  </Text>
+  // Helper to render a stack of panels in a zone.
+  const renderZoneStack = (zone: Exclude<Zone, "closed">, containerRef: React.RefObject<HTMLDivElement | null>) => {
+    const zoneDefs = dockDefs.filter(d => placementOf(d.id) === zone);
+    if (zoneDefs.length === 0) return null;
+    const stackAxis = zone === "bottom" ? "x" : "y";
+    return zoneDefs.map((d, i, arr) => (
+      <React.Fragment key={d.id}>
+        {i > 0 && (
+          stackAxis === "y"
+            ? <VerticalResizeHandler onPointerDown={makeStackResizeHandler(containerRef, arr[i - 1].id, d.id, "y")} />
+            : <HorizontalResizeHandler onPointerDown={makeStackResizeHandler(containerRef, arr[i - 1].id, d.id, "x")} />
+        )}
+        <Box display="flex" flexDirection="column" flex={dockFlexMap.get(d.id) ?? 1} minH={0} minW={0} overflow="hidden">
+          {renderPanelHeader(d)}
+          {renderPanelBody(d)}
+        </Box>
+      </React.Fragment>
+    ));
+  };
+
+  const leftDocks = dockDefs.filter(d => d.defaultZone === "left");
+  const rightDocks = dockDefs.filter(d => d.defaultZone === "right" || d.defaultZone === "bottom" || d.defaultZone === undefined);
+  const hasLeft = dockDefs.some(d => placementOf(d.id) === "left");
+  const hasRight = dockDefs.some(d => placementOf(d.id) === "right");
+  const hasBottom = dockDefs.some(d => placementOf(d.id) === "bottom");
+
+  const vizCenter = (
+    <Box ref={graphCanvasRef} flex={1} minH={0} minW={0} display="flex" flexDirection="column" position="relative" overflow="hidden">
+      <div ref={ref} style={{ flex: 1, minHeight: 0 }} />
+      <ZoomHUD
+        zoom={zoom}
+        onZoomIn={() => graphRef.current?.zoomBy(1.4)}
+        onZoomOut={() => graphRef.current?.zoomBy(1 / 1.4)}
+        onFit={() => graphRef.current?.fitToView()}
+        onReset={() => graphRef.current?.resetView()}
+        onScreenshot={() => {
+          const url = graphRef.current?.toDataURL();
+          if (!url) return;
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `source-viz-${Date.now()}.png`;
+          a.click();
+        }}
+        onRebuildLayout={graphMode === "dag" ? handleRebuildLayout : undefined}
+        layoutStale={layoutStale}
+      />
+      <Minimap graphRef={graphRef} refreshKey={displayedGraphData.nodes.length + selectedNodes.size} />
+      {hover && !contextMenu && (
+        <NodeHoverCard
+          nodeId={hover.nodeId}
+          screenX={hover.x}
+          screenY={hover.y}
+          onCycle={graphData.cycles.some((c) => c.includes(hover.nodeId))}
+          importsPreview={[...(data.dependencyMap.get(hover.nodeId) ?? [])].slice(0, 5)}
+          importedByPreview={[...(data.dependantMap.get(hover.nodeId) ?? [])].slice(0, 5)}
+        />
+      )}
+      {contextMenu && (
+        <Box
+          position="fixed"
+          left={contextMenu.x}
+          top={contextMenu.y}
+          zIndex={1000}
+          bg="white"
+          shadow="lg"
+          borderRadius="md"
+          border="1px solid"
+          borderColor="gray.200"
+          py={1}
+          minW="200px"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {contextMenu.nodeId ? (
+            <VStack alignItems="stretch" spacing={0}>
+              <Text px={3} py={1} fontSize="xs" color="gray.500" fontWeight="bold">
+                {contextMenu.nodeId.length > 40
+                  ? "…" + contextMenu.nodeId.slice(-39)
+                  : contextMenu.nodeId}
+              </Text>
+              <Divider />
+              <ContextMenuItem onClick={() => {
+                setSelectedNodes((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(contextMenu.nodeId!)) next.delete(contextMenu.nodeId!);
+                  else next.add(contextMenu.nodeId!);
+                  return next;
+                });
+                closeContextMenu();
+              }}>
+                {selectedNodes.has(contextMenu.nodeId) ? "Deselect" : "Select"}
+              </ContextMenuItem>
+              <ContextMenuItem onClick={() => { toggleExcludeNode(contextMenu.nodeId!); closeContextMenu(); }}>
+                {allExcludedNodes.has(contextMenu.nodeId) ? "Include in viz" : "Exclude from viz"}
+              </ContextMenuItem>
+              <ContextMenuItem
+                isDisabled={!investigatorFs}
+                title={!investigatorFs ? "Source files are not available for this dataset" : undefined}
+                onClick={() => {
+                  setInvestigateTarget({ file: contextMenu.nodeId! });
+                  closeContextMenu();
+                }}
+              >
+                Investigate export…
+              </ContextMenuItem>
+              {data.dependencyMap.get(contextMenu.nodeId)?.size ? (
+                <ContextMenuItem onClick={() => {
+                  data.dependencyMap.get(contextMenu.nodeId!)?.forEach((dep) => {
+                    if (!allExcludedNodes.has(dep)) toggleExcludeNode(dep);
+                  });
+                  closeContextMenu();
+                }}>
+                  Exclude imports ({data.dependencyMap.get(contextMenu.nodeId)?.size})
+                </ContextMenuItem>
+              ) : null}
+              {data.dependantMap.get(contextMenu.nodeId)?.size ? (
+                <ContextMenuItem onClick={() => {
+                  data.dependantMap.get(contextMenu.nodeId!)?.forEach((dep) => {
+                    if (!allExcludedNodes.has(dep)) toggleExcludeNode(dep);
+                  });
+                  closeContextMenu();
+                }}>
+                  Exclude importers ({data.dependantMap.get(contextMenu.nodeId)?.size})
+                </ContextMenuItem>
+              ) : null}
+              {selectedNodes.size > 1 && (
+                <>
                   <Divider />
                   <ContextMenuItem onClick={() => {
-                    setSelectedNodes((prev) => {
-                      const next = new Set(prev);
-                      if (next.has(contextMenu.nodeId!)) next.delete(contextMenu.nodeId!);
-                      else next.add(contextMenu.nodeId!);
-                      return next;
+                    selectedNodes.forEach((id) => {
+                      if (!allExcludedNodes.has(id)) toggleExcludeNode(id);
                     });
+                    setSelectedNodes(new Set());
                     closeContextMenu();
                   }}>
-                    {selectedNodes.has(contextMenu.nodeId) ? "Deselect" : "Select"}
+                    Exclude all selected ({selectedNodes.size})
                   </ContextMenuItem>
-                  <ContextMenuItem onClick={() => { toggleExcludeNode(contextMenu.nodeId!); closeContextMenu(); }}>
-                    {allExcludedNodes.has(contextMenu.nodeId) ? "Include in viz" : "Exclude from viz"}
-                  </ContextMenuItem>
-                  <ContextMenuItem
-                    isDisabled={!investigatorFs}
-                    title={!investigatorFs ? "Source files are not available for this dataset" : undefined}
-                    onClick={() => {
-                      setInvestigateTarget({ file: contextMenu.nodeId! });
-                      closeContextMenu();
-                    }}
-                  >
-                    Investigate export…
-                  </ContextMenuItem>
-                  {data.dependencyMap.get(contextMenu.nodeId)?.size ? (
-                    <ContextMenuItem onClick={() => {
-                      data.dependencyMap.get(contextMenu.nodeId!)?.forEach((dep) => {
-                        if (!allExcludedNodes.has(dep)) toggleExcludeNode(dep);
-                      });
-                      closeContextMenu();
-                    }}>
-                      Exclude imports ({data.dependencyMap.get(contextMenu.nodeId)?.size})
-                    </ContextMenuItem>
-                  ) : null}
-                  {data.dependantMap.get(contextMenu.nodeId)?.size ? (
-                    <ContextMenuItem onClick={() => {
-                      data.dependantMap.get(contextMenu.nodeId!)?.forEach((dep) => {
-                        if (!allExcludedNodes.has(dep)) toggleExcludeNode(dep);
-                      });
-                      closeContextMenu();
-                    }}>
-                      Exclude importers ({data.dependantMap.get(contextMenu.nodeId)?.size})
-                    </ContextMenuItem>
-                  ) : null}
-                  {selectedNodes.size > 1 && (
-                    <>
-                      <Divider />
-                      <ContextMenuItem onClick={() => {
-                        selectedNodes.forEach((id) => {
-                          if (!allExcludedNodes.has(id)) toggleExcludeNode(id);
-                        });
-                        setSelectedNodes(new Set());
-                        closeContextMenu();
-                      }}>
-                        Exclude all selected ({selectedNodes.size})
-                      </ContextMenuItem>
-                    </>
-                  )}
-                </VStack>
-              ) : (
-                <VStack alignItems="stretch" spacing={0}>
-                  {selectedNodes.size > 0 && (
-                    <ContextMenuItem onClick={() => { setSelectedNodes(new Set()); closeContextMenu(); }}>
-                      Deselect {selectedNodes.size > 1 ? `all (${selectedNodes.size})` : ""}
-                    </ContextMenuItem>
-                  )}
-                  {selectedNodes.size === 0 && (
-                    <Text px={3} py={2} fontSize="sm" color="gray.400">No actions</Text>
-                  )}
-                </VStack>
+                </>
               )}
-            </Box>
+            </VStack>
+          ) : (
+            <VStack alignItems="stretch" spacing={0}>
+              {selectedNodes.size > 0 && (
+                <ContextMenuItem onClick={() => { setSelectedNodes(new Set()); closeContextMenu(); }}>
+                  Deselect {selectedNodes.size > 1 ? `all (${selectedNodes.size})` : ""}
+                </ContextMenuItem>
+              )}
+              {selectedNodes.size === 0 && (
+                <Text px={3} py={2} fontSize="sm" color="gray.400">No actions</Text>
+              )}
+            </VStack>
           )}
         </Box>
-        <StatusBar
-          totalFiles={data.nodes.size}
-          renderedNodes={displayedGraphData.nodes.length}
-          renderedEdges={displayedGraphData.links.length}
-          cycles={graphData.cycles.length}
-          selected={selectedNodes.size}
-          graphMode={graphMode ?? "dag"}
-          asyncCutoff={separateAsyncImports}
-          layoutStale={layoutStale}
-        />
-      </VStack>
-      <HorizontalResizeHandler onPointerDown={onPointerDown} />
-      <HStack alignItems="stretch" height="100vh" flex={1} minW={0} spacing={0}>
-        <Box ref={sidebarContainerRef} flex={1} minW={0} overflow="hidden" display="flex" flexDirection="column">
-          {dockDefs.filter(d => placementOf(d.id) === "sidebar").map((d, i, arr) => (
-            <React.Fragment key={d.id}>
-              {i > 0 && <VerticalResizeHandler onPointerDown={makeStackResizeHandler(sidebarContainerRef, arr[i - 1].id, d.id)} />}
-              <Box display="flex" flexDirection="column" flex={dockFlexMap.get(d.id) ?? 1} minH={0}>
-                {renderPanelHeader(d)}
-                {renderPanelBody(d)}
+      )}
+    </Box>
+  );
+
+  return (
+    <SelectionContext.Provider value={selectionContextValue}>
+      <VStack alignItems="stretch" spacing={0} height="100vh" width="100%" overflow="hidden">
+        {/* Top row: left rail | left zone | center | right zone | right rail */}
+        <HStack alignItems="stretch" spacing={0} flex={1} minH={0} width="100%">
+          {/* Left rail */}
+          <DockRail side="left" docks={leftDocks} activeIds={openDockIds} onChange={toggleDock} />
+          {/* Left zone */}
+          {hasLeft && (
+            <>
+              <Box ref={leftContainerRef} width={`${leftWidth}px`} flexShrink={0} minW={0} display="flex" flexDirection="column" overflow="hidden" borderRight="1px solid" borderColor="gray.200">
+                {renderZoneStack("left", leftContainerRef)}
               </Box>
-            </React.Fragment>
-          ))}
-        </Box>
-                <DockRail docks={dockDefs} activeIds={openDockIds} onChange={toggleDock} />
-      </HStack>
+              <HorizontalResizeHandler onPointerDown={makeZoneResizeHandler("x", 1, leftWidth, setLeftWidth)} />
+            </>
+          )}
+          {/* Center column: toolbar + viz + statusbar */}
+          <VStack alignItems="stretch" flex={1} minW={0} spacing={0} height="100%">
+            <HStack justifyContent="space-between" px={2} py={1} flexShrink={0}>
+              <ButtonGroup size="xs" variant="ghost" spacing={0.5}>
+                <Tooltip label="Back" hasArrow openDelay={300}>
+                  <IconButton aria-label="Back" icon={<ArrowBackIcon />} onClick={onBack} />
+                </Tooltip>
+                {onRescan && (
+                  <Tooltip label="Re-scan project" hasArrow openDelay={300}>
+                    <IconButton aria-label="Re-scan" icon={<RepeatIcon />} onClick={onRescan} />
+                  </Tooltip>
+                )}
+              </ButtonGroup>
+            </HStack>
+            <ActiveFiltersBar filters={activeFilters} onClearAll={clearAllFilters} />
+            <Divider height="auto" />
+            {vizCenter}
+            <StatusBar
+              totalFiles={data.nodes.size}
+              renderedNodes={displayedGraphData.nodes.length}
+              renderedEdges={displayedGraphData.links.length}
+              cycles={graphData.cycles.length}
+              selected={selectedNodes.size}
+              graphMode={graphMode ?? "dag"}
+              asyncCutoff={separateAsyncImports}
+              layoutStale={layoutStale}
+            />
+          </VStack>
+          {/* Right zone */}
+          {hasRight && (
+            <>
+              <HorizontalResizeHandler onPointerDown={makeZoneResizeHandler("x", -1, rightWidth, setRightWidth)} />
+              <Box ref={rightContainerRef} width={`${rightWidth}px`} flexShrink={0} minW={0} display="flex" flexDirection="column" overflow="hidden" borderLeft="1px solid" borderColor="gray.200">
+                {renderZoneStack("right", rightContainerRef)}
+              </Box>
+            </>
+          )}
+          {/* Right rail */}
+          <DockRail side="right" docks={rightDocks} activeIds={openDockIds} onChange={toggleDock} />
+        </HStack>
+        {/* Bottom zone (full width) */}
+        {hasBottom && (
+          <>
+            <VerticalResizeHandler onPointerDown={makeZoneResizeHandler("y", -1, bottomHeight, setBottomHeight)} />
+            <HStack ref={bottomContainerRef} height={`${bottomHeight}px`} flexShrink={0} minH={0} alignItems="stretch" spacing={0} borderTop="1px solid" borderColor="gray.200">
+              {renderZoneStack("bottom", bottomContainerRef)}
+            </HStack>
+          </>
+        )}
+      </VStack>
       <InvestigatePanel
         isOpen={investigateTarget !== null}
         onClose={() => setInvestigateTarget(null)}
@@ -1379,7 +1499,6 @@ export function Viz({
         onNavigate={(file, symbol) => setInvestigateTarget({ file, symbol })}
       />
       <CommandPalette isOpen={paletteOpen} onClose={() => setPaletteOpen(false)} actions={paletteActions} />
-    </HStack>
     </SelectionContext.Provider>
   );
 }

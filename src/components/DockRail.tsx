@@ -3,6 +3,9 @@ import * as React from "react";
 
 export type DockId = string;
 
+/** Where a panel lives in the 4-zone layout. */
+export type Zone = "left" | "right" | "bottom" | "closed";
+/** @deprecated old 2-zone name, kept for migration code. */
 export type DockPlacement = "primary" | "sidebar" | "closed";
 
 export type DockDef = {
@@ -10,8 +13,8 @@ export type DockDef = {
   label: string;
   icon: React.ReactElement;
   badge?: React.ReactNode;
-  /** Default placement when first opened. Defaults to "sidebar". */
-  defaultPlacement?: Exclude<DockPlacement, "closed">;
+  /** Default zone the panel opens into. Defaults to "right". */
+  defaultZone?: Exclude<Zone, "closed">;
   /** When true, panel cannot be closed (e.g. the Visualization panel). */
   alwaysOpen?: boolean;
 };
@@ -20,10 +23,13 @@ export function DockRail({
   docks,
   activeIds,
   onChange,
+  side = "right",
 }: {
   docks: DockDef[];
   activeIds: ReadonlySet<DockId>;
   onChange: (id: DockId) => void;
+  /** Which side this rail is rendered on — affects border + tooltip placement. */
+  side?: "left" | "right";
 }) {
   return (
     <VStack
@@ -31,7 +37,8 @@ export function DockRail({
       py={1}
       px={0.5}
       bg="gray.50"
-      borderLeft="1px solid"
+      borderLeft={side === "right" ? "1px solid" : undefined}
+      borderRight={side === "left" ? "1px solid" : undefined}
       borderColor="gray.200"
       height="100%"
       flexShrink={0}
@@ -42,7 +49,7 @@ export function DockRail({
         const isActive = activeIds.has(d.id);
         return (
           <Box key={d.id} position="relative">
-            <Tooltip label={d.label} placement="left" hasArrow openDelay={300}>
+            <Tooltip label={d.label} placement={side === "right" ? "left" : "right"} hasArrow openDelay={300}>
               <IconButton
                 aria-label={d.label}
                 icon={d.icon}
