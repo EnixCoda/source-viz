@@ -18,7 +18,7 @@ function AppWithHeader({ subtitle, children }: React.PropsWithChildren<{ subtitl
     <VStack w="100vw" h="100vh" alignItems="stretch" spacing={0}>
       <HStack
         paddingY={1.5}
-        paddingX={6}
+        paddingX={{ base: 4, md: 8 }}
         bg="white"
         borderBottomWidth="1px"
         borderColor="gray.100"
@@ -36,7 +36,7 @@ function AppWithHeader({ subtitle, children }: React.PropsWithChildren<{ subtitl
             </Text>
           )}
         </HStack>
-        <Link href="https://github.com/EnixCoda/source-viz" target="_blank" color="gray.400" _hover={{ color: "gray.600" }}>
+        <Link href="https://github.com/EnixCoda/source-viz" target="_blank" color="gray.400" _hover={{ color: "gray.600" }} display="flex" alignItems="center">
           <Icon w={5} h={5} as={AiFillGithub} />
         </Link>
       </HStack>
