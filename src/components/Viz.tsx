@@ -44,6 +44,7 @@ import { DockDef, DockId, DockRail } from "./DockRail";
 import { ExportButton } from "./ExportButton";
 import { FormSwitch } from "./FormSwitch";
 import { HorizontalResizeHandler } from "./HorizontalResizeHandler";
+import { VerticalResizeHandler } from "./VerticalResizeHandler";
 import { InvestigatePanel } from "./UsageInvestigator/InvestigatePanel";
 import { InvestigatorFs } from "../lib/usage-investigator";
 import { ListOfNodeList } from "./ListOfNodeList";
@@ -263,6 +264,29 @@ export function Viz({
 
   const [vizContainerRef] = useObserveElementSize();
   const [graphCanvasRef, graphCanvasSize] = useObserveElementSize();
+
+  // Vertical split (graph / table in split mode)
+  const [splitHeightPx, setSplitHeightPx] = React.useState<number | null>(null);
+  const onSplitHandlePointerDown = React.useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    const container = vizContainerRef.current;
+    if (!container) return;
+    const containerH = container.getBoundingClientRect().height;
+    const startH = splitHeightPx ?? containerH * 0.6;
+    const startY = e.clientY;
+    const MIN_H = 80;
+    const onMove = (me: PointerEvent) => {
+      setSplitHeightPx(Math.max(MIN_H, Math.min(containerH - MIN_H, startH + me.clientY - startY)));
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }, [splitHeightPx, vizContainerRef]);
+
+
 
   const graphData = React.useMemo(() => filterGraphData(data, {
       roots: restrictedRoots,
@@ -615,7 +639,47 @@ export function Viz({
     [selectedNodes.size, excludedNodes.length, graphData.cycles.length]
   );
 
-  // Active filters chip bar
+  // Dock panel vertical resize
+  const [dockFlexMap, setDockFlexMap] = React.useState<Map<string, number>>(new Map());
+  const dockContainerRef = React.useRef<HTMLDivElement>(null);
+  const openDockIdsKey = [...openDockIds].sort().join(",");
+  React.useEffect(() => {
+    const ids = dockDefs.filter(d => openDockIds.has(d.id)).map(d => d.id);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDockFlexMap(prev => {
+      const newMap = new Map<string, number>();
+      const avg = prev.size > 0 ? [...prev.values()].reduce((a, b) => a + b, 0) / prev.size : 1;
+      for (const id of ids) newMap.set(id, prev.get(id) ?? avg);
+      return newMap;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openDockIdsKey]);
+
+  const makeDockResizeHandler = React.useCallback((aboveId: string, belowId: string) => (e: React.PointerEvent) => {
+    e.preventDefault();
+    const container = dockContainerRef.current;
+    if (!container) return;
+    const containerH = container.getBoundingClientRect().height;
+    const startY = e.clientY;
+    const totalFlex = [...dockFlexMap.values()].reduce((a, b) => a + b, 0);
+    const startAbove = dockFlexMap.get(aboveId) ?? 1;
+    const startBelow = dockFlexMap.get(belowId) ?? 1;
+    const minFlex = 60 * totalFlex / containerH;
+    const onMove = (me: PointerEvent) => {
+      const delta = (me.clientY - startY) * totalFlex / containerH;
+      const newAbove = Math.max(minFlex, Math.min(startAbove + startBelow - minFlex, startAbove + delta));
+      const newBelow = startAbove + startBelow - newAbove;
+      setDockFlexMap(prev => new Map(prev).set(aboveId, newAbove).set(belowId, newBelow));
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }, [dockFlexMap]);
+
+
   const activeFilters = React.useMemo<ActiveFilter[]>(() => {
     const list: ActiveFilter[] = [];
     if (excludeNodesFilterInput) {
@@ -878,7 +942,7 @@ export function Viz({
             ref={graphCanvasRef}
             display={vizMode === "table" ? "none" : "flex"}
             flexDirection="column"
-            flex={vizMode === "split" ? "0 0 60%" : 1}
+            flex={vizMode === "split" ? (splitHeightPx != null ? `0 0 ${splitHeightPx}px` : "0 0 60%") : 1}
             minH={0}
             position="relative"
           >
@@ -927,15 +991,16 @@ export function Viz({
             )}
           </Box>
           {(vizMode === "table" || vizMode === "split") && (
-            <Box
-              flex={vizMode === "split" ? "0 0 40%" : 1}
-              minH={0}
-              overflowY="auto"
-              borderTop={vizMode === "split" ? "1px solid" : undefined}
-              borderColor="gray.200"
-            >
-              <EntriesTable entries={renderedEntries} onClickSelect={setSelectedNode} />
-            </Box>
+            <>
+              {vizMode === "split" && <VerticalResizeHandler onPointerDown={onSplitHandlePointerDown} />}
+              <Box
+                flex={1}
+                minH={0}
+                overflowY="auto"
+              >
+                <EntriesTable entries={renderedEntries} onClickSelect={setSelectedNode} />
+              </Box>
+            </>
           )}
           {contextMenu && (
             <Box
@@ -1047,11 +1112,11 @@ export function Viz({
       </VStack>
       <HorizontalResizeHandler onPointerDown={onPointerDown} />
       <HStack alignItems="stretch" height="100vh" flex={1} minW={0} spacing={0}>
-        <Box flex={1} minW={0} overflow="hidden" display="flex" flexDirection="column">
-          {openDockIds.size > 0 && dockDefs.filter(d => openDockIds.has(d.id)).map((d, i) => (
+        <Box ref={dockContainerRef} flex={1} minW={0} overflow="hidden" display="flex" flexDirection="column">
+          {openDockIds.size > 0 && dockDefs.filter(d => openDockIds.has(d.id)).map((d, i, arr) => (
             <React.Fragment key={d.id}>
-              {i > 0 && <Divider />}
-              <Box display="flex" flexDirection="column" flex={1} minH={0}>
+              {i > 0 && <VerticalResizeHandler onPointerDown={makeDockResizeHandler(arr[i - 1].id, d.id)} />}
+              <Box display="flex" flexDirection="column" flex={dockFlexMap.get(d.id) ?? 1} minH={0}>
                 <HStack
                   px={2}
                   py={1}
