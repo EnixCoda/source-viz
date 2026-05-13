@@ -2,8 +2,6 @@
 
 Visualize JavaScript/TypeScript import dependency graphs — in the browser or from the command line.
 
-> **Screenshot / demo GIF** — add one here once deployed.
-
 ## Features
 
 - 📂 **Browser UI** — scan a local project folder directly in Chrome/Edge (no upload, fully local)
@@ -26,8 +24,8 @@ The web UI works in **Chrome or Edge** (requires the [File System Access API](ht
 # Run locally
 git clone https://github.com/EnixCoda/source-viz.git
 cd source-viz
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 Open the shown URL, click **Scan local project**, and pick your project root folder.
@@ -102,18 +100,18 @@ npx source-viz deps src utils/helpers.ts --dependents --transitive
 ```bash
 git clone https://github.com/EnixCoda/source-viz.git
 cd source-viz
-npm install
+pnpm install
 
-npm run dev          # start dev server
-npm test             # run tests
-npm run lint         # lint
-npm run build        # production build
-npm run build:cli    # bundle CLI to dist-cli/
+pnpm dev          # start dev server
+pnpm test         # run tests
+pnpm lint         # lint
+pnpm build        # production build
+pnpm build:cli    # bundle CLI to dist-cli/
 ```
 
 To regenerate the demo data:
 ```bash
-npm run generate-demo
+pnpm generate-demo
 ```
 
 ## Contributing
