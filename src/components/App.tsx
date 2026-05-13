@@ -13,17 +13,32 @@ import { Viz } from "./Viz";
 import { detectCapabilities } from "../lib/browserCapabilities";
 import { createDirectoryHandleFs, createMemoryFs, InvestigatorFs } from "../lib/usage-investigator";
 
-function AppWithHeader({ children }: React.PropsWithChildren<object>) {
+function AppWithHeader({ subtitle, children }: React.PropsWithChildren<{ subtitle?: string }>) {
   return (
     <VStack w="100vw" h="100vh" alignItems="stretch" spacing={0}>
-      <HStack paddingY={2} paddingX={6} background="ButtonFace" justifyContent="space-between" alignItems="center">
-        <Heading as="h1">Source Viz</Heading>
-        <HStack alignItems="center" gap={1}>
-          <Text>Made by EnixCoda</Text>
-          <Link href="https://github.com/EnixCoda" target="_blank">
-            <Icon w={6} h={6} as={AiFillGithub} />
-          </Link>
+      <HStack
+        paddingY={1.5}
+        paddingX={6}
+        bg="white"
+        borderBottomWidth="1px"
+        borderColor="gray.100"
+        justifyContent="space-between"
+        alignItems="center"
+        flexShrink={0}
+      >
+        <HStack spacing={2} alignItems="baseline">
+          <Heading as="h1" size="sm" fontWeight="semibold" letterSpacing="tight">
+            Source Viz
+          </Heading>
+          {subtitle && (
+            <Text fontSize="sm" color="gray.500" noOfLines={1} maxW="360px">
+              {subtitle}
+            </Text>
+          )}
         </HStack>
+        <Link href="https://github.com/EnixCoda/source-viz" target="_blank" color="gray.400" _hover={{ color: "gray.600" }}>
+          <Icon w={5} h={5} as={AiFillGithub} />
+        </Link>
       </HStack>
       {children}
     </VStack>
@@ -117,7 +132,7 @@ export function App() {
 
     case "filtering":
       return (
-        <AppWithHeader>
+        <AppWithHeader subtitle={status.fs.handle.name}>
           <Filter
             onCancel={() => dispatch({ state: "initial" })}
             files={status.fs}
@@ -134,7 +149,7 @@ export function App() {
       );
     case "scanning":
       return (
-        <AppWithHeader>
+        <AppWithHeader subtitle={status.fs.handle.name}>
           <Scanning
             fs={status.fs}
             onDataPrepared={(data) =>
