@@ -43,6 +43,7 @@ import { ExportButton } from "./ExportButton";
 import { FormSwitch } from "./FormSwitch";
 import { HorizontalResizeHandler } from "./HorizontalResizeHandler";
 import { VerticalResizeHandler } from "./VerticalResizeHandler";
+import { useModifierHeld } from "../hooks/useModifierHeld";
 import { InvestigatePanel } from "./UsageInvestigator/InvestigatePanel";
 import { InvestigatorFs } from "../lib/usage-investigator";
 import { ListOfNodeList } from "./ListOfNodeList";
@@ -624,13 +625,13 @@ export function Viz({
       // Viz is special — rendered in the center, not via the placement system.
       // Find / Filter panels — left zone
       { id: "filters", label: "Filters & exclusions", icon: <RepeatClockIcon />, badge: excludedNodes.length || undefined, defaultZone: "left" },
-      { id: "lookup", label: "Look up nodes", icon: <SearchIcon />, defaultZone: "left" },
+      { id: "lookup", label: "Look up nodes", icon: <SearchIcon />, defaultZone: "left", shortcutKey: "f" },
       { id: "roots", label: "Entry points", icon: <StarIcon />, defaultZone: "left" },
       { id: "leaves", label: "Leaf files", icon: <ViewIcon />, defaultZone: "left" },
       // Analyze / Configure panels — right zone
-      { id: "inspector", label: "Inspector", icon: <InfoOutlineIcon />, badge: selectedNodes.size || undefined, defaultZone: "right" },
-      { id: "hotspots", label: "Hotspots (fan-in/out)", icon: <TriangleUpIcon />, defaultZone: "right" },
-      { id: "cycles", label: "Cycles", icon: <RepeatIcon />, badge: graphData.cycles.length || undefined, defaultZone: "right" },
+      { id: "inspector", label: "Inspector", icon: <InfoOutlineIcon />, badge: selectedNodes.size || undefined, defaultZone: "right", shortcutKey: "i" },
+      { id: "hotspots", label: "Hotspots (fan-in/out)", icon: <TriangleUpIcon />, defaultZone: "right", shortcutKey: "h" },
+      { id: "cycles", label: "Cycles", icon: <RepeatIcon />, badge: graphData.cycles.length || undefined, defaultZone: "right", shortcutKey: "c" },
       { id: "graph-settings", label: "Graph settings", icon: <SettingsIcon />, defaultZone: "right" },
       { id: "settings", label: "General settings", icon: <HamburgerIcon />, defaultZone: "right" },
       // Bottom zone
@@ -922,6 +923,7 @@ export function Viz({
 
   // Command palette + keyboard shortcuts
   const [paletteOpen, setPaletteOpen] = React.useState(false);
+  const modifierHeld = useModifierHeld();
 
   const paletteActions = React.useMemo<PaletteAction[]>(() => {
     const actions: PaletteAction[] = [
@@ -982,6 +984,17 @@ export function Viz({
         return;
       }
 
+      // Cmd/Ctrl+key panel shortcuts — work even from inputs
+      if (e.metaKey || e.ctrlKey) {
+        const key = e.key.toLowerCase();
+        const target = dockDefsRef.current.find(d => d.shortcutKey === key);
+        if (target) {
+          e.preventDefault();
+          toggleDock(target.id);
+          return;
+        }
+      }
+
       if (inEditable) return;
 
       if (e.key === "Escape") {
@@ -1011,7 +1024,7 @@ export function Viz({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [graphRef, paletteOpen, selectedNodes, toggleExcludeNode, setGroupByDir, openDock]);
+  }, [graphRef, paletteOpen, selectedNodes, toggleExcludeNode, setGroupByDir, openDock, toggleDock]);
 
   const renderPanelHeader = (d: DockDef): React.ReactNode => {
     const cur = placementOf(d.id);
@@ -1459,7 +1472,7 @@ export function Viz({
         {/* Top row: left rail | left zone | center | right zone | right rail */}
         <HStack alignItems="stretch" spacing={0} flex={1} minH={0} width="100%">
           {/* Left rail */}
-          <DockRail side="left" docks={leftDocks} activeIds={openDockIds} onChange={toggleDock} />
+          <DockRail side="left" docks={leftDocks} activeIds={openDockIds} onChange={toggleDock} modifierHeld={modifierHeld} />
           {/* Left zone */}
           {hasLeft && (
             <>
@@ -1507,7 +1520,7 @@ export function Viz({
             </>
           )}
           {/* Right rail */}
-          <DockRail side="right" docks={rightDocks} activeIds={openDockIds} onChange={toggleDock} />
+          <DockRail side="right" docks={rightDocks} activeIds={openDockIds} onChange={toggleDock} modifierHeld={modifierHeld} />
         </HStack>
         {/* Bottom zone (full width, tabbed) */}
         {hasBottom && (() => {

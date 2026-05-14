@@ -17,6 +17,8 @@ export type DockDef = {
   defaultZone?: Exclude<Zone, "closed">;
   /** When true, panel cannot be closed (e.g. the Visualization panel). */
   alwaysOpen?: boolean;
+  /** Single letter shown as a Cmd/Ctrl shortcut hint. */
+  shortcutKey?: string;
 };
 
 export function DockRail({
@@ -24,12 +26,15 @@ export function DockRail({
   activeIds,
   onChange,
   side = "right",
+  modifierHeld = false,
 }: {
   docks: DockDef[];
   activeIds: ReadonlySet<DockId>;
   onChange: (id: DockId) => void;
   /** Which side this rail is rendered on — affects border + tooltip placement. */
   side?: "left" | "right";
+  /** When true, show shortcutKey hints on icons that have one. */
+  modifierHeld?: boolean;
 }) {
   return (
     <VStack
@@ -47,6 +52,7 @@ export function DockRail({
     >
       {docks.map((d) => {
         const isActive = activeIds.has(d.id);
+        const showHint = modifierHeld && !!d.shortcutKey;
         return (
           <Box key={d.id} position="relative">
             <Tooltip label={d.label} placement={side === "right" ? "left" : "right"} hasArrow openDelay={300}>
@@ -59,7 +65,24 @@ export function DockRail({
                 onClick={() => onChange(d.id)}
               />
             </Tooltip>
-            {d.badge != null && d.badge !== 0 && d.badge !== "" && (
+            {showHint && (
+              <Badge
+                position="absolute"
+                bottom="-2px"
+                right="-2px"
+                fontSize="0.6em"
+                fontFamily="mono"
+                colorScheme="purple"
+                borderRadius="sm"
+                px={0.5}
+                lineHeight="1.4"
+                pointerEvents="none"
+                textTransform="uppercase"
+              >
+                {d.shortcutKey}
+              </Badge>
+            )}
+            {!showHint && d.badge != null && d.badge !== 0 && d.badge !== "" && (
               <Badge
                 position="absolute"
                 top="-2px"
