@@ -100,17 +100,12 @@ The Web UI also detects unused dependencies automatically after a scan and shows
 | Zero config | ✅ | ❌ | ✅ | ✅ |
 | Cycle detection | ✅ | ✅ | ✅ | ✅ |
 | CLI | ✅ | ✅ | ✅ | ✅ |
-| Custom rules / validation | ❌ | ✅ | ❌ | ❌ |
-| Vue / Svelte / CSS support | ❌ | ✅ | partial | ❌ |
+| Custom rules / validation | 🚧 | ✅ | ❌ | ❌ |
+| Vue / Svelte / CSS support | 🚧 | ✅ | partial | ❌ |
 | Unused dep detection | ✅ | partial | ❌ | ✅ |
 | PNG export | ✅ | ✅ | ✅ | ✅ |
+| SVG export | 🚧 | ✅ | ✅ | ❌ |
 | Programmatic API | ❌ | ✅ | ✅ | ✅ |
-
-## Roadmap
-
-- **Monorepo support** — detect `pnpm-workspace.yaml` / `package.json#workspaces`, resolve cross-workspace imports to source files instead of treating them as external.
-- **Custom rules** — define forbidden/required dependency patterns (e.g. "ui/ cannot import server/") and surface violations in the graph and CLI.
-- **Programmatic API** — export the scanner and graph primitives as a library for building custom tooling on top.
 
 ## License
 
