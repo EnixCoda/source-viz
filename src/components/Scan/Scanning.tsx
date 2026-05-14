@@ -6,6 +6,7 @@ import { FSLike, MetaFilter, getDependencyEntries } from "../../services";
 import { createWorkerParser, WorkerParser } from "../../services/parsers/worker-parser";
 import { AdaptivePool, Budget } from "../../services/pool";
 import { DependencyEntry } from "../../services/serializers";
+import { findUnusedDeps, getDeclaredDeps } from "../../services/unusedDeps";
 import { getOrganizedEntries } from "../../utils/getOrganizedEntries";
 import { resolvePath } from "../../utils/path";
 import { getFilterMatchers } from "../../utils/pattern";
@@ -29,6 +30,7 @@ export function Scanning({
   onCancel(): void;
 }) {
   const [entries, setEntries] = React.useState<DependencyEntry[] | null>(null);
+  const [unusedDeps, setUnusedDeps] = React.useState<string[] | null>(null);
   const scanRunRef = React.useRef(0);
 
   const [{ phase, collectedCount, parsedCount, lastCollectedFile, errors, collectionComplete, hasError,
@@ -45,6 +47,7 @@ export function Scanning({
         };
 
         safeDispatch({ type: "init" });
+        setUnusedDeps(null);
 
         const scanPromise = (async () => {
           let totalLinks = 0;
@@ -245,7 +248,21 @@ export function Scanning({
             );
 
             totalLinks = entries.reduce((sum, [, deps]) => sum + deps.length, 0);
-            if (isCurrentScan()) setEntries(getOrganizedEntries(entries));
+            if (isCurrentScan()) {
+              setEntries(getOrganizedEntries(entries));
+
+              // Detect unused dependencies by reading package.json
+              try {
+                const pkgHandle = await fs.handle.getFileHandle("package.json");
+                const pkgText = await (await pkgHandle.getFile()).text();
+                const pkgJson = JSON.parse(pkgText);
+                const declared = getDeclaredDeps(pkgJson);
+                const unused = findUnusedDeps(entries, declared);
+                if (isCurrentScan()) setUnusedDeps(unused);
+              } catch {
+                // No package.json or parse error — skip unused dep detection
+              }
+            }
           } finally {
             signal.removeEventListener("abort", disposeParserWorkers);
             disposeParserWorkers();
@@ -386,6 +403,12 @@ export function Scanning({
                         <Text fontWeight="semibold" color="orange.600">{fallbackCount.toLocaleString()}</Text>
                       </HStack>
                     )}
+                    {unusedDeps != null && unusedDeps.length > 0 && (
+                      <HStack justifyContent="space-between">
+                        <Text color="gray.500">Unused deps</Text>
+                        <Text fontWeight="semibold" color="orange.600">{unusedDeps.length}</Text>
+                      </HStack>
+                    )}
                   </VStack>
                 </Box>
               )}
@@ -416,6 +439,15 @@ export function Scanning({
           </Center>
         )}
         <Accordion allowToggle>
+          {unusedDeps != null && unusedDeps.length > 0 && (
+            <CollapsibleSection label={`Unused dependencies (${unusedDeps.length})`}>
+              <VStack alignItems="flex-start" spacing={1} py={1}>
+                {unusedDeps.map((pkg) => (
+                  <MonoText key={pkg} fontSize="sm" color="orange.700">{pkg}</MonoText>
+                ))}
+              </VStack>
+            </CollapsibleSection>
+          )}
           {problematicRecords.length > 0 && (
             <CollapsibleSection label={`Progress details (${problematicRecords.length} errors)`}>
               <Box maxHeight="50vh" overflowY="auto">

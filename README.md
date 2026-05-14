@@ -75,7 +75,19 @@ npx source-viz deps src utils/helpers.ts --dependents --transitive
 | `--include <patterns...>` | Regex patterns for files to include |
 | `--exclude <patterns...>` | Regex patterns for files/paths to exclude |
 | `--silent` | Suppress warnings |
-| `--json` | Output as JSON array (`cycles`, `deps`) |
+| `--json` | Output as JSON array (`cycles`, `deps`, `unused`) |
+
+#### `unused <dir>` — find unused dependencies
+
+Cross-references `package.json` with the import graph to find declared packages that are never imported.
+
+```bash
+npx source-viz unused .
+npx source-viz unused . --dev   # also check devDependencies
+npx source-viz unused . --json
+```
+
+The Web UI also detects unused dependencies automatically after a scan and shows them in the results summary.
 
 ## Alternatives
 
@@ -90,9 +102,15 @@ npx source-viz deps src utils/helpers.ts --dependents --transitive
 | CLI | ✅ | ✅ | ✅ | ✅ |
 | Custom rules / validation | ❌ | ✅ | ❌ | ❌ |
 | Vue / Svelte / CSS support | ❌ | ✅ | partial | ❌ |
-| Unused dep detection | ❌ | partial | ❌ | ✅ |
-| SVG / PNG export | ❌ | ✅ | ✅ | ✅ |
+| Unused dep detection | ✅ | partial | ❌ | ✅ |
+| PNG export | ✅ | ✅ | ✅ | ✅ |
 | Programmatic API | ❌ | ✅ | ✅ | ✅ |
+
+## Roadmap
+
+- **Monorepo support** — detect `pnpm-workspace.yaml` / `package.json#workspaces`, resolve cross-workspace imports to source files instead of treating them as external.
+- **Custom rules** — define forbidden/required dependency patterns (e.g. "ui/ cannot import server/") and surface violations in the graph and CLI.
+- **Programmatic API** — export the scanner and graph primitives as a library for building custom tooling on top.
 
 ## License
 

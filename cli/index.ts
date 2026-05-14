@@ -2,6 +2,7 @@ import { Command } from "commander";
 import { scanCmd } from "./commands/scan";
 import { cyclesCmd } from "./commands/cycles";
 import { depsCmd } from "./commands/deps";
+import { unusedCmd } from "./commands/unused";
 
 const program = new Command("source-viz");
 
@@ -10,5 +11,6 @@ program.description("Analyze JS/TS dependency graphs from the command line").ver
 program.addCommand(scanCmd());
 program.addCommand(cyclesCmd());
 program.addCommand(depsCmd());
+program.addCommand(unusedCmd());
 
 program.parse();
